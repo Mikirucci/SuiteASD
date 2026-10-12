@@ -48,7 +48,11 @@ describe("api client", () => {
 
   it("sends JSON, builds the query string and skips empty params", async () => {
     const { client, fetchImpl } = setup([json(200, { ok: true })]);
-    await client.post("/members", { name: "Anna" }, { query: { team: "U16", q: "", page: undefined, active: true }, auth: false });
+    await client.post(
+      "/members",
+      { name: "Anna" },
+      { query: { team: "U16", q: "", page: undefined, active: true }, auth: false },
+    );
     const [call] = calls(fetchImpl);
     expect(call?.url).toBe(`${BASE}/members?team=U16&active=true`);
     expect(call?.method).toBe("POST");
@@ -70,6 +74,33 @@ describe("api client", () => {
     tokens.setTokens({ accessToken: "abc", refreshToken: "r" });
     await client.post("/auth/login", {}, { auth: false });
     expect(calls(fetchImpl)[0]?.headers.Authorization).toBeUndefined();
+  });
+
+  it("downloads a binary file with the Bearer token and reads the suggested file name", async () => {
+    const pdf = new Response("%PDF-1.4", {
+      status: 200,
+      headers: { "content-type": "application/pdf", "content-disposition": 'attachment; filename="ricevuta-0147.pdf"' },
+    });
+    const { client, tokens, fetchImpl } = setup([pdf]);
+    tokens.setTokens({ accessToken: "abc", refreshToken: "r" });
+    const file = await client.download("/fees/f1/receipt");
+    expect(calls(fetchImpl)[0]?.headers.Authorization).toBe("Bearer abc");
+    expect(file.filename).toBe("ricevuta-0147.pdf");
+    expect(await file.blob.text()).toBe("%PDF-1.4");
+  });
+
+  it("raises ApiError when a download is refused", async () => {
+    const { client } = setup([json(404, { title: "Not Found", status: 404, code: "not_found" })]);
+    await expect(client.download("/fees/f1/receipt", { auth: false })).rejects.toMatchObject({ status: 404 });
+  });
+
+  it("uploads a file as is, with its own content type", async () => {
+    const { client, fetchImpl } = setup([json(200, { ok: true })]);
+    const file = new File(["%PDF-1.4"], "certificato.pdf", { type: "application/pdf" });
+    await client.put("/documents/d1/file", file, { query: { fileName: "certificato.pdf" }, auth: false });
+    const [call] = calls(fetchImpl);
+    expect(call?.headers["Content-Type"]).toBe("application/pdf");
+    expect(call?.body).toBe(file);
   });
 
   it("returns undefined for 204 responses", async () => {
@@ -104,7 +135,9 @@ describe("api client", () => {
   });
 
   it("exposes Retry-After on rate limiting", async () => {
-    const { client } = setup([json(429, { type: "x", title: "Too Many Requests", status: 429, code: "rate_limited" }, { "Retry-After": "120" })]);
+    const { client } = setup([
+      json(429, { type: "x", title: "Too Many Requests", status: 429, code: "rate_limited" }, { "Retry-After": "120" }),
+    ]);
     const error = (await client.get("/x", { auth: false }).catch((e: unknown) => e)) as ApiError;
     expect(error.retryAfterSeconds).toBe(120);
   });
@@ -182,7 +215,9 @@ describe("api client", () => {
     });
 
     it("does not try to refresh a 401 from a public endpoint such as login", async () => {
-      const { client, tokens, fetchImpl } = setup([json(401, { type: "x", title: "Unauthorized", status: 401, code: "unauthorized" })]);
+      const { client, tokens, fetchImpl } = setup([
+        json(401, { type: "x", title: "Unauthorized", status: 401, code: "unauthorized" }),
+      ]);
       tokens.setTokens({ accessToken: "access-1", refreshToken: "refresh-1" });
       await expect(client.post("/auth/login", {}, { auth: false })).rejects.toMatchObject({ status: 401 });
       expect(fetchImpl).toHaveBeenCalledTimes(1);

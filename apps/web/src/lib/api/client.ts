@@ -7,6 +7,7 @@ export type QueryParams = Record<string, string | number | boolean | null | unde
 export interface RequestOptions {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   /** JSON body, serialised automatically. */
+  /** JSON-serialised, except a Blob/File: it is sent as is with its own content type (file uploads). */
   body?: unknown;
   query?: QueryParams;
   signal?: AbortSignal;
@@ -16,8 +17,16 @@ export interface RequestOptions {
   idempotencyKey?: string;
 }
 
+export interface DownloadedFile {
+  blob: Blob;
+  /** Name suggested by the server (Content-Disposition), or null. */
+  filename: string | null;
+}
+
 export interface ApiClient {
   request<T>(path: string, options?: RequestOptions): Promise<T>;
+  /** GET a binary file (PDF...) with the Bearer token: a plain link cannot send the Authorization header. */
+  download(path: string, options?: Omit<RequestOptions, "method" | "body">): Promise<DownloadedFile>;
   get<T>(path: string, options?: Omit<RequestOptions, "method" | "body">): Promise<T>;
   post<T>(path: string, body?: unknown, options?: Omit<RequestOptions, "method" | "body">): Promise<T>;
   put<T>(path: string, body?: unknown, options?: Omit<RequestOptions, "method" | "body">): Promise<T>;
@@ -55,6 +64,11 @@ async function readBody(response: Response): Promise<unknown> {
   }
 }
 
+function filenameOf(response: Response): string | null {
+  const match = /filename="?([^";]+)"?/i.exec(response.headers.get("Content-Disposition") ?? "");
+  return match?.[1] ?? null;
+}
+
 function retryAfterOf(response: Response): number | null {
   const header = response.headers.get("Retry-After");
   const seconds = header ? Number(header) : Number.NaN;
@@ -70,7 +84,8 @@ export function createApiClient({ baseUrl, tokens, fetchImpl }: ApiClientConfig)
 
   async function send(path: string, options: RequestOptions): Promise<Response> {
     const headers: Record<string, string> = { Accept: "application/json" };
-    if (options.body !== undefined) headers["Content-Type"] = "application/json";
+    if (options.body instanceof Blob) headers["Content-Type"] = options.body.type;
+    else if (options.body !== undefined) headers["Content-Type"] = "application/json";
     if (options.idempotencyKey) headers["Idempotency-Key"] = options.idempotencyKey;
     const accessToken = tokens.getAccessToken();
     if (options.auth !== false && accessToken) headers.Authorization = `Bearer ${accessToken}`;
@@ -78,7 +93,7 @@ export function createApiClient({ baseUrl, tokens, fetchImpl }: ApiClientConfig)
       return await doFetch(buildUrl(baseUrl, path, options.query), {
         method: options.method ?? "GET",
         headers,
-        body: options.body === undefined ? undefined : JSON.stringify(options.body),
+        body: options.body instanceof Blob || options.body === undefined ? options.body : JSON.stringify(options.body),
         signal: options.signal,
       });
     } catch (cause) {
@@ -115,7 +130,8 @@ export function createApiClient({ baseUrl, tokens, fetchImpl }: ApiClientConfig)
     return refreshing;
   }
 
-  async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  /** Sends the request (refreshing the session once on 401) and returns the successful response, or throws ApiError. */
+  async function execute(path: string, options: RequestOptions): Promise<Response> {
     const authenticated = options.auth !== false;
     if (authenticated && !tokens.getAccessToken() && tokens.getRefreshToken()) await refreshSession();
 
@@ -125,11 +141,24 @@ export function createApiClient({ baseUrl, tokens, fetchImpl }: ApiClientConfig)
       response = await send(path, options);
     }
     if (!response.ok) throw await toError(response);
-    return (await readBody(response)) as T;
+    return response;
+  }
+
+  async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+    return (await readBody(await execute(path, options))) as T;
+  }
+
+  async function download(
+    path: string,
+    options: Omit<RequestOptions, "method" | "body"> = {},
+  ): Promise<DownloadedFile> {
+    const response = await execute(path, { ...options, method: "GET" });
+    return { blob: await response.blob(), filename: filenameOf(response) };
   }
 
   return {
     request,
+    download,
     get: (path, options) => request(path, { ...options, method: "GET" }),
     post: (path, body, options) => request(path, { ...options, method: "POST", body }),
     put: (path, body, options) => request(path, { ...options, method: "PUT", body }),
