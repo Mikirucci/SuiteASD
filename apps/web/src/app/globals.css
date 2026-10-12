@@ -1,0 +1,347 @@
+@import "tailwindcss";
+
+/*
+ * DESIGN TOKENS - the single source of truth for the SuiteASD look.
+ * Palette and style come from the promo video (electric blue + mint, white rounded
+ * cards, soft tinted shadows). Components must use the semantic tokens below
+ * (bg-surface, text-fg, border-line, ...) and never raw hex values.
+ */
+
+@theme {
+  /* Reset Tailwind defaults so only project tokens exist */
+  --color-*: initial;
+  --text-*: initial;
+  --radius-*: initial;
+  --shadow-*: initial;
+  --font-*: initial;
+
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* Primitive palette: brand (electric blue) */
+  --color-brand-50: #eef2ff;
+  --color-brand-100: #e0e7ff;
+  --color-brand-200: #c7d2fe;
+  --color-brand-300: #a5b4fc;
+  --color-brand-400: #7c8dff;
+  --color-brand-500: #3b5bff;
+  --color-brand-600: #2f49e6;
+  --color-brand-700: #2639c2;
+  --color-brand-800: #1f2f96;
+  --color-brand-900: #1b2a75;
+
+  /* Primitive palette: mint (success, highlight underline) */
+  --color-mint-50: #ecfdf5;
+  --color-mint-100: #d1fae5;
+  --color-mint-200: #a7f3d0;
+  --color-mint-300: #6ee7b7;
+  --color-mint-400: #34d399;
+  --color-mint-500: #10b981;
+  --color-mint-600: #059669;
+  --color-mint-700: #047857;
+  --color-mint-800: #065f46;
+  --color-mint-900: #064e3b;
+
+  /* Primitive palette: ink (night blue neutrals) */
+  --color-ink-50: #f6f8fc;
+  --color-ink-100: #eef2f8;
+  --color-ink-200: #e1e7f0;
+  --color-ink-300: #cbd5e1;
+  --color-ink-400: #94a3b8;
+  --color-ink-450: #7a899f;
+  --color-ink-500: #64748b;
+  --color-ink-600: #475569;
+  --color-ink-700: #334155;
+  --color-ink-800: #1e293b;
+  --color-ink-900: #111827;
+  --color-ink-950: #0b1020;
+
+  /* Primitive palette: orange (warning, expiring documents) */
+  --color-orange-50: #fff7ed;
+  --color-orange-100: #ffedd5;
+  --color-orange-200: #fed7aa;
+  --color-orange-500: #f97316;
+  --color-orange-600: #ea580c;
+  --color-orange-700: #c2410c;
+  --color-orange-800: #9a3412;
+
+  /* Primitive palette: red (danger, missing or expired) */
+  --color-red-50: #fef2f2;
+  --color-red-100: #fee2e2;
+  --color-red-200: #fecaca;
+  --color-red-500: #ef4444;
+  --color-red-600: #dc2626;
+  --color-red-700: #b91c1c;
+
+  /* Primitive palette: gold (MVP) */
+  --color-gold-100: #fef3c7;
+  --color-gold-400: #fbbf24;
+  --color-gold-500: #f59e0b;
+  --color-gold-800: #92400e;
+
+  --color-white: #ffffff;
+  --color-transparent: transparent;
+
+  /* Avatar palette. Shades are tuned so white initials reach AA (>= 4.5:1) */
+  --color-avatar-blue: #3b5bff;
+  --color-avatar-amber: #b45309;
+  --color-avatar-rose: #be185d;
+  --color-avatar-emerald: #047857;
+  --color-avatar-violet: #7c3aed;
+  --color-avatar-orange: #c2410c;
+  --color-avatar-cyan: #0e7490;
+  --color-avatar-red: #dc2626;
+  --color-avatar-lime: #4d7c0f;
+  --color-avatar-indigo: #4338ca;
+
+  /* Typography scale: 12 / 14 / 16 / 20 / 24 / 32 */
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1rem;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.25rem;
+  --text-base: 1rem;
+  --text-base--line-height: 1.5rem;
+  --text-lg: 1.25rem;
+  --text-lg--line-height: 1.75rem;
+  --text-xl: 1.5rem;
+  --text-xl--line-height: 2rem;
+  --text-2xl: 2rem;
+  --text-2xl--line-height: 2.5rem;
+
+  --tracking-title: -0.025em;
+  --tracking-label: 0.08em;
+
+  /* Radii: controls 12, cards 16-24, pills full */
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+  --radius-full: 9999px;
+
+  /* Soft shadows, tinted with the brand hue (never pure black) */
+  --shadow-soft: 0 1px 2px rgb(17 24 39 / 0.04), 0 8px 24px -10px rgb(59 91 255 / 0.14);
+  --shadow-raised: 0 2px 4px rgb(17 24 39 / 0.04), 0 16px 36px -12px rgb(59 91 255 / 0.24);
+  --shadow-brand: 0 10px 22px -10px rgb(59 91 255 / 0.65);
+  --shadow-overlay: 0 24px 64px -16px rgb(17 24 39 / 0.38);
+
+  --ease-soft: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --animate-fade-in: fade-in 180ms var(--ease-soft);
+  --animate-overlay-in: fade-in 200ms var(--ease-soft);
+  --animate-overlay-out: fade-out 160ms ease-in;
+  --animate-dialog-in: dialog-in 220ms var(--ease-soft);
+  --animate-dialog-out: dialog-out 160ms ease-in;
+  --animate-drawer-right-in: drawer-right-in 260ms var(--ease-soft);
+  --animate-drawer-right-out: drawer-right-out 180ms ease-in;
+  --animate-drawer-left-in: drawer-left-in 260ms var(--ease-soft);
+  --animate-drawer-left-out: drawer-left-out 180ms ease-in;
+  --animate-drawer-bottom-in: drawer-bottom-in 260ms var(--ease-soft);
+  --animate-drawer-bottom-out: drawer-bottom-out 180ms ease-in;
+  --animate-toast-in: toast-in 240ms var(--ease-soft);
+  --animate-pulse-soft: pulse-soft 1.6s ease-in-out infinite;
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes fade-out {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+  @keyframes dialog-in {
+    from {
+      opacity: 0;
+      transform: translateY(12px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes dialog-out {
+    from {
+      opacity: 1;
+      transform: none;
+    }
+    to {
+      opacity: 0;
+      transform: translateY(8px) scale(0.98);
+    }
+  }
+  @keyframes drawer-right-in {
+    from {
+      transform: translateX(100%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+  @keyframes drawer-right-out {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(100%);
+    }
+  }
+  @keyframes drawer-left-in {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+  @keyframes drawer-left-out {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-100%);
+    }
+  }
+  @keyframes drawer-bottom-in {
+    from {
+      transform: translateY(100%);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+  @keyframes drawer-bottom-out {
+    from {
+      transform: translateY(0);
+    }
+    to {
+      transform: translateY(100%);
+    }
+  }
+  @keyframes toast-in {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @keyframes pulse-soft {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.55;
+    }
+  }
+}
+
+/* Semantic tokens: what components consume. Re-map these for a future dark theme. */
+@theme inline {
+  --color-canvas: var(--color-ink-50);
+  --color-surface: var(--color-white);
+  --color-surface-muted: var(--color-ink-100);
+  --color-fg: var(--color-ink-900);
+  --color-fg-muted: var(--color-ink-600);
+  --color-fg-subtle: var(--color-ink-500);
+  --color-line: var(--color-ink-200);
+  --color-line-strong: var(--color-ink-300);
+  /* Borders of form controls: >= 3:1 against white (WCAG 1.4.11) */
+  --color-line-control: var(--color-ink-450);
+  --color-primary: var(--color-brand-500);
+  --color-primary-hover: var(--color-brand-600);
+  --color-primary-active: var(--color-brand-700);
+  --color-primary-soft: var(--color-brand-50);
+  --color-primary-fg: var(--color-brand-600);
+  --color-success: var(--color-mint-700);
+  --color-success-soft: var(--color-mint-50);
+  --color-success-line: var(--color-mint-200);
+  --color-warning: var(--color-orange-700);
+  --color-warning-soft: var(--color-orange-50);
+  --color-warning-line: var(--color-orange-200);
+  --color-danger: var(--color-red-700);
+  --color-danger-solid: var(--color-red-600);
+  --color-danger-soft: var(--color-red-50);
+  --color-danger-line: var(--color-red-200);
+  --color-focus: var(--color-brand-600);
+}
+
+@utility z-sticky {
+  z-index: 20;
+}
+@utility z-overlay {
+  z-index: 40;
+}
+@utility z-modal {
+  z-index: 50;
+}
+@utility z-toast {
+  z-index: 60;
+}
+
+/* Gives small controls a 44px touch target without enlarging their visual size */
+@utility touch-target {
+  position: relative;
+  &::after {
+    content: "";
+    position: absolute;
+    inset: -4px 0;
+  }
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    min-height: 100dvh;
+    background-color: var(--color-canvas);
+    /* Soft blue to mint glow and a fine dot grid, as in the video backgrounds */
+    background-image:
+      radial-gradient(48rem 32rem at 8% -8%, rgb(59 91 255 / 0.1), transparent 70%),
+      radial-gradient(44rem 30rem at 100% 6%, rgb(16 185 129 / 0.1), transparent 70%),
+      radial-gradient(circle at 1px 1px, rgb(17 24 39 / 0.07) 1px, transparent 0);
+    background-size: auto, auto, 24px 24px;
+    background-attachment: fixed;
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    font-size: 1rem;
+    line-height: 1.5rem;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background-color: var(--color-brand-200);
+  }
+
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
