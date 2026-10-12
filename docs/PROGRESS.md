@@ -3,7 +3,7 @@
 > Leggere questo file all'inizio di ogni conversazione. Va aggiornato a ogni tappa e **obbligatoriamente prima di esaurire i token**.
 > Regole del team: `CLAUDE.md`. Specifica: `docs/SPEC.md`. Decisioni: `docs/DECISIONS.md`. Guide: `docs/API.md`, `docs/FRONTEND.md`.
 
-Ultimo aggiornamento: 2026-10-13 (ripresa dopo il limite d'uso del 2026-10-12).
+Ultimo aggiornamento: 2026-10-13 (ripresa dopo il limite d'uso del 2026-10-12). Backend moduli base committati (2466112): lint, typecheck, 481 test verdi.
 
 ## Obiettivo originale (/goal dell'utente)
 Consegnare SuiteASD finita e testata: backend API-first + web app, lavorando "da team di ingegneria" con agenti specializzati, senza chiedere conferme.
@@ -60,3 +60,4 @@ Solo fondazione. Mancano tutte le pagine dei moduli (Tesserati, Certificati, Quo
 ## Registro (aggiungere in coda, più recente in fondo)
 - 2026-10-12: fondazioni api+web, business/, 4 agenti backend in parallelo (interrotti dal limite d'uso).
 - 2026-10-13: ripresa; creato questo file; diagnosi dello stato (vedi sopra).
+- 2026-10-13: sistemati ical.ts, tipo di createNotification, lint dei test, @@unique su ReceiptSequence, aspettativa errata in competitions.test; committato 2466112 (api verde). Lanciati 5 agenti in background: backend calendario/convocazioni/presenze; backend notifiche/automazioni/arbitri/statistiche/seed; frontend tesserati+scadenze; frontend quote; frontend classifiche+pagelle. Gli agenti frontend NON eseguono build/E2E (conflitto su .next e porta 3000): li esegue il lead in serie. Restano da fare dopo: frontend calendario, notifiche, automazioni, altro (moduli secondari), statistiche; job invio convocazioni; E2E contro backend reale; claude-automation-recommender; verifica finale.
