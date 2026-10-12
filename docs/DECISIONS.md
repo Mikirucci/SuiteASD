@@ -49,3 +49,26 @@ Scheduler in-process (`node-cron`) con idempotenza su `AutomationRun (automation
 - `Idempotency-Key`, `ETag`/`If-None-Match` e upload con URL pre-firmati (SPEC 5-bis) non sono nella fondazione: `updatedAt` è presente su ogni tabella; l'idempotenza va implementata dal modulo Quote/pagamenti (tabella di chiavi con vincolo univoco + hash del payload) e riusata dagli altri.
 - Un'ASD ha un solo `sport` per ora (`VOLLEY`); il campo c'è per l'estensione ad altri sport (regole punteggio parametriche in `Competition.pointsRules`).
 - Versioni fissate: TypeScript 5.9 (typescript-eslint supporta TS < 6.1, quindi non il 7), Vitest 3, ESLint 9.
+
+## Calendario, convocazioni e presenze (SPEC 04)
+
+### CAL-1. Eventi e ricorrenza
+- Solo gli allenamenti si ripetono (ricorrenza settimanale con `interval` 1-4, `until` o `count`, al massimo 100 occorrenze). Le occorrenze sono create subito come righe `Event`: la prima porta `recurrenceRule` (RRULE), le altre `recurrenceParentId`. L'ora locale della società (fuso `Society.timezone`) resta invariata attraverso il cambio dell'ora legale. Modifica, annullamento ed eliminazione valgono per la singola occorrenza; non c'è un "modifica tutta la serie".
+- Lo spostamento non ha un endpoint a parte: `PATCH` con nuovo `startsAt` o `venueId` imposta lo stato `POSTPONED` e notifica (tipo `EVENT_CHANGED`) gli atleti con i genitori della squadra dell'evento più i convocati. Modifiche a titolo, note o capienza non notificano. L'annullamento è `POST /events/:id/cancel`.
+- Un evento annullato non è più modificabile né annullabile. Lo stato `COMPLETED` e il legame con `Match` (risultato) sono del modulo campionati.
+
+### CAL-2. Convocazioni
+- Eleggibilità = nessun certificato medico **scaduto** (stessa regola dei documenti, SPEC 02: "con certificato scaduto non è convocabile"). Chi non ha alcun certificato non è bloccato qui: è segnalato dagli indicatori documenti (ambra/rosso) ma la SPEC blocca solo lo scaduto.
+- La deroga è per richiesta, non per atleta: `override.reason` vale per tutti gli atleti non eleggibili della richiesta; viene salvata su ogni convocazione interessata e scritta nel log. Le deroghe non hanno una tabella di audit propria.
+- Capienza: contano le convocazioni non declinate; chi declina libera il posto per un sostituto. Si convoca solo tra gli atleti attivi con appartenenza aperta alla squadra dell'evento (un evento senza squadra, es. riunione o torneo, accetta qualunque atleta attivo).
+- Convocazioni, risposte e invii si fermano all'inizio dell'evento (409 `event_started`) o se è annullato (409 `event_cancelled`).
+- Atleti e genitori vedono una convocazione solo dopo l'invio (`sentAt`), e solo la propria/dei figli. Il motivo del declino lo vedono la persona stessa e lo staff.
+- Invio: la scelta di "N giorni dalla gara" e dei promemoria periodici spetta all'automazione schedulata (altro modulo), che chiama `sendConvocations` / `remindPendingConvocations`. Le due funzioni sono idempotenti: l'invio per `Convocation.sentAt` più `dedupeKey` della notifica; il promemoria con `dedupeKey` per convocazione e giorno (UTC). Le convocazioni aggiunte dopo il primo invio non partono da sole.
+
+### CAL-3. Presenze
+- Il check-in vale solo per gli `Event.type = TRAINING` non annullati (SPEC: "presenze agli allenamenti"); la lista parte dagli atleti attivi della squadra, ma si può registrare anche un ospite di un'altra squadra. Un atleta non ancora registrato è `present: null`, non assente.
+- La percentuale è `presenti / presenze registrate` (una cifra decimale). Vedono lo storico solo ADMIN, segreteria e allenatore: la SPEC non prevede che l'atleta consulti le presenze.
+
+### CAL-4. Export iCal
+- L'export è un normale endpoint con Bearer (vedi API.md): niente token nell'URL, quindi niente abbonamento automatico da Google Calendar. Se servirà, andrà aggiunto un token di sola lettura per società/utente, revocabile, con scope limitato all'export.
+- Eventi annullati hanno `STATUS:CANCELLED`; senza `endsAt` la durata esportata è un'ora.

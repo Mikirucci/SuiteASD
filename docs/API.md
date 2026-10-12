@@ -136,3 +136,58 @@ Idempotenza: per ogni (società, automazione, `runKey`) esiste al più una riga 
 ## Variabili d'ambiente
 
 Vedi `.env.example`: `DATABASE_URL`, `JWT_SECRET` (>= 32 caratteri, in produzione non può essere quello di sviluppo), `ACCESS_TOKEN_TTL_SECONDS`, `REFRESH_TOKEN_TTL_DAYS`, `INVITATION_TTL_DAYS`, `CORS_ORIGINS`, `RATE_LIMIT_*`, `AUTH_RATE_LIMIT_*`, `ARGON2_MEMORY_KIB`, `TRUST_PROXY`, `SCHEDULER_ENABLED`, `PORT`, `HOST`, `LOG_LEVEL`.
+
+## Calendario, convocazioni e presenze (SPEC 04)
+
+Moduli `events`, `convocations`, `attendance`. Tutte le date in ingresso sono ISO 8601 con offset (`2026-11-14T20:30:00+01:00`) o UTC; in uscita sempre UTC.
+
+| Metodo e percorso | Permesso | Descrizione |
+|---|---|---|
+| `GET /events` | `events:read` | lista per periodo: `from` (incluso), `to` (escluso), `teamId`, `type`, `status`, cursore. Per la striscia settimanale: lunedì 00:00 e lunedì successivo 00:00 nel fuso della società. Ogni evento porta `convocations: { confirmed, declined, pending, total, capacity }` ("5/12 confermate" = `confirmed`/`capacity`) |
+| `GET /events/export.ics` | `events:read` | calendario iCalendar (RFC 5545), stessi filtri della lista, max 2000 eventi |
+| `GET /events/:id` | `events:read` | dettaglio |
+| `POST /events` | `events:write` | crea un evento; con `recurrence: { frequency: 'WEEKLY', interval?, until o count }` (solo `TRAINING`) crea la serie. Risposta = prima occorrenza + `occurrencesCreated` |
+| `PATCH /events/:id` | `events:write` | modifica; cambiare `startsAt` o `venueId` è uno spostamento: stato `POSTPONED` e notifica `EVENT_CHANGED` ad atleti e genitori della squadra e dei convocati |
+| `POST /events/:id/cancel` | `events:write` | annulla (body `{ reason? }`, mandare almeno `{}`), notifica gli stessi destinatari |
+| `DELETE /events/:id` | `events:write` | elimina con convocazioni e presenze, senza notifica |
+| `GET /convocations` | `convocations:readOwn` | lista paginata (`eventId`, `memberId`, `status`, `upcoming`); atleta e genitore vedono solo le convocazioni **già inviate** a sé o ai figli |
+| `GET /events/:eventId/convocations` | `convocations:readOwn` | convocati dell'evento + `summary` (stesso filtro ABAC) |
+| `POST /events/:eventId/convocations` | `convocations:write` | convoca `{ memberIds, override?: { reason } }`: solo atleti attivi della squadra dell'evento, già convocati ignorati, capienza (409 `capacity_exceeded`), certificato scaduto (422 `member_not_eligible`) |
+| `POST /events/:eventId/convocations/send` | `convocations:write` | invia le convocazioni non ancora inviate (idempotente) |
+| `POST /events/:eventId/convocations/remind` | `convocations:write` | promemoria ai non rispondenti (al massimo uno al giorno per convocazione) |
+| `PUT /convocations/:id/response` | `convocations:respond` | `{ status: 'CONFIRMED' o 'DECLINED', reason? }` (reason solo con DECLINED); atleta per sé, genitore per i figli collegati; 409 dopo l'inizio o se annullato |
+| `DELETE /convocations/:id` | `convocations:write` | revoca una convocazione prima dell'inizio |
+| `GET /events/:eventId/attendance` | `attendance:read` | foglio presenze dell'allenamento: atleti della squadra con `present` true/false/null (non registrato) |
+| `PUT /events/:eventId/attendance` | `attendance:write` | check-in rapido `{ entries: [{ memberId, present, note? }] }`, upsert in blocco (max 100, idempotente); solo eventi `TRAINING` |
+| `GET /members/:id/attendance` | `attendance:read` | storico dell'atleta (cursore, più recenti prima) + `summary { present, total, percentage }`; filtri `from`, `to` |
+| `GET /teams/:id/attendance` | `attendance:read` | riepilogo della squadra: percentuale per atleta e complessiva, `trainings` con almeno un check-in |
+
+Regole principali:
+
+- **Eleggibilità**: `ineligibleMemberIds`/`isMemberEligible` (modulo documenti) bloccano chi ha il certificato medico **scaduto**. L'**ADMIN** (`convocations:override`) può convocare comunque inviando `override.reason` (obbligatoria): `Convocation.overriddenById` e `overrideReason` restano nel DB (visibili solo allo staff) e la deroga è scritta nel log applicativo (`audit: convocation_override`). Un non-ADMIN che invia `override` riceve 403.
+- **Capienza**: `Event.maxConvocations` (default 12). Gli atleti che declinano liberano il posto.
+- **Invio**: `sendConvocations` imposta `Convocation.sentAt` e `Event.convocationsSentAt` (data del primo invio) e scrive una notifica `CONVOCATION` per atleta e genitori (`dedupeKey = convocation:<id>`). Chiamarlo di nuovo non rinotifica nessuno; le convocazioni aggiunte dopo il primo invio partono alla chiamata successiva. Inviare per un evento annullato o già iniziato dà 409.
+- **Presenze**: contano solo gli allenamenti non annullati; `percentage = present / total` con una cifra decimale, `null` senza registrazioni.
+
+Funzioni di servizio per le automazioni (`src/modules/convocations/service.ts`), senza utente loggato:
+
+```ts
+interface ConvocationScope { db: TenantDb; societyId: string }   // `{ db, societyId }` dei job; per le rotte: scopeOf(tenantOf(request))
+sendConvocations(scope: ConvocationScope, eventId: string, now = new Date()): Promise<{ eventId: string; sent: number; notified: number; convocationsSentAt: string | null }>
+remindPendingConvocations(scope: ConvocationScope, eventId: string, now = new Date()): Promise<{ eventId: string; reminded: number; notified: number }>
+```
+
+Entrambe lanciano 404 (evento di un'altra società o inesistente) e 409 (`event_cancelled`, `event_started`): chi le chiama in un job deve filtrare gli eventi futuri non annullati. `notified` conta le righe di notifica scritte (una per destinatario e canale).
+
+### Export iCal e autenticazione
+
+`GET /events/export.ics` richiede, come ogni altro endpoint, `Authorization: Bearer <accessToken>`: il token non può stare nell'URL. Il client scarica quindi il file con una richiesta autenticata e lo importa (Google Calendar, Apple Calendar, Outlook) oppure lo salva:
+
+```ts
+const response = await fetch(`${API}/events/export.ics?from=2026-09-01T00:00:00Z&teamId=${teamId}`, {
+  headers: { Authorization: `Bearer ${accessToken}` },
+});
+const blob = await response.blob(); // text/calendar, Content-Disposition: attachment; filename="calendario.ics"
+```
+
+Un'iscrizione a un calendario esterno che si aggiorna da sola (URL di abbonamento) richiederebbe un token dedicato nell'URL: non è prevista in questa fase (vedi DECISIONS.md, CAL-4).

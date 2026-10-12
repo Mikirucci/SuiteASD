@@ -1,8 +1,11 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
+import { attendanceRoutes } from './attendance/routes.js';
 import { authRoutes } from './auth/routes.js';
 import { competitionRoutes } from './competitions/routes.js';
+import { convocationRoutes } from './convocations/routes.js';
 import { deviceRoutes } from './devices/routes.js';
 import { documentRoutes } from './documents/routes.js';
+import { eventRoutes } from './events/routes.js';
 import { feeRoutes } from './fees/routes.js';
 import { evaluationRoutes } from './evaluations/routes.js';
 import { guardianLinkRoutes } from './guardian-links/routes.js';
@@ -38,4 +41,7 @@ export const moduleRoutes: readonly FastifyPluginAsyncZod[] = [
   staffRoutes,
   ledgerRoutes,
   feeRoutes,
+  eventRoutes,
+  convocationRoutes,
+  attendanceRoutes,
 ];
