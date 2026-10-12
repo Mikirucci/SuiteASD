@@ -9,7 +9,7 @@ export const securityPlugin = fp(async (app: FastifyInstance) => {
     origin: app.config.CORS_ORIGINS,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Authorization', 'Content-Type', 'Idempotency-Key', 'If-None-Match'],
-    exposedHeaders: ['ETag', 'RateLimit-Limit', 'RateLimit-Remaining', 'RateLimit-Reset', 'Retry-After'],
+    exposedHeaders: ['ETag', 'Content-Disposition', 'Idempotent-Replayed', 'RateLimit-Limit', 'RateLimit-Remaining', 'RateLimit-Reset', 'Retry-After'],
     maxAge: 600,
   });
 
