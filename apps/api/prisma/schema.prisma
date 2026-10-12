@@ -1,0 +1,993 @@
+// SuiteASD data model (SPEC section 5).
+//
+// Conventions (see docs/DECISIONS.md):
+//  - Portable between SQLite (prototype) and PostgreSQL: no Prisma enums, no scalar lists.
+//    Enumerations are plain strings; the allowed values live in src/shared/enums.ts and are
+//    validated with Zod at the API boundary.
+//  - Money is stored as integer cents (`*Cents`), currency EUR.
+//  - Every tenant-scoped table has `societyId` (+ index). Tables WITHOUT `societyId` are the
+//    explicit allowlist in src/lib/tenant.ts (Society, User).
+//  - Primary keys are cuid strings; every table has createdAt/updatedAt (sync / ETag friendly).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Identity & tenancy
+// ---------------------------------------------------------------------------
+
+model Society {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  sport     String   @default("VOLLEY")
+  email     String?
+  phone     String?
+  address   String?
+  city      String?
+  fiscalCode String?
+  timezone  String   @default("Europe/Rome")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships            Membership[]
+  invitations            Invitation[]
+  members                Member[]
+  guardianLinks          GuardianLink[]
+  teams                  Team[]
+  teamMemberships        TeamMembership[]
+  teamStaff              TeamStaff[]
+  documentTypes          DocumentType[]
+  documents              Document[]
+  feePlans               FeePlan[]
+  payments               Payment[]
+  receipts               Receipt[]
+  events                 Event[]
+  convocations           Convocation[]
+  attendances            Attendance[]
+  seasons                Season[]
+  competitions           Competition[]
+  groups                 Group[]
+  groupTeams             GroupTeam[]
+  matches                Match[]
+  playerEvaluations      PlayerEvaluation[]
+  playerMatchStats       PlayerMatchStats[]
+  notifications          Notification[]
+  notificationLogs       NotificationLog[]
+  notificationPreferences NotificationPreference[]
+  deviceTokens           DeviceToken[]
+  automations            Automation[]
+  automationRuns         AutomationRun[]
+  venues                 Venue[]
+  trips                  Trip[]
+  kits                   Kit[]
+  sponsors               Sponsor[]
+  ledgerEntries          LedgerEntry[]
+  announcements          Announcement[]
+  referees               Referee[]
+  refereeAssignments     RefereeAssignment[]
+  staffMembers           StaffMember[]
+  refreshTokens          RefreshToken[]
+}
+
+// Global identity (an email can belong to several societies through Membership).
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  firstName    String
+  lastName     String
+  phone        String?
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  memberships   Membership[]
+  refreshTokens RefreshToken[]
+  guardianLinks GuardianLink[] @relation("GuardianUser")
+  members       Member[]
+  notifications Notification[]
+  notificationPreferences NotificationPreference[]
+  deviceTokens  DeviceToken[]
+  invitationsSent Invitation[] @relation("InvitedBy")
+  staffMembers  StaffMember[]
+}
+
+// One row per (user, society, role): a user may hold several roles in a society.
+// role: ADMIN | SEGRETERIA | ALLENATORE | STAFF | ATLETA | GENITORE
+model Membership {
+  id         String   @id @default(cuid())
+  societyId  String
+  userId     String
+  role       String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, societyId, role])
+  @@index([societyId])
+  @@index([userId])
+}
+
+// Invitation to join a society with one role. Only the SHA-256 of the token is stored.
+// If `memberId` is set: ATLETA -> links the account to that Member, GENITORE -> creates a GuardianLink.
+model Invitation {
+  id          String    @id @default(cuid())
+  societyId   String
+  email       String
+  role        String
+  memberId    String?
+  tokenHash   String    @unique
+  invitedById String
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  society   Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  invitedBy User    @relation("InvitedBy", fields: [invitedById], references: [id], onDelete: Cascade)
+  member    Member? @relation(fields: [memberId], references: [id], onDelete: SetNull)
+
+  @@index([societyId, email])
+  @@index([expiresAt])
+}
+
+// Rotating refresh tokens. Only the SHA-256 of the opaque token is stored.
+// All tokens descending from one login share a `familyId`; reuse of a rotated token revokes the family.
+model RefreshToken {
+  id        String    @id @default(cuid())
+  societyId String
+  userId    String
+  familyId  String
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  userAgent String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([societyId])
+  @@index([userId])
+  @@index([familyId])
+  @@index([expiresAt])
+}
+
+// ---------------------------------------------------------------------------
+// Tesserati, squadre, documenti
+// ---------------------------------------------------------------------------
+
+// Tesserato. `userId` links an athlete account; guardians are linked via GuardianLink.
+// status: ACTIVE | INACTIVE
+model Member {
+  id           String    @id @default(cuid())
+  societyId    String
+  userId       String?
+  firstName    String
+  lastName     String
+  birthDate    DateTime?
+  birthPlace   String?
+  gender       String?
+  fiscalCode   String?
+  email        String?
+  phone        String?
+  address      String?
+  city         String?
+  postalCode   String?
+  fieldRole    String?
+  kitSize      String?
+  status       String    @default("ACTIVE")
+  joinedAt     DateTime?
+  notes        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  society  Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  user     User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  guardianLinks      GuardianLink[]
+  teamMemberships    TeamMembership[]
+  documents          Document[]
+  payments           Payment[]
+  convocations       Convocation[]
+  attendances        Attendance[]
+  evaluations        PlayerEvaluation[]
+  matchStats         PlayerMatchStats[]
+  kits               Kit[]
+  invitations        Invitation[]
+
+  @@unique([societyId, userId])
+  @@unique([societyId, fiscalCode])
+  @@index([societyId])
+  @@index([societyId, lastName, firstName])
+  @@index([societyId, status])
+}
+
+// relation: PADRE | MADRE | TUTORE | ALTRO
+model GuardianLink {
+  id             String   @id @default(cuid())
+  societyId      String
+  guardianUserId String
+  memberId       String
+  relation       String   @default("ALTRO")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  society  Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  guardian User    @relation("GuardianUser", fields: [guardianUserId], references: [id], onDelete: Cascade)
+  member   Member  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([guardianUserId, memberId])
+  @@index([societyId])
+  @@index([memberId])
+}
+
+model Team {
+  id          String   @id @default(cuid())
+  societyId   String
+  seasonId    String?
+  name        String
+  category    String?
+  sport       String   @default("VOLLEY")
+  gender      String?
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  season  Season? @relation(fields: [seasonId], references: [id], onDelete: SetNull)
+
+  memberships TeamMembership[]
+  staff       TeamStaff[]
+  feePlans    FeePlan[]
+  events      Event[]
+  groupTeams  GroupTeam[]
+  announcements Announcement[]
+
+  @@unique([societyId, name])
+  @@index([societyId])
+  @@index([societyId, category])
+}
+
+model TeamMembership {
+  id           String    @id @default(cuid())
+  societyId    String
+  teamId       String
+  memberId     String
+  position     String?
+  jerseyNumber Int?
+  joinedAt     DateTime?
+  leftAt       DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  team    Team    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  member  Member  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, memberId])
+  @@index([societyId])
+  @@index([memberId])
+}
+
+// role: HEAD_COACH | ASSISTANT_COACH | MANAGER
+model TeamStaff {
+  id            String   @id @default(cuid())
+  societyId     String
+  teamId        String
+  staffMemberId String
+  role          String   @default("HEAD_COACH")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  society     Society     @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  team        Team        @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  staffMember StaffMember @relation(fields: [staffMemberId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, staffMemberId])
+  @@index([societyId])
+  @@index([staffMemberId])
+}
+
+// key examples: MEDICAL_CERTIFICATE | MEMBERSHIP_FORM | PRIVACY_CONSENT | INSURANCE
+model DocumentType {
+  id            String   @id @default(cuid())
+  societyId     String
+  key           String
+  name          String
+  requiresExpiry Boolean @default(false)
+  isRequired    Boolean  @default(true)
+  validityDays  Int?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  society   Society    @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  documents Document[]
+
+  @@unique([societyId, key])
+  @@index([societyId])
+}
+
+model Document {
+  id             String    @id @default(cuid())
+  societyId      String
+  memberId       String
+  documentTypeId String
+  title          String?
+  fileKey        String?
+  fileName       String?
+  mimeType       String?
+  sizeBytes      Int?
+  issuedAt       DateTime?
+  expiresAt      DateTime?
+  uploadedById   String?
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  society      Society      @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  member       Member       @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  documentType DocumentType @relation(fields: [documentTypeId], references: [id], onDelete: Restrict)
+
+  @@index([societyId])
+  @@index([societyId, expiresAt])
+  @@index([memberId, documentTypeId])
+}
+
+// ---------------------------------------------------------------------------
+// Quote, pagamenti, ricevute, bilancio
+// ---------------------------------------------------------------------------
+
+model Season {
+  id        String   @id @default(cuid())
+  societyId String
+  name      String
+  startsOn  DateTime
+  endsOn    DateTime
+  isCurrent Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  society      Society       @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  teams        Team[]
+  feePlans     FeePlan[]
+  competitions Competition[]
+
+  @@unique([societyId, name])
+  @@index([societyId])
+}
+
+// kind: ENROLLMENT | MONTHLY | EXTRA
+model FeePlan {
+  id          String    @id @default(cuid())
+  societyId   String
+  seasonId    String?
+  teamId      String?
+  name        String
+  kind        String    @default("MONTHLY")
+  amountCents Int
+  currency    String    @default("EUR")
+  installments Int?
+  dueDay      Int?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  society  Society   @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  season   Season?   @relation(fields: [seasonId], references: [id], onDelete: SetNull)
+  team     Team?     @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  payments Payment[]
+
+  @@index([societyId])
+  @@index([societyId, seasonId])
+}
+
+// status: PENDING | PAID | OVERDUE | CANCELLED     method: CASH | BANK_TRANSFER | CARD | OTHER
+model Payment {
+  id           String    @id @default(cuid())
+  societyId    String
+  memberId     String
+  feePlanId    String?
+  description  String
+  amountCents  Int
+  currency     String    @default("EUR")
+  dueDate      DateTime
+  status       String    @default("PENDING")
+  paidAt       DateTime?
+  method       String?
+  payerName    String?
+  payerEmail   String?
+  reference    String?
+  recordedById String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  society Society  @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  member  Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  feePlan FeePlan? @relation(fields: [feePlanId], references: [id], onDelete: SetNull)
+  receipt Receipt?
+  ledgerEntries LedgerEntry[]
+
+  @@index([societyId])
+  @@index([societyId, status])
+  @@index([societyId, dueDate])
+  @@index([memberId])
+}
+
+// Progressive number per society (e.g. "Ricevuta n. 0147").
+model Receipt {
+  id        String    @id @default(cuid())
+  societyId String
+  paymentId String    @unique
+  number    Int
+  issuedAt  DateTime  @default(now())
+  fileKey   String?
+  sentAt    DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@unique([societyId, number])
+  @@index([societyId])
+}
+
+// kind: INCOME | EXPENSE
+model LedgerEntry {
+  id          String   @id @default(cuid())
+  societyId   String
+  kind        String
+  category    String
+  description String?
+  amountCents Int
+  occurredOn  DateTime
+  paymentId   String?
+  sponsorId   String?
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  society Society  @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  payment Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  sponsor Sponsor? @relation(fields: [sponsorId], references: [id], onDelete: SetNull)
+
+  @@index([societyId])
+  @@index([societyId, occurredOn])
+  @@index([societyId, kind, category])
+}
+
+// status: ACTIVE | EXPIRED | PROSPECT
+model Sponsor {
+  id           String    @id @default(cuid())
+  societyId    String
+  name         String
+  contactName  String?
+  email        String?
+  phone        String?
+  amountCents  Int       @default(0)
+  contractStart DateTime?
+  contractEnd  DateTime?
+  status       String    @default("ACTIVE")
+  notes        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  society       Society       @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  ledgerEntries LedgerEntry[]
+
+  @@index([societyId])
+  @@index([societyId, contractEnd])
+}
+
+// ---------------------------------------------------------------------------
+// Calendario, convocazioni, presenze
+// ---------------------------------------------------------------------------
+
+model Venue {
+  id           String   @id @default(cuid())
+  societyId    String
+  name         String
+  address      String?
+  city         String?
+  capacity     Int?
+  availability String?
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  events  Event[]
+
+  @@index([societyId])
+}
+
+// type: MATCH | TRAINING | TOURNAMENT | MEETING     status: SCHEDULED | POSTPONED | CANCELLED | COMPLETED
+// recurrenceRule: iCal RRULE (training series); occurrences point to the series via recurrenceParentId.
+model Event {
+  id                String    @id @default(cuid())
+  societyId         String
+  type              String
+  title             String
+  startsAt          DateTime
+  endsAt            DateTime?
+  teamId            String?
+  venueId           String?
+  status            String    @default("SCHEDULED")
+  notes             String?
+  recurrenceRule    String?
+  recurrenceParentId String?
+  convocationsSentAt DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  team    Team?   @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  venue   Venue?  @relation(fields: [venueId], references: [id], onDelete: SetNull)
+
+  convocations Convocation[]
+  attendances  Attendance[]
+  trips        Trip[]
+  match        Match?
+
+  @@index([societyId])
+  @@index([societyId, startsAt])
+  @@index([societyId, teamId, startsAt])
+}
+
+// status: PENDING | CONFIRMED | DECLINED
+// overriddenById/overrideReason: Admin override of the "expired certificate = not convocable" rule (logged).
+model Convocation {
+  id             String    @id @default(cuid())
+  societyId      String
+  eventId        String
+  memberId       String
+  status         String    @default("PENDING")
+  sentAt         DateTime?
+  respondedAt    DateTime?
+  declineReason  String?
+  overriddenById String?
+  overrideReason String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  event   Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  member  Member  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, memberId])
+  @@index([societyId])
+  @@index([memberId])
+}
+
+model Attendance {
+  id           String   @id @default(cuid())
+  societyId    String
+  eventId      String
+  memberId     String
+  present      Boolean
+  note         String?
+  recordedById String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  event   Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  member  Member  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, memberId])
+  @@index([societyId])
+  @@index([memberId])
+}
+
+// status: PLANNED | CONFIRMED | CANCELLED     transport: CAR | MINIBUS | OTHER
+model Trip {
+  id          String    @id @default(cuid())
+  societyId   String
+  eventId     String?
+  destination String
+  departAt    DateTime
+  returnAt    DateTime?
+  transport   String    @default("CAR")
+  seats       Int?
+  costCents   Int?
+  status      String    @default("PLANNED")
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  event   Event?  @relation(fields: [eventId], references: [id], onDelete: SetNull)
+
+  @@index([societyId])
+  @@index([societyId, departAt])
+}
+
+// ---------------------------------------------------------------------------
+// Gironi, classifiche, pagelle
+// ---------------------------------------------------------------------------
+
+// kind: LEAGUE | TOURNAMENT
+// pointsRules: JSON, e.g. {"3-0":[3,0],"3-1":[3,0],"3-2":[2,1]}; tiebreakers: JSON array of rule keys.
+model Competition {
+  id          String   @id @default(cuid())
+  societyId   String
+  seasonId    String
+  name        String
+  kind        String   @default("LEAGUE")
+  sport       String   @default("VOLLEY")
+  pointsRules Json?
+  tiebreakers Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  season  Season  @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  groups  Group[]
+
+  @@index([societyId])
+  @@index([societyId, seasonId])
+}
+
+model Group {
+  id            String   @id @default(cuid())
+  societyId     String
+  competitionId String
+  name          String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  society     Society     @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  competition Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  teams       GroupTeam[]
+  matches     Match[]
+
+  @@unique([competitionId, name])
+  @@index([societyId])
+
+  @@map("competition_groups")
+}
+
+// A participant of a group: either one of our teams (teamId) or an opponent (name only).
+model GroupTeam {
+  id        String   @id @default(cuid())
+  societyId String
+  groupId   String
+  name      String
+  teamId    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  group   Group   @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  team    Team?   @relation(fields: [teamId], references: [id], onDelete: SetNull)
+
+  homeMatches Match[] @relation("MatchHome")
+  awayMatches Match[] @relation("MatchAway")
+
+  @@unique([groupId, name])
+  @@index([societyId])
+}
+
+// status: SCHEDULED | PLAYED | POSTPONED | CANCELLED
+// setScores: JSON array, e.g. [[25,20],[22,25],...]. Standings are derived, never stored.
+model Match {
+  id          String    @id @default(cuid())
+  societyId   String
+  groupId     String
+  eventId     String?   @unique
+  round       Int?
+  homeTeamId  String
+  awayTeamId  String
+  homeSets    Int?
+  awaySets    Int?
+  setScores   Json?
+  status      String    @default("SCHEDULED")
+  playedAt    DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  society  Society   @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  group    Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  event    Event?    @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  homeTeam GroupTeam @relation("MatchHome", fields: [homeTeamId], references: [id], onDelete: Restrict)
+  awayTeam GroupTeam @relation("MatchAway", fields: [awayTeamId], references: [id], onDelete: Restrict)
+
+  evaluations PlayerEvaluation[]
+  stats       PlayerMatchStats[]
+  refereeAssignments RefereeAssignment[]
+
+  @@index([societyId])
+  @@index([groupId, round])
+}
+
+model PlayerEvaluation {
+  id          String    @id @default(cuid())
+  societyId   String
+  matchId     String
+  memberId    String
+  authorId    String
+  rating      Float
+  notes       String?
+  isMvp       Boolean   @default(false)
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  match   Match   @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  member  Member  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([matchId, memberId])
+  @@index([societyId])
+  @@index([memberId])
+}
+
+model PlayerMatchStats {
+  id           String   @id @default(cuid())
+  societyId    String
+  matchId      String
+  memberId     String
+  attackPoints Int      @default(0)
+  aces         Int      @default(0)
+  blocks       Int      @default(0)
+  extra        Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  match   Match   @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  member  Member  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([matchId, memberId])
+  @@index([societyId])
+  @@index([memberId])
+}
+
+// ---------------------------------------------------------------------------
+// Notifiche
+// ---------------------------------------------------------------------------
+
+// type: CONVOCATION | FEE_DUE | CERTIFICATE_EXPIRING | EVENT_CHANGED | EVALUATION_PUBLISHED | ANNOUNCEMENT
+// channel: IN_APP | EMAIL | PUSH          status: PENDING | SENT | FAILED
+// dedupeKey makes sending idempotent per (user, channel).
+model Notification {
+  id        String    @id @default(cuid())
+  societyId String
+  userId    String
+  type      String
+  channel   String    @default("IN_APP")
+  title     String
+  body      String
+  data      Json?
+  status    String    @default("PENDING")
+  dedupeKey String?
+  attempts  Int       @default(0)
+  scheduledAt DateTime?
+  sentAt    DateTime?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  logs    NotificationLog[]
+
+  @@unique([userId, channel, dedupeKey])
+  @@index([societyId])
+  @@index([userId, readAt])
+  @@index([societyId, status])
+}
+
+model NotificationLog {
+  id             String   @id @default(cuid())
+  societyId      String
+  notificationId String
+  attempt        Int
+  status         String
+  provider       String?
+  error          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  society      Society      @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  @@index([societyId])
+  @@index([notificationId])
+}
+
+model NotificationPreference {
+  id        String   @id @default(cuid())
+  societyId String
+  userId    String
+  type      String
+  channel   String
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, societyId, type, channel])
+  @@index([societyId])
+}
+
+// platform: WEB | IOS | ANDROID
+model DeviceToken {
+  id         String   @id @default(cuid())
+  societyId  String
+  userId     String
+  platform   String
+  token      String   @unique
+  lastSeenAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([societyId])
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Automazioni
+// ---------------------------------------------------------------------------
+
+// One row per (society, automation key). `config` holds user-tunable settings (thresholds, hours, channels).
+model Automation {
+  id        String    @id @default(cuid())
+  societyId String
+  key       String
+  enabled   Boolean   @default(true)
+  config    Json?
+  lastRunAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  society Society         @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  runs    AutomationRun[]
+
+  @@unique([societyId, key])
+  @@index([societyId])
+}
+
+// status: RUNNING | SUCCESS | FAILED
+// runKey is the idempotency bucket (e.g. "2026-11-14"): at most one run per (automation, runKey) succeeds.
+model AutomationRun {
+  id           String    @id @default(cuid())
+  societyId    String
+  automationId String
+  runKey       String
+  status       String    @default("RUNNING")
+  startedAt    DateTime  @default(now())
+  finishedAt   DateTime?
+  result       Json?
+  error        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  society    Society    @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  automation Automation @relation(fields: [automationId], references: [id], onDelete: Cascade)
+
+  @@unique([automationId, runKey])
+  @@index([societyId])
+  @@index([societyId, startedAt])
+}
+
+// ---------------------------------------------------------------------------
+// Moduli secondari
+// ---------------------------------------------------------------------------
+
+// Single physical item (e.g. a jersey); assigned to a member when memberId is set.
+model Kit {
+  id         String    @id @default(cuid())
+  societyId  String
+  item       String
+  size       String?
+  number     Int?
+  condition  String?
+  memberId   String?
+  assignedAt DateTime?
+  notes      String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  member  Member? @relation(fields: [memberId], references: [id], onDelete: SetNull)
+
+  @@index([societyId])
+  @@index([memberId])
+}
+
+model Announcement {
+  id          String    @id @default(cuid())
+  societyId   String
+  authorId    String
+  teamId      String?
+  title       String
+  body        String
+  isPinned    Boolean   @default(false)
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  team    Team?   @relation(fields: [teamId], references: [id], onDelete: SetNull)
+
+  @@index([societyId])
+  @@index([societyId, publishedAt])
+}
+
+model Referee {
+  id            String   @id @default(cuid())
+  societyId     String
+  firstName     String
+  lastName      String
+  email         String?
+  phone         String?
+  qualification String?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  society     Society             @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  assignments RefereeAssignment[]
+
+  @@index([societyId])
+}
+
+model RefereeAssignment {
+  id             String    @id @default(cuid())
+  societyId      String
+  refereeId      String
+  matchId        String
+  feeCents       Int?
+  reimbursedAt   DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  referee Referee @relation(fields: [refereeId], references: [id], onDelete: Cascade)
+  match   Match   @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@unique([refereeId, matchId])
+  @@index([societyId])
+}
+
+// role: COACH | MANAGER | OTHER. userId links the staff member to a login account (e.g. an ALLENATORE).
+model StaffMember {
+  id             String   @id @default(cuid())
+  societyId      String
+  userId         String?
+  firstName      String
+  lastName       String
+  email          String?
+  phone          String?
+  role           String   @default("COACH")
+  qualifications String?
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  society Society     @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  user    User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  teams   TeamStaff[]
+
+  @@unique([societyId, userId])
+  @@index([societyId])
+}
