@@ -48,6 +48,8 @@ model Society {
   feePlans               FeePlan[]
   payments               Payment[]
   receipts               Receipt[]
+  receiptSequences       ReceiptSequence[]
+  idempotencyKeys        IdempotencyKey[]
   events                 Event[]
   convocations           Convocation[]
   attendances            Attendance[]
@@ -411,6 +413,8 @@ model Payment {
   payerEmail   String?
   reference    String?
   recordedById String?
+  reminderCount Int      @default(0)
+  lastReminderAt DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -420,10 +424,44 @@ model Payment {
   receipt Receipt?
   ledgerEntries LedgerEntry[]
 
+  @@unique([feePlanId, memberId, dueDate])
   @@index([societyId])
   @@index([societyId, status])
   @@index([societyId, dueDate])
   @@index([memberId])
+}
+
+// Last receipt number issued by a society: incremented atomically inside the payment transaction, so numbers
+// are progressive, gap-free and unique even under concurrency.
+model ReceiptSequence {
+  id         String   @id @default(cuid())
+  societyId  String
+  lastNumber Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+
+  @@unique([societyId])
+}
+
+// Replay store for the Idempotency-Key header (SPEC 5-bis): one row per (society, key). requestHash binds the
+// key to the request that first used it; responseBody is the JSON returned to that request.
+model IdempotencyKey {
+  id             String   @id @default(cuid())
+  societyId      String
+  key            String
+  requestHash    String
+  responseStatus Int
+  responseBody   String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+
+  @@unique([societyId, key])
+  @@index([societyId])
+  @@index([createdAt])
 }
 
 // Progressive number per society (e.g. "Ricevuta n. 0147").
@@ -530,6 +568,7 @@ model Event {
   recurrenceRule    String?
   recurrenceParentId String?
   convocationsSentAt DateTime?
+  maxConvocations   Int?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 

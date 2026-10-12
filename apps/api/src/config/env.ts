@@ -28,6 +28,8 @@ const envSchema = z.object({
   ARGON2_MEMORY_KIB: z.coerce.number().int().min(1024).default(19456),
   TRUST_PROXY: booleanString.default(false),
   SCHEDULER_ENABLED: booleanString.default(true),
+  // Directory for uploaded documents (relative paths resolve against the process cwd). Git-ignored.
+  STORAGE_DIR: z.string().min(1).default('storage'),
 });
 
 export type AppConfig = z.infer<typeof envSchema>;

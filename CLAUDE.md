@@ -2,6 +2,8 @@
 
 Specifica funzionale completa: `docs/SPEC.md` (fonte di verità). Decisioni: `docs/DECISIONS.md`. Business/marketing: cartella `business/` (NON toccare nel codice).
 
+**Stato del lavoro: `docs/PROGRESS.md`. Leggerlo a inizio sessione e aggiornarlo a ogni tappa e prima di finire i token.**
+
 ## Struttura
 - `apps/api` — backend REST API-first (Fastify + TypeScript + Prisma/SQLite + Zod + OpenAPI), test Vitest.
 - `apps/web` — frontend Next.js (App Router) + Tailwind, test E2E Playwright. Parla col backend SOLO via API HTTP `/api/v1`.
