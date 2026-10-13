@@ -72,3 +72,35 @@ Scheduler in-process (`node-cron`) con idempotenza su `AutomationRun (automation
 ### CAL-4. Export iCal
 - L'export è un normale endpoint con Bearer (vedi API.md): niente token nell'URL, quindi niente abbonamento automatico da Google Calendar. Se servirà, andrà aggiunto un token di sola lettura per società/utente, revocabile, con scope limitato all'export.
 - Eventi annullati hanno `STATUS:CANCELLED`; senza `endsAt` la durata esportata è un'ora.
+
+## Moduli successivi (SPEC 02-08 e secondari)
+
+### M-1. Classifiche derivate, mai salvate
+La classifica si calcola dalle partite giocate a ogni richiesta (`/standings`): inserire o correggere un risultato la aggiorna da sola. Punti per esito in `Competition.pointsRules` (JSON): nei dati demo `3-0` e `3-1` valgono 3 a 0, `3-2` vale 3 a 1, scelta necessaria perché i totali della SPEC (136 punti) non sono multipli di 3. Spareggi: vittorie, quoziente set, quoziente punti. L'automazione "Aggiornare le classifiche" è quindi sempre attiva e non disattivabile.
+
+### M-2. Tornei
+Un torneo è una `Competition` con `kind = TOURNAMENT`: ha gironi e una classifica derivata per girone. Nessun modello dedicato. Il frontend riusa le viste delle classifiche filtrando per tipo.
+
+### M-3. Pagamenti idempotenti e ricevute numerate
+`POST /fees/:id/pay` richiede `Idempotency-Key`; la ricevuta ha numerazione progressiva per società (`ReceiptSequence`, unico per società). I dati demo partono da n. 0144 (143 ricevute già emesse). Se l'automazione "Emettere le ricevute" è spenta, il pagamento resta registrato senza ricevuta e la si emette a mano.
+
+### M-4. Notifiche: in-app sempre, email in coda
+Ogni evento scrive nel centro notifiche; l'email è accodata solo se l'utente non l'ha disattivata. La consegna è un job (`notifications-dispatch`) con nuovi tentativi, così un fornitore email fermo non blocca le operazioni. Senza `RESEND_API_KEY` le email risultano `SKIPPED` (utile in sviluppo). WhatsApp/SMS non sono implementati: la SPEC li chiede solo come predisposizione opzionale. Il push web non è implementato lato server (solo la registrazione dei device token).
+
+### M-5. Automazioni: cosa si configura
+Le impostazioni esposte sono soglie e giorni (validate per chiave con Zod `strict`). Gli orari di esecuzione sono fissi nel catalogo (cron) e mostrati in sola lettura; i canali si scelgono per utente nelle preferenze di notifica, non per automazione. La SPEC 08 parla di "soglie, orari, canali": orari e canali per automazione sono rimandati a una fase successiva.
+
+### M-6. Invio convocazioni
+Le convocazioni sono preparate dall'allenatore (bozza, `sentAt` nullo) e inviate dal job `convocation-dispatch` quando mancano `daysBefore` giorni di calendario alla gara (UTC). Il promemoria ai non rispondenti parte negli ultimi `reminderDaysBefore` giorni, al massimo uno al giorno, e mai nel giorno stesso dell'invio. L'invio manuale ("Invia convocazioni") usa la stessa funzione ed è idempotente. L'API non distingue invio manuale e automatico: il badge "Inviate in automatico" della UI compare quando esiste una data di invio.
+
+### M-7. Dati demo
+Il seed (`npm run db:seed -w apps/api`) crea la società Aquile Volley: 118 tesserati, 6 squadre, Serie D girone B (Aquile 32, Falchi 31, Delfini 30, Leoni 24, Tigri 19), la partita Aquile-Delfini di sabato 14 novembre 2026 alle 20:30 con 5/12 convocazioni confermate (collegata al risultato 3-1, giornata 6), quota novembre 60 euro con 240 euro incassati, e dati per tutti i moduli secondari. Le date della partita sono fissate dalla SPEC: dopo il 14 novembre 2026 i test E2E che dipendono dalla convocazione futura vanno aggiornati.
+
+### M-8. Test E2E su due livelli
+`npm run test:e2e` usa l'API simulata a livello di rete (veloce, copre errori e permessi). `npm run test:e2e:real` avvia l'API vera su un database SQLite temporaneo con il seed demo e la build del web, ed esegue pochi flussi end-to-end in sequenza (lettura, scrittura, ruoli).
+
+### M-9. Frontend: scelte di dettaglio
+- Un errore di rete o 5xx viene ritentato due volte da React Query prima di mostrare l'errore con "Riprova".
+- Bilancio: i movimenti nati da un pagamento non sono modificabili da UI, per non sfasare il legame con le Quote.
+- La scheda partita del calendario ricava "SERIE D · GIRONE B · GIORNATA N" dalla partita collegata all'evento (`Match.eventId`); senza collegamento mostra il nome della squadra.
+- Il fuso orario della società è assunto uguale a quello del browser per l'intervallo settimanale.

@@ -52,7 +52,7 @@ Il seed crea 6 squadre (U12, U14, U16, U18, Serie D, Prima Divisione) e 118 tess
 - **PATCH** parziale: i campi omessi non cambiano, `null` svuota un campo opzionale.
 - **Rate limit**: globale (300/min per IP, configurabile) e stretto sulle rotte di credenziali (10 ogni 15 min).
 - **CORS**: elenco origini in `CORS_ORIGINS` (default `http://localhost:3000`).
-- **Operazioni di scrittura sensibili** (pagamenti, invii): l'header `Idempotency-Key` è ammesso da CORS ma l'helper non è ancora implementato; chi realizza i pagamenti deve aggiungerlo (vedi DECISIONS.md).
+- **Operazioni di scrittura sensibili** (pagamenti): l'header `Idempotency-Key` è obbligatorio e rende la ripetizione sicura (vedi "Operazioni sensibili e idempotenza").
 
 ## Endpoint della fondazione
 
@@ -191,3 +191,42 @@ const blob = await response.blob(); // text/calendar, Content-Disposition: attac
 ```
 
 Un'iscrizione a un calendario esterno che si aggiorna da sola (URL di abbonamento) richiederebbe un token dedicato nell'URL: non è prevista in questa fase (vedi DECISIONS.md, CAL-4).
+
+## Catalogo degli endpoint dei moduli
+
+Tutti sotto `/api/v1`, tutti con validazione Zod, schema OpenAPI (`/docs/`), isolamento per società e permessi per ruolo (nomi in `src/rbac/permissions.ts`, formato `risorsa:azione`). Le liste usano la paginazione a cursore descritta sopra. Per i dettagli di campi e risposte: `/docs/` o `/docs/openapi.json`.
+
+| Modulo (SPEC) | Endpoint |
+|---|---|
+| Tesserati (01) | `GET/POST /members`, `GET/PATCH/DELETE /members/:id`, `GET /members/summary`, `GET /members/export` (CSV `;` UTF-8 con BOM), `POST /members/import` (CSV, dry run di default) |
+| Certificati e scadenze (02) | `GET/POST/PATCH/DELETE /document-types`, `GET/POST /members/:id/documents`, `GET/PATCH/DELETE /documents/:id`, `PUT/GET /documents/:id/file`, `GET /documents/expirations` (timeline per mese) |
+| Quote e pagamenti (03) | `GET/POST/PATCH/DELETE /fee-plans`, `POST /fee-plans/:id/generate`, `GET/POST /fees`, `GET /fees/summary`, `POST /fees/:id/pay` (richiede `Idempotency-Key`), `GET/POST /fees/:id/receipt` |
+| Calendario e convocazioni (04) | `GET/POST /events`, `GET/PATCH/DELETE /events/:id`, `POST /events/:id/cancel`, `GET /events/export.ics`, `GET /convocations`, `GET/POST /events/:id/convocations`, `POST /events/:id/convocations/send\|remind`, `PUT /convocations/:id/response`, `DELETE /convocations/:id`, `GET/PUT /events/:id/attendance`, `GET /members/:id/attendance`, `GET /teams/:id/attendance` |
+| Gironi e classifiche (05) | `/seasons`, `/competitions`, `/competitions/:id/groups`, `.../groups/:gid/teams`, `.../groups/:gid/matches`, `.../groups/:gid/rounds`, `.../groups/:gid/standings`, `GET/PATCH/DELETE /matches/:id`, `PUT/DELETE /matches/:id/result` |
+| Pagelle e statistiche (06) | `GET /matches/:id/report-cards`, `PUT/DELETE /matches/:id/evaluations/:memberId`, `POST /matches/:id/evaluations/publish`, `PUT/DELETE /matches/:id/stats/:memberId`, `GET /members/:id/evaluations`, `GET /members/:id/evaluation-summary`, `GET /evaluation-summaries` |
+| Notifiche (07) | `GET /notifications`, `GET /notifications/unread-count`, `POST /notifications/read-all`, `POST /notifications/:id/read`, `GET/PUT /notifications/preferences` |
+| Gestione delegata (08) | `GET /automations`, `PATCH /automations/:key`, `GET /automations/:key/runs`, `POST /automations/:key/run` |
+| Moduli secondari | `/venues`, `/trips`, `/kits`, `/sponsors`, `/staff`, `/ledger/entries` + `GET /ledger/report`, `/announcements`, `/referees`, `/referee-assignments`, `GET /statistics/overview`. I tornei sono competizioni con `kind = TOURNAMENT` (`GET /competitions?kind=TOURNAMENT`) |
+
+### Operazioni sensibili e idempotenza
+
+`POST /fees/:id/pay` richiede l'header `Idempotency-Key` (8-128 caratteri `[\w.:-]`): ripetere la stessa richiesta con la stessa chiave restituisce la stessa risposta (header `Idempotent-Replayed: true`) senza registrare due pagamenti né emettere due ricevute. Helper in `src/lib/idempotency.ts`; `Idempotency-Key`, `Idempotent-Replayed` e `Content-Disposition` sono esposti ai browser via CORS.
+
+### Notifiche
+
+Sei tipi (`CONVOCATION`, `FEE_DUE`, `CERTIFICATE_EXPIRING`, `EVENT_CHANGED`, `EVALUATION_PUBLISHED`, `ANNOUNCEMENT`), testi in italiano in `modules/notifications/templates.ts`. Ogni notifica è scritta nel centro in-app e, se il destinatario non l'ha disattivata nelle preferenze, in coda email. I destinatari sono risolti per ruolo (atleta + genitori collegati). `dedupeKey` impedisce doppi invii. L'invio email usa Resend quando `RESEND_API_KEY` ed `EMAIL_FROM` sono impostati; altrimenti le email sono registrate come `SKIPPED` nel log (`NotificationLog`).
+
+### Automazioni (SPEC 08)
+
+Catalogo in `src/jobs/catalog.ts`, nell'ordine della checklist della dashboard:
+
+| Chiave | Tipo | Quando | Impostazioni |
+|---|---|---|---|
+| `fee-reminders` | pianificata | ogni giorno 09:00 | `beforeDueDays` (default 1, 7), `afterDueDays` (3, 10) |
+| `certificate-reminders` | pianificata | ogni giorno 08:00 | `thresholdsDays` (0, 7, 15, 30) |
+| `convocation-dispatch` | pianificata | ogni giorno 09:00 | `daysBefore` (3), `remindNonRespondents` (true), `reminderDaysBefore` (1) |
+| `standings` | evento | a ogni risultato | nessuna, sempre attiva (la classifica è derivata) |
+| `receipts` | evento | a ogni pagamento | nessuna, disattivabile (ricevuta emessa a mano con `POST /fees/:id/receipt`) |
+| `notifications-dispatch` | pianificata | ogni 10 minuti | `maxAttempts` (3), `batchSize` (100) |
+
+La percentuale della dashboard è automazioni attive / totali. Ogni esecuzione è registrata (`AutomationRun`) ed è consultabile con `GET /automations/:key/runs`; `POST /automations/:key/run` esegue subito un'automazione pianificata (solo amministratori).
