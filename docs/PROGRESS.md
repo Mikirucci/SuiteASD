@@ -3,7 +3,7 @@
 > Leggere questo file all'inizio di ogni conversazione. Va aggiornato a ogni tappa e **obbligatoriamente prima di esaurire i token**.
 > Regole del team: `CLAUDE.md`. Specifica: `docs/SPEC.md`. Decisioni: `docs/DECISIONS.md`. Guide: `docs/API.md`, `docs/FRONTEND.md`.
 
-Ultimo aggiornamento: 2026-10-13 (ripresa dopo il limite d'uso del 2026-10-12). Backend moduli base committati (2466112): lint, typecheck, 481 test verdi.
+Ultimo aggiornamento: 2026-10-13 (sera). Backend COMPLETO e committato (7776eee): lint, typecheck, 722 test api verdi. Frontend: tesserati, scadenze, quote, classifiche, pagelle committati (aa561f6); web 366 test + 48 E2E verdi, build ok.
 
 ## Obiettivo originale (/goal dell'utente)
 Consegnare SuiteASD finita e testata: backend API-first + web app, lavorando "da team di ingegneria" con agenti specializzati, senza chiedere conferme.
@@ -17,32 +17,17 @@ Richieste dell'utente da rispettare fino alla fine:
 ## Stato per area
 
 ### Fatto e committato
-- Scheletro e regole (`CLAUDE.md`), `business/` (competitor, feature, piano lancio).
-- `apps/api` fondazione (commit 2bb4d57): Fastify, Prisma/SQLite, auth JWT+refresh ruotato, RBAC (`src/rbac/permissions.ts`), isolamento tenant, scheduler `node-cron` + `AutomationRun`, modulo `teams` come template, seed demo.
-- `apps/web` fondazione (commit ea63ca5): design system in `globals.css`, libreria `components/ui`, pagina `/design`, shell (sidebar/bottom bar), home, login/registrazione, client API con refresh, test Vitest + Playwright.
-
-### Backend: scritto ma NON committato (working tree)
-Moduli con routes+service+schema+test: `competitions` (classifiche), `evaluations` (pagelle), `members`, `documents` (storage locale, scadenze, `isMemberEligible`), `fees` (quote, ricevute PDF, idempotenza), `venues`, `sponsors`, `trips`, `kits`, `staff`, `ledger`. Helper: `src/lib/crud-routes.ts`, `csv.ts`, `date-only.ts`, `idempotency.ts`. Migrazione `20261012190000_fees_events_support`. Seed: `members-documents.ts`.
-
-### Backend: incompleto (lasciato a metà dal limite d'uso)
-- `events`: ci sono `ical.ts`, `recurrence.ts`, `schema.ts`, `service.ts`; **mancano routes, test, registrazione in `modules/index.ts`**.
-- `convocations`: c'è solo `summary.ts`; mancano service, routes, test.
-- `attendance` (presenze allenamenti): cartella vuota.
-- `notifications`: c'è solo `service.ts` (`createNotification`); mancano endpoint (centro notifiche, preferenze) e invio email/log.
-- `announcements` (bacheca): file presenti ma **non registrati** e senza test.
-- `tournaments`/`referees`: i tornei sono `Competition.kind = TOURNAMENT`; arbitri/designazioni da esporre.
-- Automazioni (`src/jobs/definitions/`): c'è solo `housekeeping`. Mancano: promemoria certificati (02), promemoria/solleciti quote (03), invio convocazioni (04), ricalcolo classifiche (05), ricevute (03), notifiche (06/07); endpoint dashboard "gestione delegata" (08) + log esecuzioni.
-- Seed: mancano `fees-events`, `competitions`, `secondary` (dati demo SPEC sez. 6: classifica Falchi 31 / Aquile 32 / Delfini 30 / Leoni 24 / Tigri 19; evento Aquile-Delfini sab 14 nov 20:30; 5/12 confermate; quota novembre 60 EUR).
-- Endpoint "Statistiche" (dashboard società) non fatto.
+- Scheletro e regole, `business/`, fondazioni api+web (design system, shell, auth).
+- Backend completo: tutti i moduli SPEC (members, documents, fees, events/convocations/attendance, competitions/tournaments, evaluations, notifications+email, announcements, automations (dashboard 08 + job + log), referees, statistics, venues, sponsors, trips, kits, staff, ledger) con test e seed demo.
+- Frontend moduli: Tesserati (01), Scadenze (02), Quote (03), Classifiche (05), Pagelle (06).
 
 ### Frontend: da fare
-Solo fondazione. Mancano tutte le pagine dei moduli (Tesserati, Certificati, Quote, Calendario/Convocazioni, Classifiche, Pagelle, Notifiche, Gestione delegata, moduli secondari) con loading/vuoto/errore, test Vitest e E2E Playwright (con backend reale o mock).
+Calendario/convocazioni/presenze (04), Notifiche (07), Automazioni (08), Altro (hub + palestre, trasferte, divise, sponsor, bilancio, staff, tornei, arbitri, bacheca, statistiche), Home con dati reali. Poi E2E contro backend reale, docs/API.md + DECISIONS.md, claude-automation-recommender, verifica finale.
 
-## Problemi noti da risolvere subito (verificati il 2026-10-13)
-- `events/ical.ts` aveva escape corrotti (sistemato).
-- `tsc`: 3 errori di tipo su `createNotification` chiamata da announcements/evaluations/events (il parametro `db` non accetta il client scoped).
-- `eslint`: 14 errori solo nei test (`no-unsafe-return`, `no-unnecessary-type-assertion`, variabile inutilizzata, `restrict-plus-operands`).
-- Test: `competitions.test.ts:440` (partita annullata conta in `matchesTotal`) e `tenant.test.ts` (`ReceiptSequence` ha solo `@unique` su `societyId`, il test cerca `@@index`/`@@unique`).
+## Note tecniche utili
+- React Query riprova 2 volte le GET 500: nei test E2E degli errori il mock deve fallire 3 volte (poi "Riprova" ricarica).
+- `getByRole("alert")` incontra anche il route announcer di Next: filtrare con `.filter({ hasText })`.
+- Gli agenti frontend NON eseguono build/E2E (porta 3000/.next): li esegue il lead in serie.
 
 ## Prossimi passi (in ordine)
 1. Rendere verde il backend (typecheck, lint, test) e committare i moduli già scritti.
@@ -61,3 +46,4 @@ Solo fondazione. Mancano tutte le pagine dei moduli (Tesserati, Certificati, Quo
 - 2026-10-12: fondazioni api+web, business/, 4 agenti backend in parallelo (interrotti dal limite d'uso).
 - 2026-10-13: ripresa; creato questo file; diagnosi dello stato (vedi sopra).
 - 2026-10-13: sistemati ical.ts, tipo di createNotification, lint dei test, @@unique su ReceiptSequence, aspettativa errata in competitions.test; committato 2466112 (api verde). Lanciati 5 agenti in background: backend calendario/convocazioni/presenze; backend notifiche/automazioni/arbitri/statistiche/seed; frontend tesserati+scadenze; frontend quote; frontend classifiche+pagelle. Gli agenti frontend NON eseguono build/E2E (conflitto su .next e porta 3000): li esegue il lead in serie. Restano da fare dopo: frontend calendario, notifiche, automazioni, altro (moduli secondari), statistiche; job invio convocazioni; E2E contro backend reale; claude-automation-recommender; verifica finale.
+- 2026-10-13 sera: ripresa dopo interruzione; sistemati lint test api (referees, email), 6 E2E rossi (retry React Query, route announcer, nome accessibile trend-bars, auth spec su /calendario); committati 7776eee (api) e aa561f6 (web). Lanciati agenti per frontend: calendario, notifiche, automazioni, altro-hub+secondari, tornei/arbitri/bacheca/statistiche.
