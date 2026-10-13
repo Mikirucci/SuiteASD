@@ -33,10 +33,9 @@ export function TrendBars({ points }: { points: readonly TrendPoint[] }) {
           <li key={point.matchId} className="flex min-w-12 flex-1 flex-col items-center">
             <Link
               href={`/pagelle/partita/${point.matchId}`}
-              aria-label={`Voto ${formatGrade(point.rating)}, partita del ${label}. Apri la pagella`}
               className="group flex min-h-11 w-full flex-col items-center gap-1 rounded-sm"
             >
-              <span className="text-sm font-bold tabular-nums text-fg">{formatGrade(point.rating)}</span>
+              <span className="text-sm font-bold tabular-nums text-fg">{formatGrade(point.rating)}</span>{" "}
               <span className="flex h-24 w-full items-end justify-center">
                 <motion.span
                   className={cn(
@@ -48,7 +47,8 @@ export function TrendBars({ points }: { points: readonly TrendPoint[] }) {
                   transition={{ duration: 0.6, delay: Math.min(index, 8) * 0.04, ease: [0.16, 1, 0.3, 1] }}
                 />
               </span>
-              <span className="text-xs text-fg-muted">{label}</span>
+              <span className="text-xs text-fg-muted">{label}</span>{" "}
+              <span className="sr-only">Apri la pagella</span>
             </Link>
           </li>
         );

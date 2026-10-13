@@ -55,6 +55,16 @@ const EXPIRIES: readonly TimelineItem[] = [
   { id: "cn", name: "Chiara Neri", date: new Date(2027, 2, 5) },
 ];
 
+const CROWDED_EXPIRIES: readonly TimelineItem[] = [
+  { id: "lv", name: "Laura Villa", date: new Date(2026, 10, 24) },
+  { id: "pg", name: "Paola Gatti", date: new Date(2026, 10, 25) },
+  { id: "sc", name: "Sara Conti", date: new Date(2026, 10, 27) },
+  { id: "fm", name: "Francesca Monti", date: new Date(2026, 10, 27) },
+  { id: "bl", name: "Beatrice Longo", date: new Date(2026, 10, 28) },
+  { id: "ec", name: "Elisa Colombo", date: new Date(2026, 11, 2) },
+  { id: "er", name: "Elena Russo", date: new Date(2026, 11, 18) },
+];
+
 const CONVOCATED = ["Giulia Rossi", "Sara Conti", "Elena Russo", "Marta Bianchi", "Anna Ferri"] as const;
 
 const MATCH_DAY = new Date(2026, 10, 14);
@@ -122,6 +132,12 @@ export function DataSection() {
         </Card>
       </Specimen>
 
+      <Specimen caption="Timeline con scadenze ravvicinate: gli avatar si dispongono su più righe, senza coprirsi">
+        <Card>
+          <Timeline start={new Date(2026, 9, 1)} items={CROWDED_EXPIRIES} label="Scadenze ravvicinate" />
+        </Card>
+      </Specimen>
+
       <div className="grid gap-8 md:grid-cols-2">
         <Specimen caption="Striscia settimanale con pallino evento">
           <WeekStrip weekOf={MATCH_DAY} selected={selectedDay} onSelect={setSelectedDay} eventDays={EVENT_DAYS} />
@@ -163,7 +179,15 @@ export function DataSection() {
         </Specimen>
         <div className="flex flex-col gap-8">
           <Specimen caption="Elenco: in caricamento">
-            <DataList items={undefined} isLoading label="Tesserate" getKey={() => ""} renderItem={() => null} empty={null} skeletonRows={2} />
+            <DataList
+              items={undefined}
+              isLoading
+              label="Tesserate"
+              getKey={() => ""}
+              renderItem={() => null}
+              empty={null}
+              skeletonRows={2}
+            />
           </Specimen>
           <Specimen caption="Elenco: vuoto">
             <DataList

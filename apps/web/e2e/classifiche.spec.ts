@@ -110,7 +110,7 @@ test.describe("classifiche", () => {
 
   test("a failed load shows an error and retrying recovers", async ({ page }) => {
     const backend = competitionsBackend();
-    backend.state.standingsFailures = 1;
+    backend.state.standingsFailures = 3; // first attempt plus the two automatic retries
     await openAs(page, READER, backend);
     await expect(page.getByText("Il servizio non è disponibile al momento. Riprova tra poco.")).toBeVisible();
     await page.getByRole("button", { name: "Riprova" }).click();
