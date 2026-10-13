@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { convocationDispatch } from '../src/jobs/definitions/convocation-dispatch.js';
 import { certificateReminders, thresholdFor } from '../src/jobs/definitions/certificate-reminders.js';
 import { currentStep, feeReminders, reminderSteps } from '../src/jobs/definitions/fee-reminders.js';
 import { builtInAutomations } from '../src/jobs/definitions/index.js';
@@ -299,9 +300,104 @@ describe('automation jobs', () => {
     });
   });
 
+  describe('convocation-dispatch (SPEC 04)', () => {
+    // A match on Saturday 14 November at 20:30 (Rome) with one unsent convocation for an athlete and a guardian.
+    async function matchWithConvocation(societyId: string) {
+      const athleteActor = await createActor(ctx, societyId, 'ATLETA');
+      const guardianActor = await createActor(ctx, societyId, 'GENITORE');
+      const member = await createMember(ctx, societyId, { userId: athleteActor.user.id });
+      await ctx.prisma.guardianLink.create({ data: { societyId, guardianUserId: guardianActor.user.id, memberId: member.id } });
+      const event = await ctx.prisma.event.create({
+        data: { societyId, type: 'MATCH', title: 'Aquile Volley vs Delfini Volley', startsAt: at('2026-11-14', '19:30:00') },
+      });
+      const convocation = await ctx.prisma.convocation.create({ data: { societyId, eventId: event.id, memberId: member.id } });
+      return { event, convocation, athleteActor, guardianActor };
+    }
+
+    it('sends the convocations when the event is within the configured days, once', async () => {
+      const society = await createSociety(ctx, 'Convocazioni ASD');
+      const { event, convocation, athleteActor, guardianActor } = await matchWithConvocation(society.id);
+
+      // 5 days before: default is 3, nothing yet
+      expect(await run(convocationDispatch, society.id, at('2026-11-09', '09:00:00'))).toMatchObject({
+        status: 'SUCCESS',
+        result: { eventsDispatched: 0, convocationsSent: 0, notifications: 0 },
+      });
+
+      // 3 days before: sent to the athlete and the guardian
+      expect(await run(convocationDispatch, society.id, at('2026-11-11', '09:00:00'))).toMatchObject({
+        result: { eventsDispatched: 1, convocationsSent: 1, remindersSent: 0, notifications: 4 },
+      });
+      const sent = await ctx.prisma.notification.findMany({ where: { societyId: society.id, channel: 'IN_APP', type: 'CONVOCATION' } });
+      expect(sent.map((row) => row.userId).sort()).toEqual([athleteActor.user.id, guardianActor.user.id].sort());
+      expect(sent[0]).toMatchObject({ title: 'Convocazione', body: expect.stringContaining('conferma presenza') });
+      expect((await ctx.prisma.convocation.findUniqueOrThrow({ where: { id: convocation.id } })).sentAt).not.toBeNull();
+      expect((await ctx.prisma.event.findUniqueOrThrow({ where: { id: event.id } })).convocationsSentAt).not.toBeNull();
+
+      // the next day nothing is sent again, and it is too early for the reminder (1 day before by default)
+      expect(await run(convocationDispatch, society.id, at('2026-11-12', '09:00:00'))).toMatchObject({
+        result: { eventsDispatched: 0, convocationsSent: 0, remindersSent: 0, notifications: 0 },
+      });
+    });
+
+    it('reminds only the athletes who have not answered, once a day, in the last days', async () => {
+      const society = await createSociety(ctx, 'Promemoria convocazioni ASD');
+      const first = await matchWithConvocation(society.id);
+      await run(convocationDispatch, society.id, at('2026-11-11', '09:00:00'));
+
+      expect(await run(convocationDispatch, society.id, at('2026-11-13', '09:00:00'))).toMatchObject({
+        result: { convocationsSent: 0, remindersSent: 1, notifications: 4 },
+      });
+      expect(await run(convocationDispatch, society.id, at('2026-11-13', '09:00:00'), { runKey: 'again' })).toMatchObject({
+        result: { remindersSent: 0, notifications: 0 },
+      });
+      const reminders = await ctx.prisma.notification.count({ where: { societyId: society.id, channel: 'IN_APP', title: 'Promemoria convocazione' } });
+      expect(reminders).toBe(2);
+
+      // once the athlete answered, there is nobody left to remind
+      await ctx.prisma.convocation.update({ where: { id: first.convocation.id }, data: { status: 'CONFIRMED', respondedAt: new Date() } });
+      expect(await run(convocationDispatch, society.id, at('2026-11-14', '09:00:00'))).toMatchObject({
+        result: { remindersSent: 0, notifications: 0 },
+      });
+    });
+
+    it('does not remind the same day the convocations go out, and honours the settings', async () => {
+      const society = await createSociety(ctx, 'Impostazioni convocazioni ASD');
+      await matchWithConvocation(society.id);
+      await ctx.prisma.automation.create({
+        data: { societyId: society.id, key: 'convocation-dispatch', enabled: true, config: { daysBefore: 1, reminderDaysBefore: 1 } },
+      });
+      expect(await run(convocationDispatch, society.id, at('2026-11-13', '20:00:00'))).toMatchObject({
+        result: { convocationsSent: 1, remindersSent: 0, notifications: 4 },
+      });
+      await ctx.prisma.automation.updateMany({ where: { societyId: society.id }, data: { config: { remindNonRespondents: false } } });
+      expect(await run(convocationDispatch, society.id, at('2026-11-14', '09:00:00'))).toMatchObject({
+        result: { remindersSent: 0, notifications: 0 },
+      });
+    });
+
+    it('skips cancelled and past events, other societies and the switched-off automation', async () => {
+      const society = await createSociety(ctx, 'Annullate ASD');
+      const other = await createSociety(ctx, 'Altra ASD');
+      const cancelled = await matchWithConvocation(society.id);
+      await ctx.prisma.event.update({ where: { id: cancelled.event.id }, data: { status: 'CANCELLED' } });
+      await matchWithConvocation(other.id);
+
+      expect(await run(convocationDispatch, society.id, at('2026-11-12', '09:00:00'))).toMatchObject({
+        result: { eventsDispatched: 0, notifications: 0 },
+      });
+      expect(await ctx.prisma.notification.count({ where: { societyId: other.id } })).toBe(0);
+      // after the match has started nothing goes out
+      expect(await run(convocationDispatch, other.id, at('2026-11-15', '09:00:00'))).toMatchObject({ result: { eventsDispatched: 0 } });
+
+      await ctx.prisma.automation.updateMany({ where: { societyId: other.id, key: 'convocation-dispatch' }, data: { enabled: false } });
+      expect(await run(convocationDispatch, other.id, at('2026-11-12', '09:00:00'))).toEqual({ status: 'SKIPPED_DISABLED' });
+    });
+  });
+
   it('keeps the reminder jobs in the built-in list with valid, unique keys', () => {
     const keys = builtInAutomations.map((definition) => definition.key);
     expect(new Set(keys).size).toBe(keys.length);
-    expect(keys).toEqual(expect.arrayContaining(['certificate-reminders', 'fee-reminders', 'notifications-dispatch', 'housekeeping']));
+    expect(keys).toEqual(expect.arrayContaining(['certificate-reminders', 'fee-reminders', 'convocation-dispatch', 'notifications-dispatch', 'housekeeping']));
   });
 });

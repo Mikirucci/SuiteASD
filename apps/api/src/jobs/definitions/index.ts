@@ -1,5 +1,6 @@
 import type { AutomationDefinition } from '../registry.js';
 import { certificateReminders } from './certificate-reminders.js';
+import { convocationDispatch } from './convocation-dispatch.js';
 import { feeReminders } from './fee-reminders.js';
 import { housekeeping } from './housekeeping.js';
 import { notificationsDispatch } from './notifications-dispatch.js';
@@ -9,5 +10,6 @@ export const builtInAutomations: readonly AutomationDefinition[] = [
   housekeeping,
   certificateReminders,
   feeReminders,
+  convocationDispatch,
   notificationsDispatch,
 ];
