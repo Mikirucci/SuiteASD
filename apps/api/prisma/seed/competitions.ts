@@ -33,9 +33,10 @@ const RESULTS: readonly (readonly [number, number, number, number, number])[] = 
   [17, 4, 0, 3, 1], [17, 2, 1, 3, 1],
   [18, 3, 0, 3, 2], [18, 4, 2, 3, 1],
   [19, 1, 0, 2, 3], [19, 4, 3, 3, 1],
-  [20, 0, 2, 3, 1], [20, 3, 1, 3, 1],
+  [6, 0, 2, 3, 1], [20, 3, 1, 3, 1],
 ];
 
+// The featured match is listed as round 6 ("Giornata 6" of the calendar card); standings do not depend on rounds.
 // Saturday 14 November 2026, 20:30 in Rome: the match of the calendar card; it ends around 22:15.
 const FEATURED_PLAYED_AT = new Date('2026-11-14T21:15:00.000Z');
 
@@ -82,6 +83,12 @@ export const seedCompetitions: SeedStep = async (context) => {
     groupTeamIds.push(groupTeam.id);
   }
 
+  const featuredEvent = await prisma.event.findFirst({
+    where: { societyId, type: 'MATCH', title: 'Aquile Volley vs Delfini Volley' },
+    select: { id: true },
+  });
+  if (!featuredEvent) throw new Error('The featured calendar event must be seeded before the competitions');
+
   let featuredMatchId: string | null = null;
   for (const [index, [round, home, away, homeSets, awaySets]] of RESULTS.entries()) {
     const homeTeamId = groupTeamIds[home];
@@ -98,7 +105,7 @@ export const seedCompetitions: SeedStep = async (context) => {
         homeSets,
         awaySets,
         status: 'PLAYED',
-        ...(isFeatured ? { playedAt: FEATURED_PLAYED_AT } : {}),
+        ...(isFeatured ? { playedAt: FEATURED_PLAYED_AT, eventId: featuredEvent.id } : {}),
       },
     });
     if (isFeatured) featuredMatchId = match.id;
