@@ -2,7 +2,7 @@
 
 import { ArrowDown, ArrowUp, Check, Trophy } from "lucide-react";
 import { motion } from "motion/react";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Chip } from "@/components/ui/chip";
@@ -147,6 +147,8 @@ export function StandingsView({ competitionId, groupId }: StandingsViewProps) {
   );
   const standings = query.data;
   const movements = useMovements(standings?.rows);
+  // Several groups can be on screen together (tournament pools): the heading id must be unique
+  const titleId = useId();
 
   return (
     <DataBoundary
@@ -164,9 +166,9 @@ export function StandingsView({ competitionId, groupId }: StandingsViewProps) {
       }
     >
       {standings ? (
-        <section aria-labelledby="standings-title" className="flex flex-col gap-3">
+        <section aria-labelledby={titleId} className="flex flex-col gap-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 id="standings-title" className="text-lg font-bold tracking-title text-fg">
+            <h2 id={titleId} className="text-lg font-bold tracking-title text-fg">
               Classifica {standings.groupName}
             </h2>
             <Chip tone="success" icon={<Check strokeWidth={3} />}>

@@ -1,8 +1,8 @@
 "use client";
 
-import { Alert } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogClose, DialogContent } from "@/components/ui/dialog";
+import { Alert } from "./alert";
+import { Button } from "./button";
+import { Dialog, DialogClose, DialogContent } from "./dialog";
 
 export interface ConfirmDialogProps {
   open: boolean;

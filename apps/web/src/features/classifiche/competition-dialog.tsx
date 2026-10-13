@@ -13,7 +13,7 @@ import { useToast } from "@/components/ui/toast";
 import { describeError, useApiMutation } from "@/lib/api";
 import { TIEBREAKER_LABELS } from "./format";
 import { competitionFormSchema, type CompetitionFormValues } from "./schemas";
-import type { Competition, PointsRules, Tiebreaker } from "./types";
+import type { Competition, CompetitionKind, PointsRules, Tiebreaker } from "./types";
 
 const FORM_ID = "competition-form";
 
@@ -29,12 +29,12 @@ const TIEBREAKER_OPTIONS = (Object.keys(TIEBREAKER_LABELS) as Tiebreaker[]).map(
   label: TIEBREAKER_LABELS[value].charAt(0).toUpperCase() + TIEBREAKER_LABELS[value].slice(1),
 }));
 
-function defaultValues(competition: Competition | undefined): CompetitionFormValues {
+function defaultValues(competition: Competition | undefined, kind: CompetitionKind): CompetitionFormValues {
   const rules = competition?.pointsRules ?? DEFAULT_RULES;
   const order = competition?.tiebreakers ?? DEFAULT_TIEBREAKERS;
   return {
     name: competition?.name ?? "",
-    kind: competition?.kind ?? "LEAGUE",
+    kind: competition?.kind ?? kind,
     win30: String(rules["3-0"][0]),
     lose30: String(rules["3-0"][1]),
     win31: String(rules["3-1"][0]),
@@ -63,16 +63,23 @@ function toBody(values: CompetitionFormValues) {
   };
 }
 
+function dialogTitle(editing: boolean, fixedKind: CompetitionKind | undefined): string {
+  if (fixedKind === "TOURNAMENT") return editing ? "Modifica il torneo" : "Nuovo torneo";
+  return editing ? "Modifica campionato o torneo" : "Nuovo campionato o torneo";
+}
+
 export interface CompetitionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   seasonId: string;
   /** Omit to create a competition. */
   competition?: Competition;
+  /** Fixes the kind (the tournaments page only manages tournaments): the "Tipo" field is not shown. */
+  fixedKind?: CompetitionKind;
 }
 
 /** Championship or tournament with its volleyball scoring rules (points per final score) and tiebreakers. */
-export function CompetitionDialog({ open, onOpenChange, seasonId, competition }: CompetitionDialogProps) {
+export function CompetitionDialog({ open, onOpenChange, seasonId, competition, fixedKind }: CompetitionDialogProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [formError, setFormError] = useState<string | null>(null);
@@ -80,7 +87,7 @@ export function CompetitionDialog({ open, onOpenChange, seasonId, competition }:
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<CompetitionFormValues>({ resolver: zodResolver(competitionFormSchema), defaultValues: defaultValues(competition) });
+  } = useForm<CompetitionFormValues>({ resolver: zodResolver(competitionFormSchema), defaultValues: defaultValues(competition, fixedKind ?? "LEAGUE") });
 
   const mutation = useApiMutation(
     (values: CompetitionFormValues, client) => {
@@ -135,7 +142,7 @@ export function CompetitionDialog({ open, onOpenChange, seasonId, competition }:
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        title={competition ? "Modifica campionato o torneo" : "Nuovo campionato o torneo"}
+        title={dialogTitle(competition !== undefined, fixedKind)}
         description="La classifica segue subito le regole che imposti qui."
         footer={
           <>
@@ -151,7 +158,7 @@ export function CompetitionDialog({ open, onOpenChange, seasonId, competition }:
         <form id={FORM_ID} onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
           {formError ? <Alert tone="danger">{formError}</Alert> : null}
           <Input label="Nome" required error={errors.name?.message} {...register("name")} />
-          <Select label="Tipo" options={KIND_OPTIONS} {...register("kind")} />
+          {fixedKind ? null : <Select label="Tipo" options={KIND_OPTIONS} {...register("kind")} />}
           <fieldset className="flex flex-col gap-3">
             <legend className="mb-1 text-sm font-bold text-fg">Punti in classifica</legend>
             {scoreRow("3-0", "win30", "lose30")}

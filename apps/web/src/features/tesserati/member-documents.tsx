@@ -14,7 +14,7 @@ import {
   useMemberDocuments,
   useUploadDocumentFile,
 } from "./api";
-import { ConfirmDialog } from "./confirm-dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { DocumentFormDialog } from "./document-form-dialog";
 import { DOCUMENT_ACCEPT, validateDocumentFile } from "./document-file";
 import { describeExpiry, formatDateOnly, formatFileSize } from "./document-format";

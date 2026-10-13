@@ -55,15 +55,15 @@ test.describe("login", () => {
 
   test("logs in, lands on the destination and can log out", async ({ page }) => {
     await mockApi(page);
-    await page.goto("/calendario");
+    await page.goto("/sezione-inesistente");
     await page.getByLabel("Email").fill(MOCK.email);
     await page.getByLabel(/^Password/).fill(MOCK.password);
     await page.getByRole("button", { name: "Accedi" }).click();
 
-    await expect(page).toHaveURL("/calendario");
+    await expect(page).toHaveURL("/sezione-inesistente");
     await expect(page.getByRole("heading", { level: 1, name: "Questa pagina non è ancora disponibile" })).toBeVisible();
     const sidebar = page.getByRole("navigation", { name: "Sezioni" });
-    await expect(sidebar.getByRole("link", { name: "Calendario" })).toHaveAttribute("aria-current", "page");
+    await expect(sidebar.getByRole("link", { name: "Calendario" })).not.toHaveAttribute("aria-current", "page");
 
     await page.getByRole("button", { name: "Esci" }).click();
     await expect(page).toHaveURL(/\/login/);

@@ -12,7 +12,7 @@ import { SectionHeading } from "@/components/ui/section-heading";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/features/auth/auth-provider";
-import { ConfirmDialog } from "@/features/classifiche/confirm-dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { formatMatchDate, matchTitle, scoreOf } from "@/features/classifiche/format";
 import type { Match } from "@/features/classifiche/types";
 import { describeError, useApiMutation, useApiQuery } from "@/lib/api";

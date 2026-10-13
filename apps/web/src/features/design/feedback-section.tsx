@@ -1,11 +1,13 @@
 "use client";
 
 import { CalendarX } from "lucide-react";
+import { useState } from "react";
 import {
   Alert,
   Button,
   Card,
   CardHeader,
+  ConfirmDialog,
   Dialog,
   DialogClose,
   DialogContent,
@@ -26,6 +28,7 @@ import { ShowcaseSection, Specimen } from "./showcase-section";
 
 export function FeedbackSection() {
   const { toast } = useToast();
+  const [confirmOpen, setConfirmOpen] = useState(false);
   return (
     <ShowcaseSection
       id="feedback"
@@ -87,7 +90,7 @@ export function FeedbackSection() {
             </TabsContent>
           </Tabs>
         </Specimen>
-        <Specimen caption="Finestra e pannello laterale (Esc chiude, il focus resta dentro)" className="flex flex-wrap items-start gap-3">
+        <Specimen caption="Finestra, conferma di eliminazione e pannello laterale (Esc chiude, il focus resta dentro)" className="flex flex-wrap items-start gap-3">
           <Dialog>
             <DialogTrigger asChild>
               <Button variant="secondary">Apri finestra</Button>
@@ -107,6 +110,17 @@ export function FeedbackSection() {
               }
             />
           </Dialog>
+          <Button variant="secondary" onClick={() => setConfirmOpen(true)}>
+            Apri conferma
+          </Button>
+          <ConfirmDialog
+            open={confirmOpen}
+            onOpenChange={setConfirmOpen}
+            title="Eliminare la palestra?"
+            description="La palestra sparisce dall'elenco. L'azione non si può annullare."
+            confirmLabel="Elimina"
+            onConfirm={() => setConfirmOpen(false)}
+          />
           <Drawer>
             <DrawerTrigger asChild>
               <Button variant="secondary">Apri pannello</Button>

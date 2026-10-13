@@ -13,7 +13,7 @@ import { useToast } from "@/components/ui/toast";
 import { describeError, useApiMutation } from "@/lib/api";
 import { useAllPages } from "@/lib/use-all-pages";
 import { CompetitionDialog } from "./competition-dialog";
-import { ConfirmDialog } from "./confirm-dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { formatDay } from "./format";
 import { NameDialog } from "./name-dialog";
 import { OwnTeamDialog } from "./own-team-dialog";
@@ -37,6 +37,24 @@ interface DeleteTarget {
 
 const COLLECTIONS = ["seasons", "competitions", "groups", "group-teams", "matches", "standings"];
 const KIND_LABEL = { LEAGUE: "Campionato", TOURNAMENT: "Torneo" } as const;
+
+/** Wording of the competitions section: generic on the standings page, "torneo" on the tournaments page. */
+const COMPETITION_WORDS = {
+  any: {
+    title: "Campionati e tornei",
+    add: "Nuovo campionato o torneo",
+    emptyTitle: "Nessun campionato in questa stagione",
+    emptyDescription: "Crea un campionato o un torneo, poi aggiungi i gironi.",
+    deleteTitle: "Eliminare il campionato?",
+  },
+  tournament: {
+    title: "Tornei",
+    add: "Nuovo torneo",
+    emptyTitle: "Nessun torneo in questa stagione",
+    emptyDescription: "Crea un torneo, poi aggiungi i gironi.",
+    deleteTitle: "Eliminare il torneo?",
+  },
+} as const;
 
 function Section({ title, description, action, children }: { title: string; description: string; action: ReactNode; children: ReactNode }) {
   return (
@@ -62,8 +80,12 @@ function RowActions({ name, onEdit, onDelete }: { name: string; onEdit: () => vo
   );
 }
 
-/** Seasons, championships, groups and group teams: everything a writer needs to set up a competition. */
-export function ManageView({ scope }: { scope: CompetitionScope }) {
+/**
+ * Seasons, championships, groups and group teams: everything a writer needs to set up a competition.
+ * With `kind="TOURNAMENT"` the competitions are tournaments only (the scope must be filtered the same way).
+ */
+export function ManageView({ scope, kind }: { scope: CompetitionScope; kind?: "TOURNAMENT" }) {
+  const words = COMPETITION_WORDS[kind ? "tournament" : "any"];
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { season, competition, group } = scope;
@@ -134,22 +156,22 @@ export function ManageView({ scope }: { scope: CompetitionScope }) {
 
       {season ? (
         <Section
-          title="Campionati e tornei"
+          title={words.title}
           description={`Stagione ${season.name}.`}
           action={
             <Button variant="secondary" leftIcon={<Plus />} onClick={() => setEditor({ type: "competition" })}>
-              Nuovo campionato o torneo
+              {words.add}
             </Button>
           }
         >
           <DataList
-            label="Campionati e tornei"
+            label={words.title}
             items={scope.competitions.data}
             isLoading={scope.competitions.isLoading}
             error={scope.competitions.error}
             onRetry={() => void scope.competitions.refetch()}
             getKey={(item) => item.id}
-            empty={<EmptyState icon={Layers} title="Nessun campionato in questa stagione" description="Crea un campionato o un torneo, poi aggiungi i gironi." />}
+            empty={<EmptyState icon={Layers} title={words.emptyTitle} description={words.emptyDescription} />}
             renderItem={(item) => (
               <DataListRow
                 title={item.name}
@@ -160,7 +182,7 @@ export function ManageView({ scope }: { scope: CompetitionScope }) {
                     onEdit={() => setEditor({ type: "competition", competition: item })}
                     onDelete={() =>
                       askDelete({
-                        title: "Eliminare il campionato?",
+                        title: words.deleteTitle,
                         description: `${item.name} si può eliminare solo se non ha partite.`,
                         path: `/competitions/${item.id}`,
                       })
@@ -265,7 +287,7 @@ export function ManageView({ scope }: { scope: CompetitionScope }) {
 
       {editor?.type === "season" ? <SeasonDialog open onOpenChange={close} season={editor.season} /> : null}
       {editor?.type === "competition" && season ? (
-        <CompetitionDialog open onOpenChange={close} seasonId={season.id} competition={editor.competition} />
+        <CompetitionDialog open onOpenChange={close} seasonId={season.id} competition={editor.competition} fixedKind={kind} />
       ) : null}
       {editor?.type === "group" && competition ? (
         <NameDialog

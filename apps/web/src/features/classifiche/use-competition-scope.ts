@@ -4,7 +4,7 @@ import type { UseQueryResult } from "@tanstack/react-query";
 import { useState } from "react";
 import type { ApiError } from "@/lib/api";
 import { useAllPages } from "@/lib/use-all-pages";
-import type { Competition, Group, Season } from "./types";
+import type { Competition, CompetitionKind, Group, Season } from "./types";
 
 interface Selection {
   seasonId: string | null;
@@ -33,17 +33,18 @@ function pick<T extends { id: string }>(items: T[] | undefined, chosenId: string
  * Season -> competition -> group selection shared by standings and report cards.
  * Defaults: the current season, then the first competition and the first group. A change of season or
  * competition drops the choices below it, so the selection can never point at another parent's child.
+ * With `kind`, only competitions of that kind are offered (the tournaments page).
  */
-export function useCompetitionScope(): CompetitionScope {
+export function useCompetitionScope({ kind }: { kind?: CompetitionKind } = {}): CompetitionScope {
   const [selection, setSelection] = useState<Selection>({ seasonId: null, competitionId: null, groupId: null });
 
   const seasons = useAllPages<Season>(["seasons"], "/seasons");
   const season = pick(seasons.data, selection.seasonId, (items) => items.find((item) => item.isCurrent));
 
   const competitions = useAllPages<Competition>(
-    ["competitions", { seasonId: season?.id }],
+    ["competitions", { seasonId: season?.id, kind }],
     season ? "/competitions" : null,
-    { seasonId: season?.id },
+    { seasonId: season?.id, kind },
   );
   const competition = pick(competitions.data, selection.competitionId);
 

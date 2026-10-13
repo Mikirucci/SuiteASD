@@ -12,7 +12,7 @@ import { useToast } from "@/components/ui/toast";
 import { describeError, useApiMutation } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { useAllPages } from "@/lib/use-all-pages";
-import { ConfirmDialog } from "./confirm-dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { formatMatchDate, matchTitle, scoreOf } from "./format";
 import { MatchDialog } from "./match-dialog";
 import { ResultDialog } from "./result-dialog";

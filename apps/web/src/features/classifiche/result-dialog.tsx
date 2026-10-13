@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import { describeError, useApiMutation, type ApiError } from "@/lib/api";
 import { applyFieldErrors } from "@/lib/field-errors";
-import { ConfirmDialog } from "./confirm-dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { fromLocalInput, matchTitle, toLocalInput } from "./format";
 import { MAX_SETS, setTarget } from "./match-result";
 import { resultFormSchema, type ResultFormValues } from "./schemas";

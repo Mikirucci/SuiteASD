@@ -15,7 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
 import { describeError } from "@/lib/api";
 import { useDeleteMember, useMember, useTeams } from "./api";
-import { ConfirmDialog } from "./confirm-dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { formatDateOnly, fullNameOf, guardianRelationLabel, teamLabel } from "./document-format";
 import { MemberDocuments } from "./member-documents";
 import { MemberFormDialog } from "./member-form-dialog";
