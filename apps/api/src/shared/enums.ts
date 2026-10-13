@@ -85,3 +85,26 @@ export type LedgerKind = z.infer<typeof ledgerKindSchema>;
 export const STAFF_ROLES = ['COACH', 'MANAGER', 'OTHER'] as const;
 export const staffRoleSchema = z.enum(STAFF_ROLES);
 export type StaffRole = z.infer<typeof staffRoleSchema>;
+
+// Notifiche (SPEC 07). Push is a future channel: device tokens are stored but nothing sends to them yet.
+export const NOTIFICATION_TYPES = [
+  'CONVOCATION',
+  'FEE_DUE',
+  'CERTIFICATE_EXPIRING',
+  'EVENT_CHANGED',
+  'EVALUATION_PUBLISHED',
+  'ANNOUNCEMENT',
+] as const;
+export const notificationTypeSchema = z.enum(NOTIFICATION_TYPES);
+export type NotificationType = z.infer<typeof notificationTypeSchema>;
+
+export const NOTIFICATION_CHANNELS = ['IN_APP', 'EMAIL'] as const;
+export const notificationChannelSchema = z.enum(NOTIFICATION_CHANNELS);
+export type NotificationChannel = z.infer<typeof notificationChannelSchema>;
+
+// SKIPPED: nothing was sent on purpose (no provider configured, or the user has no email address).
+export const NOTIFICATION_STATUSES = ['PENDING', 'SENT', 'FAILED', 'SKIPPED'] as const;
+export type NotificationStatus = (typeof NOTIFICATION_STATUSES)[number];
+
+export const AUTOMATION_KINDS = ['SCHEDULED', 'EVENT'] as const;
+export type AutomationKind = (typeof AUTOMATION_KINDS)[number];

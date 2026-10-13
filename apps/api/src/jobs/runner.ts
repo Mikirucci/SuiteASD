@@ -1,5 +1,6 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
 import type { FastifyBaseLogger } from 'fastify';
+import type { EmailTransport } from '../lib/email.js';
 import { isUniqueViolation } from '../lib/prisma-errors.js';
 import { scopeToTenant, type TenantDb } from '../lib/tenant.js';
 import { defaultRunKey, type AutomationDefinition } from './registry.js';
@@ -19,6 +20,9 @@ export interface RunAutomationInput {
   societyId: string;
   now: Date;
   log: FastifyBaseLogger;
+  email?: EmailTransport | null;
+  // Overrides the definition's idempotency bucket (manual runs use a unique key so they never collide with the daily one).
+  runKey?: string;
 }
 
 function isJsonObject(value: unknown): value is Prisma.JsonObject {
@@ -69,13 +73,13 @@ async function claimRun(db: TenantDb, societyId: string, automationId: string, r
 }
 
 export async function runAutomation(input: RunAutomationInput): Promise<RunOutcome> {
-  const { prisma, definition, societyId, now, log } = input;
+  const { prisma, definition, societyId, now, log, email = null } = input;
   const db = scopeToTenant(prisma, societyId);
 
   const automation = await ensureAutomation(db, societyId, definition);
   if (!automation.enabled) return { status: 'SKIPPED_DISABLED' };
 
-  const runKey = (definition.runKey ?? defaultRunKey)(now);
+  const runKey = input.runKey ?? (definition.runKey ?? defaultRunKey)(now);
   const run = await claimRun(db, societyId, automation.id, runKey, now);
   if (!run) return { status: 'SKIPPED_ALREADY_RAN' };
 
@@ -88,6 +92,7 @@ export async function runAutomation(input: RunAutomationInput): Promise<RunOutco
       now,
       runKey,
       log: runLog,
+      email,
     });
     await db.automationRun.update({
       where: { id: run.id },

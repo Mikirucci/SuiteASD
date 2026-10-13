@@ -1,6 +1,7 @@
 import type { PrismaClient } from '@prisma/client';
 import type { FastifyBaseLogger } from 'fastify';
 import cron, { type ScheduledTask } from 'node-cron';
+import type { EmailTransport } from '../lib/email.js';
 import { automationRegistry, type AutomationRegistry } from './registry.js';
 import { runAutomation, type RunOutcome } from './runner.js';
 
@@ -10,6 +11,7 @@ export interface SchedulerOptions {
   prisma: PrismaClient;
   log: FastifyBaseLogger;
   registry?: AutomationRegistry;
+  email?: EmailTransport | null;
 }
 
 export interface Scheduler {
@@ -20,7 +22,7 @@ export interface Scheduler {
   runForAllSocieties(key: string, now?: Date): Promise<Map<string, RunOutcome>>;
 }
 
-export function createScheduler({ prisma, log, registry = automationRegistry }: SchedulerOptions): Scheduler {
+export function createScheduler({ prisma, log, registry = automationRegistry, email = null }: SchedulerOptions): Scheduler {
   const tasks: ScheduledTask[] = [];
 
   async function runForAllSocieties(key: string, now: Date = new Date()): Promise<Map<string, RunOutcome>> {
@@ -31,7 +33,7 @@ export function createScheduler({ prisma, log, registry = automationRegistry }: 
     for (const society of societies) {
       // One society failing must not stop the others.
       try {
-        outcomes.set(society.id, await runAutomation({ prisma, definition, societyId: society.id, now, log }));
+        outcomes.set(society.id, await runAutomation({ prisma, definition, societyId: society.id, now, log, email }));
       } catch (error) {
         log.error({ err: error, automation: key, societyId: society.id }, 'automation could not be executed');
       }

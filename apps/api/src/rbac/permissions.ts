@@ -63,6 +63,7 @@ export const PERMISSIONS = {
   'devices:write': ALL,
   'automations:read': [A, S],
   'automations:write': [A],
+  'statistics:read': [A, S],
 
   'venues:read': ALL,
   'venues:write': [A, S, D],

@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import { buildApp } from './app.js';
 import { loadConfig } from './config/env.js';
+import { createEmailTransport } from './lib/email.js';
 import { builtInAutomations } from './jobs/definitions/index.js';
 import { registerAutomation } from './jobs/registry.js';
 import { createScheduler } from './jobs/scheduler.js';
@@ -13,7 +14,7 @@ const app = await buildApp({ config });
 let scheduler: ReturnType<typeof createScheduler> | undefined;
 if (config.SCHEDULER_ENABLED) {
   for (const automation of builtInAutomations) registerAutomation(automation);
-  scheduler = createScheduler({ prisma: app.prisma, log: app.log });
+  scheduler = createScheduler({ prisma: app.prisma, log: app.log, email: createEmailTransport(config) });
   scheduler.start();
 }
 

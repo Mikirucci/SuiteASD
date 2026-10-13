@@ -1,5 +1,6 @@
 import type { FeePlan, Prisma } from '@prisma/client';
 import type { CrudService } from '../../lib/crud-routes.js';
+import { isAutomationEnabled, logEventRun } from '../../jobs/event-automations.js';
 import { conflict, forbidden, notFound, unprocessable } from '../../lib/errors.js';
 import { withIdempotency, type IdempotentOutcome, type TenantTx } from '../../lib/idempotency.js';
 import { cursorArgs, toPage, type Page, type PaginationQuery } from '../../lib/pagination.js';
@@ -329,6 +330,34 @@ async function nextReceiptNumber(tx: TenantTx, societyId: string): Promise<numbe
   return sequence.lastNumber;
 }
 
+const RECEIPTS_AUTOMATION_KEY = 'receipts';
+
+// Numbers and stores the receipt of a paid fee and records the action in the automation's execution log.
+async function issueReceiptIn(tx: TenantTx, societyId: string, paymentId: string, now: Date): Promise<number> {
+  const number = await nextReceiptNumber(tx, societyId);
+  await tx.receipt.create({ data: { societyId, paymentId, number, issuedAt: now } });
+  await logEventRun(tx, {
+    societyId,
+    key: RECEIPTS_AUTOMATION_KEY,
+    runKey: `receipt:${paymentId}`,
+    result: { paymentId, number },
+    now,
+  });
+  return number;
+}
+
+// Manual issue for fees paid while the "receipts" automation was off.
+export async function issueReceipt(ctx: TenantRequestContext, id: string, now = new Date()): Promise<FeeDto> {
+  return ctx.db.$transaction(async (tx) => {
+    const payment = await tx.payment.findFirst({ where: { id }, include: { receipt: true } });
+    if (!payment) throw notFound('Fee');
+    if (payment.status !== 'PAID') throw conflict('fee_not_paid', 'A receipt can be issued only for a paid fee');
+    if (payment.receipt) throw conflict('receipt_already_issued', 'The fee already has a receipt');
+    await issueReceiptIn(tx, ctx.auth.societyId, id, now);
+    return toFeeDto(await tx.payment.findFirstOrThrow({ where: { id }, include: feeInclude }), now);
+  });
+}
+
 // Registers a payment and issues its numbered receipt atomically. Must be called with an Idempotency-Key.
 export async function payFee(
   ctx: TenantRequestContext,
@@ -361,8 +390,8 @@ export async function payFee(
     });
     if (claimed.count === 0) throw conflict('fee_already_paid', 'The fee is already paid');
 
-    const number = await nextReceiptNumber(tx, ctx.auth.societyId);
-    await tx.receipt.create({ data: { societyId: ctx.auth.societyId, paymentId: id, number, issuedAt: now } });
+    // SPEC 08 "Emettere le ricevute": with the automation off the payment is recorded and the receipt is issued by hand.
+    if (await isAutomationEnabled(tx, RECEIPTS_AUTOMATION_KEY)) await issueReceiptIn(tx, ctx.auth.societyId, id, now);
 
     const row = await tx.payment.findFirstOrThrow({ where: { id }, include: feeInclude });
     return { status: 200, body: toFeeDto(row, now) };

@@ -1,6 +1,7 @@
 import type { Prisma } from '@prisma/client';
 import type { FastifyBaseLogger } from 'fastify';
 import cron from 'node-cron';
+import type { EmailTransport } from '../lib/email.js';
 import type { TenantDb } from '../lib/tenant.js';
 
 export interface AutomationContext {
@@ -12,6 +13,8 @@ export interface AutomationContext {
   now: Date;
   runKey: string;
   log: FastifyBaseLogger;
+  // Email provider, or null when none is configured (queued emails are then recorded as SKIPPED).
+  email: EmailTransport | null;
 }
 
 export interface AutomationDefinition {

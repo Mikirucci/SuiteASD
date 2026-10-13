@@ -27,6 +27,7 @@ import {
   generateFees,
   getFee,
   getReceiptFile,
+  issueReceipt,
   listFees,
   payFee,
 } from './service.js';
@@ -152,6 +153,21 @@ export const feeRoutes: FastifyPluginAsyncZod = async (app) => {
       if (outcome.replayed) void reply.header('idempotent-replayed', 'true');
       return reply.status(200).send(outcome.body);
     },
+  );
+
+  app.post(
+    '/fees/:id/receipt',
+    {
+      onRequest: [app.requirePermission('payments:write')],
+      schema: {
+        tags: ['Fees'],
+        summary: 'Issue the receipt of a paid fee by hand (when the receipts automation was off)',
+        security: bearerSecurity,
+        params: idParamsSchema,
+        response: { 201: feeSchema, ...problemResponses(401, 403, 404, 409) },
+      },
+    },
+    async (request, reply) => reply.status(201).send(await issueReceipt(tenantOf(request), request.params.id)),
   );
 
   app.get(

@@ -30,6 +30,9 @@ const envSchema = z.object({
   SCHEDULER_ENABLED: booleanString.default(true),
   // Directory for uploaded documents (relative paths resolve against the process cwd). Git-ignored.
   STORAGE_DIR: z.string().min(1).default('storage'),
+  // Email channel (SPEC 07): emails are sent only when RESEND_API_KEY is set; otherwise they are logged as SKIPPED.
+  RESEND_API_KEY: z.string().min(1).optional(),
+  EMAIL_FROM: z.string().min(3).optional(),
 });
 
 export type AppConfig = z.infer<typeof envSchema>;
@@ -43,6 +46,9 @@ export function loadConfig(source: Record<string, string | undefined> = process.
       .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
       .join('; ');
     throw new Error(`Invalid environment configuration: ${problems}`);
+  }
+  if (parsed.data.RESEND_API_KEY && !parsed.data.EMAIL_FROM) {
+    throw new Error('Invalid environment configuration: EMAIL_FROM is required when RESEND_API_KEY is set');
   }
   if (parsed.data.NODE_ENV === 'production' && parsed.data.JWT_SECRET.startsWith(DEV_SECRET_PREFIX)) {
     throw new Error('Invalid environment configuration: JWT_SECRET must not be the development default');
