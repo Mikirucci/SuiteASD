@@ -3,7 +3,7 @@
 > Leggere questo file all'inizio di ogni conversazione. Va aggiornato a ogni tappa e **obbligatoriamente prima di esaurire i token**.
 > Regole del team: `CLAUDE.md`. Specifica: `docs/SPEC.md`. Decisioni: `docs/DECISIONS.md`. Guide: `docs/API.md`, `docs/FRONTEND.md`.
 
-Ultimo aggiornamento: 2026-10-13 (notte). Backend completo (inclusi job invio convocazioni, e9a3f53). Frontend: TUTTI i moduli SPEC committati (cfbc931). Verifica: lint e typecheck puliti, test api 726 + web 582, build ok, E2E mockati 106/106.
+Ultimo aggiornamento: 2026-10-13 (notte). PRODOTTO COMPLETO secondo SPEC. Verifica finale eseguita: lint e typecheck puliti; test api 731 + web 582; build ok; E2E mockati 106/106; E2E su backend reale (seed demo) 15/15.
 
 ## Obiettivo originale (/goal dell'utente)
 Consegnare SuiteASD finita e testata: backend API-first + web app, lavorando "da team di ingegneria" con agenti specializzati, senza chiedere conferme.
@@ -24,16 +24,15 @@ Richieste dell'utente da rispettare fino alla fine:
 ### Frontend: moduli fatti
 Tesserati, Scadenze, Quote, Calendario (+presenze), Classifiche, Pagelle, Notifiche, Automazioni, Altro (hub + palestre, trasferte, divise, sponsor, bilancio, staff, tornei, arbitri, bacheca, statistiche).
 
-### Da fare
-1. Home con dati reali (verificare `features/home`).
-2. E2E contro il backend reale (seed demo) sui flussi principali.
-3. `docs/API.md` (aggiungere endpoint recenti) e `docs/DECISIONS.md` (automazioni: orari fissi e canali non configurabili; badge "Inviate in automatico" mostrato se esiste sentAt; ricerca competizione per card partita).
-4. Limiti noti dai report: badge notifiche non lette nella shell omesso; WeekStrip a 320px ~37px di larghezza (<44px); cross-import tra feature (usePermission, saveFile, useCursorQuery, formatEuro da quote/tesserati) da promuovere in lib/.
-5. `claude-automation-recommender`, poi verifica finale.
+### Da fare (solo rifiniture, nessuna feature mancante della SPEC)
+1. Limiti noti: badge notifiche non lette nella shell omesso; WeekStrip a 320px ~37px di larghezza (<44px); cross-import tra feature (usePermission, saveFile, useCursorQuery, formatEuro da quote/tesserati) da promuovere in lib/; orari/canali per automazione non configurabili (vedi DECISIONS M-5).
+2. Dopo il 14 novembre 2026 i dati demo (partita fissata dalla SPEC) richiedono di aggiornare le date del seed e gli E2E reali di calendario/ruoli.
+3. Raccomandazioni di claude-automation-recommender: presentate all utente, NON applicate (la skill e in sola lettura e l utente chiedeva di proporre).
 
 ## Note tecniche utili
 - React Query riprova 2 volte le GET 500: nei test E2E degli errori il mock deve fallire 3 volte (poi "Riprova" ricarica).
 - `getByRole("alert")` incontra anche il route announcer di Next: filtrare con `.filter({ hasText })`.
+- E2E: `npm run test:e2e` (API mockata) e `npm run test:e2e:real` (API vera + DB SQLite temporaneo con seed, apps/web/e2e-real).
 - Gli agenti frontend NON eseguono build/E2E (porta 3000/.next): li esegue il lead in serie.
 
 ## Comandi utili
@@ -47,3 +46,4 @@ Tesserati, Scadenze, Quote, Calendario (+presenze), Classifiche, Pagelle, Notifi
 - 2026-10-13: sistemati ical.ts, tipo di createNotification, lint dei test, @@unique su ReceiptSequence, aspettativa errata in competitions.test; committato 2466112 (api verde). Lanciati 5 agenti in background: backend calendario/convocazioni/presenze; backend notifiche/automazioni/arbitri/statistiche/seed; frontend tesserati+scadenze; frontend quote; frontend classifiche+pagelle. Gli agenti frontend NON eseguono build/E2E (conflitto su .next e porta 3000): li esegue il lead in serie. Restano da fare dopo: frontend calendario, notifiche, automazioni, altro (moduli secondari), statistiche; job invio convocazioni; E2E contro backend reale; claude-automation-recommender; verifica finale.
 - 2026-10-13 sera: ripresa dopo interruzione; sistemati lint test api (referees, email), 6 E2E rossi (retry React Query, route announcer, nome accessibile trend-bars, auth spec su /calendario); committati 7776eee (api) e aa561f6 (web). Lanciati agenti per frontend: calendario, notifiche, automazioni, altro-hub+secondari, tornei/arbitri/bacheca/statistiche.
 - 2026-10-13 notte: 5 agenti frontend completati; aggiunto job convocation-dispatch (mancava); sistemati 2 E2E (auth su rotta inesistente, selettore ambiguo). Commit e9a3f53, cfbc931.
+- 2026-10-13 notte: registrati i seed competitions/fees/secondary (mancavano in run.ts) e collegata la partita in evidenza all evento; creata la suite E2E su backend reale (109b6ee); docs/API.md e DECISIONS.md aggiornati (98fd094); corretto sfarfallio dello switch automazioni; verifica finale completa.

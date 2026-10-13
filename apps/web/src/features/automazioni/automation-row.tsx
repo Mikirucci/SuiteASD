@@ -21,7 +21,7 @@ import {
   Zap,
   type LucideIcon,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { AutoChip, Button, Chip, Switch, useToast, type ChipTone } from "@/components/ui";
 import { useApiMutation } from "@/lib/api";
 import { configFieldsOf, summarizeConfig } from "./config";
@@ -63,15 +63,20 @@ export function AutomationRow({ automation, canWrite, onConfigure, onShowRuns }:
   const configurable = configFieldsOf(automation.key).length > 0;
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["automations"] });
+  // Set in the same event as the click so the switch never snaps back while the request is in flight.
+  const [requestedEnabled, setRequestedEnabled] = useState<boolean | null>(null);
 
   const toggle = useApiMutation(
     (patch: AutomationPatch, client) => client.patch<Automation>(`/automations/${automation.key}`, patch),
     {
       onSuccess: (saved) => {
-        void refresh();
+        void refresh().then(() => setRequestedEnabled(null));
         toast({ title: saved.enabled ? "Attività attivata" : "Attività disattivata", description: saved.name, tone: "success" });
       },
-      onError: (error) => toast({ title: "Non è stato possibile cambiare lo stato", description: describeAutomationError(error), tone: "danger" }),
+      onError: (error) => {
+        setRequestedEnabled(null);
+        toast({ title: "Non è stato possibile cambiare lo stato", description: describeAutomationError(error), tone: "danger" });
+      },
     },
   );
 
@@ -93,7 +98,7 @@ export function AutomationRow({ automation, canWrite, onConfigure, onShowRuns }:
     onError: (error) => toast({ title: "Esecuzione non avviata", description: describeAutomationError(error), tone: "danger" }),
   });
 
-  const enabled = toggle.isPending && toggle.variables?.enabled !== undefined ? toggle.variables.enabled : automation.enabled;
+  const enabled = requestedEnabled ?? automation.enabled;
   const showSwitch = canWrite && automation.toggleable;
 
   return (
@@ -149,7 +154,10 @@ export function AutomationRow({ automation, canWrite, onConfigure, onShowRuns }:
             aria-label={`Attiva ${automation.name}`}
             checked={enabled}
             disabled={toggle.isPending}
-            onChange={(event) => toggle.mutate({ enabled: event.target.checked })}
+            onChange={(event) => {
+              setRequestedEnabled(event.target.checked);
+              toggle.mutate({ enabled: event.target.checked });
+            }}
           />
         ) : !automation.toggleable ? (
           <p className="inline-flex min-h-11 items-center gap-2 text-sm text-fg-muted">
