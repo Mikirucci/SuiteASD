@@ -30,12 +30,11 @@ Calendario/convocazioni/presenze (04), Notifiche (07), Automazioni (08), Altro (
 - Gli agenti frontend NON eseguono build/E2E (porta 3000/.next): li esegue il lead in serie.
 
 ## Prossimi passi (in ordine)
-1. Rendere verde il backend (typecheck, lint, test) e committare i moduli già scritti.
-2. Completare events/convocations/attendance/notifications/announcements/referees + automazioni + dashboard 08 + statistiche + seed demo, ognuno con test.
+1. Frontend dei moduli rimanenti (vedi sopra), con test Vitest ed E2E; il lead li esegue in serie e committa.
+2. E2E contro il backend reale (seed demo) sui flussi principali.
 3. Aggiornare `docs/API.md` e `docs/DECISIONS.md`.
-4. Frontend modulo per modulo (agenti paralleli per cartella `features/<modulo>`), poi E2E Playwright contro il backend reale.
-5. Eseguire `claude-automation-recommender` sul progetto e applicare le raccomandazioni utili.
-6. Verifica finale: dalla root `npm run lint && npm run typecheck && npm test && npm run build && npm run test:e2e`.
+4. Eseguire `claude-automation-recommender` sul progetto e applicare le raccomandazioni utili.
+5. Verifica finale: dalla root `npm run lint && npm run typecheck && npm test && npm run build && npm run test:e2e`.
 
 ## Comandi utili
 - Dalla root: `npm run dev|build|test|test:e2e|lint|typecheck`. API 4000, web 3000, documentazione API `http://localhost:4000/docs/`.
