@@ -48,6 +48,7 @@ export const sponsorsConfig: ResourceConfig<Sponsor> = {
   key: "sponsors",
   path: "/sponsors",
   writePermission: "sponsors:write",
+  attachmentType: "SPONSOR",
   icon: Handshake,
   fieldAliases: { amountCents: "amount" },
   searchLabel: "Cerca per nome dello sponsor",

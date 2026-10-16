@@ -1,6 +1,6 @@
 "use client";
 
-import { Pencil, Trash2 } from "lucide-react";
+import { Paperclip, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui";
 import type { RowContent } from "./types";
 
@@ -11,10 +11,12 @@ export interface ResourceRowProps {
   /** Undefined hides the actions (no permission, or another module owns the row). */
   onEdit?: () => void;
   onDelete?: () => void;
+  /** Opens the files attached to the row; undefined when the resource has no attachments or no permission. */
+  onAttachments?: () => void;
 }
 
 /** One entry of a resource list: title, detail lines, status on the right and, when allowed, edit and delete. */
-export function ResourceRow({ content, name, onEdit, onDelete }: ResourceRowProps) {
+export function ResourceRow({ content, name, onEdit, onDelete, onAttachments }: ResourceRowProps) {
   const lines = content.lines.filter((line): line is string => Boolean(line));
   return (
     <div className="flex flex-col gap-3 p-4">
@@ -35,8 +37,13 @@ export function ResourceRow({ content, name, onEdit, onDelete }: ResourceRowProp
           </div>
         ) : null}
       </div>
-      {onEdit || onDelete ? (
+      {onEdit || onDelete || onAttachments ? (
         <div className="flex flex-wrap gap-2">
+          {onAttachments ? (
+            <Button variant="secondary" leftIcon={<Paperclip />} aria-label={`Allegati di ${name}`} onClick={onAttachments}>
+              Allegati
+            </Button>
+          ) : null}
           {onEdit ? (
             <Button variant="secondary" leftIcon={<Pencil />} aria-label={`Modifica ${name}`} onClick={onEdit}>
               Modifica

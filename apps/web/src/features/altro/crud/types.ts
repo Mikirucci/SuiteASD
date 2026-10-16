@@ -2,6 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import type { z } from "zod";
 import type { PillOption, SelectOption } from "@/components/ui";
+import type { AttachmentEntityType } from "@/features/attachments/api";
 
 export type FieldKind =
   | "text"
@@ -95,6 +96,8 @@ export interface ResourceConfig<T extends { id: string }> {
   /** Maps an API field name to the form field it belongs to when they differ (`amountCents` -> `amount`). */
   fieldAliases?: Record<string, string>;
   row: (item: T) => RowContent;
+  /** Set when files can be attached to the records: each row then offers an "Allegati" action. */
+  attachmentType?: AttachmentEntityType;
   /** Name of the item inside the delete confirmation and the row action labels. */
   nameOf: (item: T) => string;
   /** Rows whose actions are hidden because another module owns them. */

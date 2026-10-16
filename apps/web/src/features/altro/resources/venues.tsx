@@ -18,6 +18,7 @@ export const venuesConfig: ResourceConfig<Venue> = {
   key: "venues",
   path: "/venues",
   writePermission: "venues:write",
+  attachmentType: "VENUE",
   icon: Building2,
   searchLabel: "Cerca per nome o città",
   copy: {

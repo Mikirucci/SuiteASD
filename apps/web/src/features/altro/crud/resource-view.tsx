@@ -4,10 +4,12 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Plus, Search, SearchX } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Button, ConfirmDialog, DataList, EmptyState, Input, LoadMore, PillFilter, useToast } from "@/components/ui";
+import { AttachmentsDialog, type AttachmentsTarget } from "@/features/attachments/attachments-dialog";
 import { usePermission } from "@/hooks/use-permission";
 import { useCursorQuery } from "@/lib/use-cursor-query";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { describeError, useApiMutation, type QueryParams } from "@/lib/api";
+import type { AttachmentEntityType } from "@/features/attachments/api";
 import { ResourceFormDialog, type ResourceDialogState } from "./resource-form-dialog";
 import { ResourceRow } from "./resource-row";
 import type { ResourceConfig } from "./types";
@@ -41,6 +43,7 @@ export function ResourceView<T extends { id: string }>({
   const [filterValue, setFilterValue] = useState("");
   const [form, setForm] = useState<ResourceDialogState<T> | null>(null);
   const [deleting, setDeleting] = useState<T | null>(null);
+  const [attachments, setAttachments] = useState<AttachmentsTarget | null>(null);
   const q = useDebouncedValue(search.trim());
 
   const query: QueryParams = { ...extraQuery, q: q || undefined, ...(filter && filterValue ? { [filter.param]: filterValue } : {}), limit: PAGE_SIZE };
@@ -111,6 +114,11 @@ export function ResourceView<T extends { id: string }>({
               name={config.nameOf(item)}
               onEdit={editable ? () => setForm({ mode: "edit", item }) : undefined}
               onDelete={editable ? () => { remove.reset(); setDeleting(item); } : undefined}
+              onAttachments={
+                canWrite && config.attachmentType
+                  ? () => setAttachments({ entityType: config.attachmentType as AttachmentEntityType, entityId: item.id, recordName: config.nameOf(item) })
+                  : undefined
+              }
             />
           );
         }}
@@ -138,6 +146,7 @@ export function ResourceView<T extends { id: string }>({
       <LoadMore list={list} noun={copy.countNoun} moreLabel={copy.moreLabel} />
 
       <ResourceFormDialog config={config} state={form} onClose={() => setForm(null)} />
+      <AttachmentsDialog target={attachments} onClose={() => setAttachments(null)} />
       <ConfirmDialog
         open={deleting !== null}
         onOpenChange={(open) => !open && setDeleting(null)}

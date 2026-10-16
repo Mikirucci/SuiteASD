@@ -44,12 +44,6 @@ export function guardianRelationLabel(relation: string): string {
   return ROLE_LABEL[relation] ?? "Familiare";
 }
 
-export function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1).replace(".", ",")} MB`;
-}
-
 /** Badge text of a team: the category (U16, Serie D) when set, else the name. */
 export function teamLabel(team: { name: string; category: string | null }): string {
   return team.category ?? team.name;

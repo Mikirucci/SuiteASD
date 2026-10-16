@@ -57,6 +57,45 @@ describe("ResourceView (venues)", () => {
     expect(await screen.findByText("Palazzetto dello Sport")).toBeInTheDocument();
   });
 
+  it("opens the attachments of a row from its Allegati action, only for those who can write", async () => {
+    const api = stubApi(
+      routes({
+        "GET /attachments": () =>
+          json(200, {
+            data: [
+              {
+                id: "att-1",
+                entityType: "VENUE",
+                entityId: PALAZZETTO.id,
+                title: "Contratto di affitto",
+                fileName: "contratto.pdf",
+                mimeType: "application/pdf",
+                sizeBytes: 2048,
+                downloadUrl: "/api/v1/attachments/att-1/file",
+                createdAt: "2026-10-01T08:00:00.000Z",
+              },
+            ],
+          }),
+      }),
+    );
+    renderWithProviders(<ResourceView config={venuesConfig} />);
+    await userEvent.click(await screen.findByRole("button", { name: "Allegati di Palazzetto dello Sport" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Allegati · Palazzetto dello Sport" });
+    expect(await within(dialog).findByText("Contratto di affitto")).toBeInTheDocument();
+    const call = api.calls.find((entry) => entry.path === "/attachments");
+    expect(call?.query.get("entityType")).toBe("VENUE");
+    expect(call?.query.get("entityId")).toBe(PALAZZETTO.id);
+  });
+
+  it("offers no Allegati action to a reader", async () => {
+    auth.permissions = ["venues:read"];
+    stubApi(routes());
+    renderWithProviders(<ResourceView config={venuesConfig} />);
+    await screen.findByText("Palazzetto dello Sport");
+    expect(screen.queryByRole("button", { name: /Allegati di/ })).not.toBeInTheDocument();
+  });
+
   it("sends the search text as q and offers to clear it when nothing matches", async () => {
     const api = stubApi(
       routes({ "GET /venues": (call) => json(200, page(call.query.get("q") === "zzz" ? [] : [PALAZZETTO, SCUOLA])) }),

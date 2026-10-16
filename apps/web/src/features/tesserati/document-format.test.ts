@@ -1,10 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { validateDocumentFile } from "./document-file";
 import {
   describeExpiry,
   formatDateOnly,
   expiringLabel,
-  formatFileSize,
   missingLabel,
   parseDateOnly,
   summarizeDocuments,
@@ -34,11 +32,7 @@ describe("dates and labels", () => {
     expect(formatDateOnly("2026-11-27")).toBe("27 novembre 2026");
   });
 
-
-  it("formats file sizes and team badges", () => {
-    expect(formatFileSize(512)).toBe("512 B");
-    expect(formatFileSize(245_760)).toBe("240 KB");
-    expect(formatFileSize(2_621_440)).toBe("2,5 MB");
+  it("labels a team by its category, else by its name", () => {
     expect(teamLabel({ name: "Prima squadra", category: "Serie D" })).toBe("Serie D");
     expect(teamLabel({ name: "Under 14", category: null })).toBe("Under 14");
   });
@@ -73,20 +67,6 @@ describe("summarizeDocuments", () => {
     expect(missingLabel(1)).toBe("1 documento mancante");
     expect(missingLabel(2)).toBe("2 documenti mancanti");
     expect(expiringLabel(3)).toBe("3 in scadenza");
-  });
-});
-
-describe("validateDocumentFile", () => {
-  it("accepts PDF and photos up to 5 MB", () => {
-    expect(validateDocumentFile(new File(["x"], "c.pdf", { type: "application/pdf" }))).toBeNull();
-    expect(validateDocumentFile(new File(["x"], "c.jpg", { type: "image/jpeg" }))).toBeNull();
-  });
-
-  it("explains why a file is refused", () => {
-    expect(validateDocumentFile(new File(["x"], "c.docx", { type: "application/msword" }))).toMatch(/PDF/);
-    expect(validateDocumentFile(new File([], "c.pdf", { type: "application/pdf" }))).toBe("Il file è vuoto.");
-    const big = new File([new Uint8Array(5 * 1024 * 1024 + 1)], "c.pdf", { type: "application/pdf" });
-    expect(validateDocumentFile(big)).toMatch(/il massimo è 5,0 MB/);
   });
 });
 

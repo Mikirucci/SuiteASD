@@ -46,6 +46,7 @@ export const tripsConfig: ResourceConfig<Trip> = {
   key: "trips",
   path: "/trips",
   writePermission: "trips:write",
+  attachmentType: "TRIP",
   icon: Bus,
   fieldAliases: { costCents: "cost" },
   copy: {

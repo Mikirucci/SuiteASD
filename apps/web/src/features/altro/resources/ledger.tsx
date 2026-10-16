@@ -26,6 +26,7 @@ export const ledgerConfig: ResourceConfig<LedgerEntry> = {
   key: "ledger",
   path: "/ledger/entries",
   writePermission: "ledger:write",
+  attachmentType: "LEDGER_ENTRY",
   icon: Banknote,
   fieldAliases: { amountCents: "amount" },
   // Entries created by a payment belong to the Quote module: changing them here would desync the two.

@@ -16,8 +16,9 @@ import {
 } from "./api";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { DocumentFormDialog } from "./document-form-dialog";
-import { DOCUMENT_ACCEPT, validateDocumentFile } from "./document-file";
-import { describeExpiry, formatDateOnly, formatFileSize } from "./document-format";
+import { UPLOAD_ACCEPT, validateUploadFile } from "@/lib/upload-file";
+import { formatFileSize } from "@/lib/format";
+import { describeExpiry, formatDateOnly } from "./document-format";
 import { DocumentStatusChip } from "./document-status-chip";
 import type { DocumentIndicator, MemberDocument } from "./types";
 
@@ -40,7 +41,7 @@ function DocumentRow({ document, canWrite, onEdit, onDelete }: DocumentRowProps)
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
-    const problem = validateDocumentFile(file);
+    const problem = validateUploadFile(file);
     if (problem) {
       toast({ title: "File non valido", description: problem, tone: "danger" });
       return;
@@ -101,7 +102,7 @@ function DocumentRow({ document, canWrite, onEdit, onDelete }: DocumentRowProps)
             <input
               ref={inputRef}
               type="file"
-              accept={DOCUMENT_ACCEPT}
+              accept={UPLOAD_ACCEPT}
               onChange={onFileChange}
               tabIndex={-1}
               aria-label={`File di ${heading}`}

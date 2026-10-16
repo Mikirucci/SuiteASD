@@ -25,6 +25,7 @@ export const kitsConfig: ResourceConfig<Kit> = {
   key: "kits",
   path: "/kits",
   writePermission: "kits:write",
+  attachmentType: "KIT",
   icon: Shirt,
   searchLabel: "Cerca per nome del capo",
   copy: {

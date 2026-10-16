@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { centsToInput, formatDay, formatDayShort, formatEuro, parseEuroToCents, pluralize } from "./format";
+import { centsToInput, formatDay, formatDayShort, formatEuro, parseEuroToCents, pluralize, formatFileSize } from "./format";
 
 describe("formatEuro", () => {
   it("drops the decimals for whole euros and groups from five digits, as Italian does", () => {
@@ -48,5 +48,13 @@ describe("pluralize", () => {
   it("pluralizes counts", () => {
     expect(pluralize(1, "quota", "quote")).toBe("1 quota");
     expect(pluralize(3, "quota", "quote")).toBe("3 quote");
+  });
+});
+
+describe("formatFileSize", () => {
+  it("uses bytes, KB and MB with the Italian decimal comma", () => {
+    expect(formatFileSize(512)).toBe("512 B");
+    expect(formatFileSize(245_760)).toBe("240 KB");
+    expect(formatFileSize(2_621_440)).toBe("2,5 MB");
   });
 });
