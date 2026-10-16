@@ -71,11 +71,15 @@ export const updateMemberBodySchema = z
 export const listMembersQuerySchema = z.object({
   q: z.string().trim().min(1).max(80).optional().describe('Words matched against name, fiscal code and email'),
   teamId: idRef.optional(),
+  noTeam: z.stringbool().optional().describe("true: only members who belong to no team yet (ignored when teamId is set)"),
   documentStatus: overallDocumentStatusSchema.optional(),
   status: memberStatusSchema.optional(),
+  gender: memberGenderSchema.optional(),
+  fieldRole: z.string().trim().min(1).max(40).optional().describe("Role on the court, case-insensitive match"),
+  birthYear: z.coerce.number().int().min(1900).max(2100).optional().describe("Year of birth"),
 });
 
-export const exportMembersQuerySchema = listMembersQuerySchema.omit({ documentStatus: true });
+export const exportMembersQuerySchema = listMembersQuerySchema;
 
 const teamRefSchema = z.object({
   id: z.string(),

@@ -83,6 +83,12 @@ function buildWhere(ctx: TenantRequestContext, filters: ExportMembersQuery): Pri
       memberScope(ctx, 'members:read'),
       filters.status ? { status: filters.status } : {},
       filters.teamId ? { teamMemberships: { some: { teamId: filters.teamId, leftAt: null } } } : {},
+      filters.noTeam && !filters.teamId ? { teamMemberships: { none: { leftAt: null } } } : {},
+      filters.gender ? { gender: filters.gender } : {},
+      filters.fieldRole ? { fieldRole: { equals: filters.fieldRole } } : {},
+      filters.birthYear
+        ? { birthDate: { gte: new Date(Date.UTC(filters.birthYear, 0, 1)), lt: new Date(Date.UTC(filters.birthYear + 1, 0, 1)) } }
+        : {},
       ...words.map((word) => ({
         OR: [
           { firstName: { contains: word } },
@@ -251,8 +257,9 @@ export async function exportMembersCsv(ctx: TenantRequestContext, filters: Expor
     orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }, { id: 'asc' }],
   });
   const states = await loadDocumentStates(ctx, rows.map((row) => row.id), now);
+  const selected = filters.documentStatus ? rows.filter((row) => stateOf(states, row.id).overall === filters.documentStatus) : rows;
   const header = [...importColumns.map((column) => column.header), 'statoDocumenti'];
-  const body = rows.map((row) => {
+  const body = selected.map((row) => {
     const item = toListItem(row, stateOf(states, row.id), false);
     return [...importColumns.map((column) => column.read(item)), item.documentStatus];
   });

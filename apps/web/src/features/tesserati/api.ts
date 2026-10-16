@@ -22,6 +22,19 @@ export const MEMBERS_PAGE_SIZE = 25;
 const LOOKUP_PAGE_SIZE = 100;
 const API_PREFIX = "/api/v1";
 
+/** The filters as query parameters: empty ones are skipped by the client. */
+function filtersQuery(filters: MembersFilters) {
+  return {
+    q: filters.q,
+    teamId: filters.teamId,
+    noTeam: filters.noTeam ? true : undefined,
+    documentStatus: filters.documentStatus,
+    gender: filters.gender,
+    fieldRole: filters.fieldRole,
+    birthYear: filters.birthYear,
+  };
+}
+
 /** Members list with cursor pagination: `fetchNextPage` appends the next page ("Carica altri"). */
 export function useMembersList(filters: MembersFilters) {
   return useInfiniteQuery<
@@ -35,7 +48,7 @@ export function useMembersList(filters: MembersFilters) {
     initialPageParam: undefined,
     queryFn: ({ pageParam, signal }) =>
       api.get<CursorPage<MemberListItem>>("/members", {
-        query: { q: filters.q, teamId: filters.teamId, limit: MEMBERS_PAGE_SIZE, cursor: pageParam },
+        query: { ...filtersQuery(filters), limit: MEMBERS_PAGE_SIZE, cursor: pageParam },
         signal,
       }),
     getNextPageParam: (last) => last.page.nextCursor ?? undefined,
@@ -119,7 +132,7 @@ export function useImportMembers() {
 
 export function useExportMembers() {
   return useApiMutation(async (filters: MembersFilters, client) => {
-    const file = await client.download("/members/export", { query: { q: filters.q, teamId: filters.teamId } });
+    const file = await client.download("/members/export", { query: filtersQuery(filters) });
     saveBlob(file.blob, file.filename ?? "tesserati.csv");
   });
 }

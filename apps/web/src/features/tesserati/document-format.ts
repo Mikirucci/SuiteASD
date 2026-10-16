@@ -1,5 +1,5 @@
-import type { StatusMarkState } from "@/components/ui/status-mark";
-import type { DocumentStatus, MemberListItem, OverallDocumentStatus } from "./types";
+import { pluralize } from "@/lib/format";
+import type { DocumentIndicator, DocumentStatus, MemberListItem } from "./types";
 
 const dateFormat = new Intl.DateTimeFormat("it-IT", { day: "numeric", month: "long", year: "numeric" });
 
@@ -24,13 +24,6 @@ export function describeExpiry(daysRemaining: number): string {
   if (daysRemaining > 1) return `Scade tra ${daysRemaining} giorni`;
   if (daysRemaining === -1) return "Scaduto ieri";
   return `Scaduto da ${-daysRemaining} giorni`;
-}
-
-/** The list shows three states: expired and missing share the red mark. */
-export function markStateOf(status: DocumentStatus | OverallDocumentStatus): StatusMarkState {
-  if (status === "OK") return "ok";
-  if (status === "EXPIRING") return "expiring";
-  return "missing";
 }
 
 export const DOCUMENT_STATUS_LABEL: Record<DocumentStatus, string> = {
@@ -60,4 +53,28 @@ export function formatFileSize(bytes: number): string {
 /** Badge text of a team: the category (U16, Serie D) when set, else the name. */
 export function teamLabel(team: { name: string; category: string | null }): string {
   return team.category ?? team.name;
+}
+
+export interface DocumentSummary {
+  /** Names of the required documents that are missing or expired. */
+  missing: string[];
+  /** Names of the required documents that expire soon. */
+  expiring: string[];
+}
+
+export function summarizeDocuments(indicators: readonly DocumentIndicator[]): DocumentSummary {
+  return {
+    missing: indicators.filter((indicator) => indicator.status === "MISSING" || indicator.status === "EXPIRED").map((indicator) => indicator.name),
+    expiring: indicators.filter((indicator) => indicator.status === "EXPIRING").map((indicator) => indicator.name),
+  };
+}
+
+/** "2 documenti mancanti", "1 documento mancante". */
+export function missingLabel(count: number): string {
+  return pluralize(count, "documento mancante", "documenti mancanti");
+}
+
+/** "1 in scadenza", "3 in scadenza". */
+export function expiringLabel(count: number): string {
+  return `${count} in scadenza`;
 }

@@ -264,6 +264,12 @@ describe('members module (SPEC 01)', () => {
       expect((await get(scope.admin, '/members?cursor=garbage')).statusCode).toBe(400);
     });
 
+    it('exports only the members matching the document status filter', async () => {
+      const csv = (await get(scope.admin, '/members/export?documentStatus=EXPIRING')).body;
+      expect(csv).toContain('Bbb');
+      for (const other of ['Aaa', 'Ccc', 'Ddd']) expect(csv).not.toContain(other);
+    });
+
     it('computes the summary footer: members, teams, missing or expired documents', async () => {
       const summary = (await get(scope.admin, '/members/summary')).json();
       // Ccc has an expired certificate, Ddd a missing enrolment form.
@@ -275,6 +281,54 @@ describe('members module (SPEC 01)', () => {
       const summary = (await get(scope.admin, '/members/summary')).json();
       expect(summary.tesserati).toBe(4);
       expect((await get(scope.admin, '/members?status=INACTIVE')).json().data.map((member: { id: string }) => member.id)).toEqual([inactive.id]);
+    });
+  });
+
+  describe('roster filters (team assignment, role, gender, birth year)', () => {
+    let admin: Actor;
+    let team: string;
+
+    beforeAll(async () => {
+      const society = await createSociety(ctx, 'Filtri ASD');
+      admin = await createActor(ctx, society.id, 'ADMIN');
+      team = (await createTeam(ctx, society.id, 'Filtri U18')).id;
+      const rows = [
+        { lastName: 'Uno', fieldRole: 'Libero', gender: 'FEMALE', birthDate: new Date('2008-03-10T00:00:00.000Z'), inTeam: true },
+        { lastName: 'Due', fieldRole: 'Centrale', gender: 'FEMALE', birthDate: new Date('2009-12-31T00:00:00.000Z'), inTeam: false },
+        { lastName: 'Tre', fieldRole: 'Libero', gender: 'MALE', birthDate: new Date('2010-01-01T00:00:00.000Z'), inTeam: false },
+      ];
+      for (const { inTeam, ...fields } of rows) {
+        const member = await createMember(ctx, society.id, { firstName: 'Fil', ...fields });
+        if (inTeam) await ctx.prisma.teamMembership.create({ data: { societyId: society.id, teamId: team, memberId: member.id } });
+      }
+    });
+
+    const names = async (query: string) =>
+      (await get(admin, `/members?${query}`)).json<{ data: { lastName: string }[] }>().data.map((member) => member.lastName);
+
+    it('lists the members who belong to no team yet', async () => {
+      expect(await names('noTeam=true')).toEqual(['Due', 'Tre']);
+      expect(await names('noTeam=false')).toEqual(['Due', 'Tre', 'Uno']);
+      expect(await names(`teamId=${team}&noTeam=true`)).toEqual(['Uno']);
+    });
+
+    it('filters by field role, gender and birth year (the whole calendar year, borders included)', async () => {
+      expect(await names('fieldRole=Libero')).toEqual(['Tre', 'Uno']);
+      expect(await names('gender=MALE')).toEqual(['Tre']);
+      expect(await names('birthYear=2009')).toEqual(['Due']);
+      expect(await names('birthYear=2010')).toEqual(['Tre']);
+      expect(await names('fieldRole=Libero&gender=FEMALE&birthYear=2008')).toEqual(['Uno']);
+    });
+
+    it('rejects values that are not filters', async () => {
+      expect((await get(admin, '/members?gender=OTHER')).statusCode).toBe(422);
+      expect((await get(admin, '/members?birthYear=abc')).statusCode).toBe(422);
+    });
+
+    it('applies the same filters to the CSV export', async () => {
+      const csv = (await get(admin, '/members/export?noTeam=true&birthYear=2010')).body;
+      expect(csv).toContain('Tre');
+      expect(csv).not.toContain('Uno');
     });
   });
 

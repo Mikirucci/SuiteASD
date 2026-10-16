@@ -78,7 +78,24 @@ export interface MemberSummary {
 export interface MembersFilters {
   q: string;
   teamId: string;
+  /** Only members who belong to no team yet (ignored when a team is chosen). */
+  noTeam: boolean;
+  documentStatus: OverallDocumentStatus | "";
+  gender: MemberGender | "";
+  fieldRole: string;
+  /** Four digits, or empty. */
+  birthYear: string;
 }
+
+export const EMPTY_MEMBERS_FILTERS: MembersFilters = {
+  q: "",
+  teamId: "",
+  noTeam: false,
+  documentStatus: "",
+  gender: "",
+  fieldRole: "",
+  birthYear: "",
+};
 
 /** Body of POST /members. Optional fields are left out when empty. */
 export interface CreateMemberBody {
