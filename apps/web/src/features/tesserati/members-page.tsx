@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, Search, SearchX, SlidersHorizontal, Upload, UserPlus, Users } from "lucide-react";
+import { Download, Link2, Search, SearchX, SlidersHorizontal, Upload, UserPlus, Users } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import { useToast } from "@/components/ui/toast";
 import { describeError } from "@/lib/api";
 import { useExportMembers, useMembersList, useTeams } from "./api";
 import { teamLabel } from "./document-format";
+import { JoinLinksDialog } from "@/features/iscrizioni/join-links-dialog";
 import { ImportDialog } from "./import-dialog";
 import { MemberFormDialog } from "./member-form-dialog";
 import { MemberRow } from "./member-row";
@@ -53,6 +54,7 @@ export function MembersPage() {
   const [moreOpen, setMoreOpen] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [linksOpen, setLinksOpen] = useState(false);
   const q = useDebouncedValue(search.trim());
   const role = useDebouncedValue(fieldRole.trim());
   const filters = useMemo<MembersFilters>(
@@ -171,6 +173,9 @@ export function MembersPage() {
                 <Button leftIcon={<UserPlus />} onClick={() => setFormOpen(true)}>
                   Nuovo tesserato
                 </Button>
+                <Button variant="secondary" leftIcon={<Link2 />} onClick={() => setLinksOpen(true)}>
+                  Link di iscrizione
+                </Button>
                 <Button variant="secondary" leftIcon={<Upload />} onClick={() => setImportOpen(true)}>
                   Importa CSV
                 </Button>
@@ -262,6 +267,7 @@ export function MembersPage() {
         <>
           <MemberFormDialog open={formOpen} onOpenChange={setFormOpen} teams={teamList} />
           <ImportDialog open={importOpen} onOpenChange={setImportOpen} />
+          <JoinLinksDialog open={linksOpen} onOpenChange={setLinksOpen} teams={teamList} />
         </>
       ) : null}
     </div>

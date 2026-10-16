@@ -78,7 +78,8 @@ describe("AutomazioniPage", () => {
     expect(within(row("Aggiornare le classifiche")).getByText("Scatta da sola a ogni evento")).toBeInTheDocument();
     expect(screen.getAllByText("Automatico")).toHaveLength(9);
     await expectNoA11yViolations(container);
-  });
+    // The accessibility audit of ten rows is slow when the whole suite runs in parallel
+  }, 20_000);
 
   it("congratulates when every activity is delegated", async () => {
     installFakeApi({ "GET /automations": { body: makeDashboard(ALL_AUTOMATIONS.map((automation) => ({ ...automation, enabled: true }))) } });

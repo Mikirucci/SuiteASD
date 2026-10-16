@@ -6,7 +6,7 @@ import { AppIcon } from "@/components/ui/logo";
 import { useAuth } from "./auth-provider";
 import { safeNextPath } from "./safe-next";
 
-function FullPageLoader({ label }: { label: string }) {
+export function FullPageLoader({ label }: { label: string }) {
   return (
     <div role="status" aria-label={label} className="flex min-h-dvh items-center justify-center">
       <AppIcon size={56} decorative className="animate-pulse-soft" />

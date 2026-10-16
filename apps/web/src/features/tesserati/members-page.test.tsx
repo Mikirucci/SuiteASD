@@ -251,6 +251,21 @@ describe("MembersPage", () => {
     expect(await screen.findByText("Sara Conti")).toBeInTheDocument();
   });
 
+  it("opens the enrolment links from the toolbar, for those who can write", async () => {
+    const { calls } = mockApi({
+      "GET /members": () => page([SARA_CONTI]),
+      "GET /members/summary": () => ({ body: SUMMARY }),
+      "GET /teams": () => page(TEAMS),
+      "GET /join-links": () => page([]),
+    });
+    renderScreen(<MembersPage />);
+    await screen.findByText("Sara Conti");
+    expect(calls.some((call) => call.path === "/join-links")).toBe(false);
+    await userEvent.click(screen.getByRole("button", { name: "Link di iscrizione" }));
+    expect(await screen.findByRole("dialog", { name: "Link di iscrizione" })).toBeInTheDocument();
+    await waitFor(() => expect(calls.some((call) => call.path === "/join-links")).toBe(true));
+  });
+
   it("downloads the CSV export with the current filters", async () => {
     URL.createObjectURL = () => "blob:test";
     URL.revokeObjectURL = () => undefined;

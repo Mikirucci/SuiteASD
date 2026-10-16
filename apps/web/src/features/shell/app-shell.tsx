@@ -1,6 +1,6 @@
 "use client";
 
-import { Menu } from "lucide-react";
+import { Menu, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
@@ -10,8 +10,15 @@ import { useUnreadCount } from "@/hooks/use-unread-count";
 import { cn } from "@/lib/cn";
 import { useAuth } from "@/features/auth/auth-provider";
 import { NavBadge } from "./nav-badge";
-import { BOTTOM_BAR_ITEMS, isActivePath, NAV_ITEMS, type NavItem } from "./nav-items";
+import { ADMIN_NAVIGATION, isActivePath, type NavItem, type ShellNavigation } from "./nav-items";
 import { UserPanel } from "./user-panel";
+
+/** A link to the other area of the app, for people who belong to both (an administrator who is also a parent). */
+export interface AreaLink {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+}
 
 /** Counters shown on navigation items, by item id. */
 type NavCounts = Readonly<Record<string, number>>;
@@ -27,7 +34,7 @@ function SidebarLink({
   counts: NavCounts;
   onNavigate?: () => void;
 }) {
-  const active = isActivePath(pathname, item.href);
+  const active = isActivePath(pathname, item.href, item.exact);
   const count = counts[item.id] ?? 0;
   return (
     <Link
@@ -47,7 +54,7 @@ function SidebarLink({
 }
 
 function BottomBarLink({ item, pathname, counts }: { item: NavItem; pathname: string; counts: NavCounts }) {
-  const active = isActivePath(pathname, item.href);
+  const active = isActivePath(pathname, item.href, item.exact);
   const count = counts[item.id] ?? 0;
   return (
     <Link
@@ -65,7 +72,30 @@ function BottomBarLink({ item, pathname, counts }: { item: NavItem; pathname: st
   );
 }
 
-function MobileMenu({ pathname, counts }: { pathname: string; counts: NavCounts }) {
+function OtherArea({ link, onNavigate }: { link: AreaLink; onNavigate?: () => void }) {
+  return (
+    <Link
+      href={link.href}
+      onClick={onNavigate}
+      className="flex h-11 items-center gap-3 rounded-md px-3 text-sm font-semibold text-primary-fg transition-colors duration-150 ease-soft hover:bg-primary-soft"
+    >
+      <link.icon aria-hidden="true" className="size-5 shrink-0" />
+      {link.label}
+    </Link>
+  );
+}
+
+function MobileMenu({
+  pathname,
+  counts,
+  items,
+  areaLink,
+}: {
+  pathname: string;
+  counts: NavCounts;
+  items: readonly NavItem[];
+  areaLink?: AreaLink;
+}) {
   const [open, setOpen] = useState(false);
   return (
     <Drawer open={open} onOpenChange={setOpen}>
@@ -75,9 +105,10 @@ function MobileMenu({ pathname, counts }: { pathname: string; counts: NavCounts 
       </DrawerTrigger>
       <DrawerContent side="bottom" title="Menu">
         <nav aria-label="Tutte le sezioni" className="flex flex-col gap-1">
-          {NAV_ITEMS.map((item) => (
+          {items.map((item) => (
             <SidebarLink key={item.id} item={item} pathname={pathname} counts={counts} onNavigate={() => setOpen(false)} />
           ))}
+          {areaLink ? <OtherArea link={areaLink} onNavigate={() => setOpen(false)} /> : null}
         </nav>
         <div className="mt-6 border-t border-line pt-6">
           <UserPanel />
@@ -87,8 +118,16 @@ function MobileMenu({ pathname, counts }: { pathname: string; counts: NavCounts 
   );
 }
 
-/** Private area frame: sidebar from `lg` up, top bar + bottom navigation below. */
-export function AppShell({ children }: { children: ReactNode }) {
+/** Frame of an area of the app: sidebar from `lg` up, top bar + bottom navigation below. */
+export function AppShell({
+  children,
+  navigation = ADMIN_NAVIGATION,
+  areaLink,
+}: {
+  children: ReactNode;
+  navigation?: ShellNavigation;
+  areaLink?: AreaLink;
+}) {
   const pathname = usePathname();
   const { status } = useAuth();
   // Not signed in (or still checking): no request, no badge
@@ -104,20 +143,21 @@ export function AppShell({ children }: { children: ReactNode }) {
       </a>
 
       <aside className="sticky top-0 hidden h-dvh flex-col gap-8 border-r border-line bg-surface/80 p-4 backdrop-blur lg:flex">
-        <Link href="/" aria-label="SuiteASD, vai alla home" className="rounded-md px-2 pt-2">
+        <Link href={navigation.homeHref} aria-label="SuiteASD, vai alla home" className="rounded-md px-2 pt-2">
           <Logo />
         </Link>
         <nav aria-label="Sezioni" className="flex flex-1 flex-col gap-1 overflow-y-auto">
-          {NAV_ITEMS.map((item) => (
+          {navigation.items.map((item) => (
             <SidebarLink key={item.id} item={item} pathname={pathname} counts={counts} />
           ))}
+          {areaLink ? <OtherArea link={areaLink} /> : null}
         </nav>
         <UserPanel />
       </aside>
 
       <div className="min-w-0">
         <header className="flex h-16 items-center px-4 lg:hidden">
-          <Link href="/" aria-label="SuiteASD, vai alla home" className="rounded-md">
+          <Link href={navigation.homeHref} aria-label="SuiteASD, vai alla home" className="rounded-md">
             <Logo size={32} />
           </Link>
         </header>
@@ -130,10 +170,10 @@ export function AppShell({ children }: { children: ReactNode }) {
         aria-label="Navigazione principale"
         className="fixed inset-x-0 bottom-0 z-sticky grid grid-cols-5 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
       >
-        {BOTTOM_BAR_ITEMS.map((item) => (
+        {navigation.bottomBar.map((item) => (
           <BottomBarLink key={item.id} item={item} pathname={pathname} counts={counts} />
         ))}
-        <MobileMenu pathname={pathname} counts={counts} />
+        <MobileMenu pathname={pathname} counts={counts} items={navigation.items} areaLink={areaLink} />
       </nav>
     </div>
   );
