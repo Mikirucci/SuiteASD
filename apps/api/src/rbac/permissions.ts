@@ -81,6 +81,7 @@ export const PERMISSIONS = {
   'announcements:write': [A, S, C],
   'referees:read': [A, S, D],
   'referees:write': [A, D],
+  'attachments:use': [A, S, D],
   'staff:read': [A, S, D],
   'staff:write': [A],
 } as const satisfies Record<string, readonly Role[]>;

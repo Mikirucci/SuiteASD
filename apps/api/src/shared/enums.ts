@@ -86,6 +86,11 @@ export const STAFF_ROLES = ['COACH', 'MANAGER', 'OTHER'] as const;
 export const staffRoleSchema = z.enum(STAFF_ROLES);
 export type StaffRole = z.infer<typeof staffRoleSchema>;
 
+// Records of the administration a file can be attached to (docs/DECISIONS.md D-23).
+export const ATTACHMENT_ENTITY_TYPES = ['VENUE', 'SPONSOR', 'TRIP', 'KIT', 'STAFF_MEMBER', 'REFEREE', 'LEDGER_ENTRY'] as const;
+export const attachmentEntityTypeSchema = z.enum(ATTACHMENT_ENTITY_TYPES);
+export type AttachmentEntityType = z.infer<typeof attachmentEntityTypeSchema>;
+
 // Notifiche (SPEC 07). Push is a future channel: device tokens are stored but nothing sends to them yet.
 // Two audiences (docs/DECISIONS.md D-21): "personal" types are about the person (athlete, guardian, coach, staff),
 // "organisation" types are what the administration needs to run the society. Admin and secretary only ever get the

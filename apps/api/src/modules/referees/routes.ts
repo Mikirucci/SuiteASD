@@ -18,6 +18,7 @@ export const refereeRoutes: FastifyPluginAsyncZod = async (app) => {
     tag: 'Referees',
     noun: 'referee',
     permissions: { read: 'referees:read', write: 'referees:write' },
+    attachmentType: 'REFEREE',
     schemas: {
       dto: refereeSchema,
       createBody: createRefereeBodySchema,

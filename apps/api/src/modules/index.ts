@@ -1,5 +1,6 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { announcementRoutes } from './announcements/routes.js';
+import { attachmentRoutes } from './attachments/routes.js';
 import { automationRoutes } from './automations/routes.js';
 import { notificationRoutes } from './notifications/routes.js';
 import { refereeRoutes } from './referees/routes.js';
@@ -43,6 +44,7 @@ export const moduleRoutes: readonly FastifyPluginAsyncZod[] = [
   evaluationRoutes,
   memberRoutes,
   documentRoutes,
+  attachmentRoutes,
   venueRoutes,
   sponsorRoutes,
   tripRoutes,

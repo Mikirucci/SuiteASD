@@ -1,6 +1,9 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
+import { createFileStorage } from '../modules/documents/storage.js';
+import { purgeAttachmentsOf } from '../modules/attachments/service.js';
+import type { AttachmentEntityType } from '../shared/enums.js';
 import type { Permission } from '../rbac/permissions.js';
 import { bearerSecurity, tenantOf, type TenantRequestContext } from '../plugins/auth.js';
 import { problemResponses } from './errors.js';
@@ -23,6 +26,8 @@ export interface CrudRoutesConfig<Dto, CreateBody, UpdateBody, ListQuery extends
   // Singular noun used in OpenAPI summaries, e.g. `venue`.
   noun: string;
   permissions: { read: Permission; write: Permission };
+  // Set when files can be attached to the resource: they are deleted together with the record.
+  attachmentType?: AttachmentEntityType;
   schemas: {
     dto: z.ZodType<Dto>;
     createBody: z.ZodType<CreateBody>;
@@ -41,7 +46,8 @@ export function registerCrudRoutes<Dto, CreateBody, UpdateBody, ListQuery extend
   app: FastifyInstance,
   config: CrudRoutesConfig<Dto, CreateBody, UpdateBody, ListQuery>,
 ): void {
-  const { path, tag, noun, permissions, schemas, service } = config;
+  const { path, tag, noun, permissions, schemas, service, attachmentType } = config;
+  const storage = createFileStorage(app.config.STORAGE_DIR);
   const typed = app.withTypeProvider<ZodTypeProvider>();
   const itemPath = `${path}/:id`;
 
@@ -120,7 +126,9 @@ export function registerCrudRoutes<Dto, CreateBody, UpdateBody, ListQuery extend
       },
     },
     async (request, reply) => {
-      await service.remove(tenantOf(request), request.params.id);
+      const ctx = tenantOf(request);
+      await service.remove(ctx, request.params.id);
+      if (attachmentType) await purgeAttachmentsOf(ctx, attachmentType, request.params.id, storage);
       return reply.status(204).send(null);
     },
   );

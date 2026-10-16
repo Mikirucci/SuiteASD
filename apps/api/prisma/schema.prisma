@@ -46,6 +46,7 @@ model Society {
   teamStaff              TeamStaff[]
   documentTypes          DocumentType[]
   documents              Document[]
+  attachments            Attachment[]
   feePlans               FeePlan[]
   payments               Payment[]
   receipts               Receipt[]
@@ -389,6 +390,29 @@ model Document {
   @@index([societyId])
   @@index([societyId, expiresAt])
   @@index([memberId, documentTypeId])
+}
+
+// File attached to one record of the administration (docs/DECISIONS.md D-23): a gym's rental contract, a sponsor's
+// agreement, a trip's programme, an invoice of the ledger... The record is named by (entityType, entityId) with no
+// foreign key, so one table serves every entity; the module checks the record exists in the society and removes the
+// attachments with it. entityType: VENUE | SPONSOR | TRIP | KIT | STAFF_MEMBER | REFEREE | LEDGER_ENTRY
+model Attachment {
+  id           String   @id @default(cuid())
+  societyId    String
+  entityType   String
+  entityId     String
+  title        String?
+  fileKey      String
+  fileName     String
+  mimeType     String
+  sizeBytes    Int
+  uploadedById String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+
+  @@index([societyId, entityType, entityId])
 }
 
 // ---------------------------------------------------------------------------
