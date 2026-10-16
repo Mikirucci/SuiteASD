@@ -232,9 +232,16 @@ describe('per-society hour and channels of the daily automations (SPEC 08)', () 
       expect(housekeepingOutcomes.get(society.id)).toMatchObject({ status: 'SUCCESS' });
     });
 
-    it('registers the three configurable automations with an hourly tick and the others with their own cron', () => {
+    it('registers the configurable automations with an hourly tick and the others with their own cron', () => {
       const configurable = builtInAutomations.filter((definition) => definition.hourOf).map((definition) => definition.key);
-      expect(configurable.sort()).toEqual(['certificate-reminders', 'convocation-dispatch', 'fee-reminders']);
+      expect(configurable.sort()).toEqual([
+        'admin-digest',
+        'certificate-reminders',
+        'convocation-dispatch',
+        'fee-reminders',
+        'missing-documents',
+        'sponsor-expiry',
+      ]);
       expect(builtInAutomations.find((definition) => definition.key === 'notifications-dispatch')?.hourOf).toBeUndefined();
       expect(builtInAutomations.find((definition) => definition.key === 'notifications-dispatch')?.schedule).toBe('*/10 * * * *');
     });

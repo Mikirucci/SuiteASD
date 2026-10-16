@@ -1,4 +1,5 @@
 import type { FeePlan, Prisma } from '@prisma/client';
+import type { FastifyBaseLogger } from 'fastify';
 import type { CrudService } from '../../lib/crud-routes.js';
 import { isAutomationEnabled, logEventRun } from '../../jobs/event-automations.js';
 import { conflict, forbidden, notFound, unprocessable } from '../../lib/errors.js';
@@ -11,6 +12,7 @@ import { can } from '../../rbac/permissions.js';
 import { feeKindSchema, paymentMethodSchema, type PaymentStatus } from '../../shared/enums.js';
 import { formatDateOnly, parseDateOnly, startOfUtcDay } from '../documents/status.js';
 import { ownMemberFilter } from '../members/access.js';
+import { notifyAdministration } from '../notifications/admin-alerts.js';
 import { formatReceiptCode, renderReceiptPdf } from './receipt-pdf.js';
 import type {
   CreateFeeBody,
@@ -396,6 +398,28 @@ export async function payFee(
     const row = await tx.payment.findFirstOrThrow({ where: { id }, include: feeInclude });
     return { status: 200, body: toFeeDto(row, now) };
   });
+}
+
+// The other administrators hear about a payment as it is recorded (the one who recorded it already knows). Best
+// effort: a failure here must not undo a payment that went through.
+export async function alertPaymentReceived(ctx: TenantRequestContext, fee: FeeDto, log: FastifyBaseLogger): Promise<void> {
+  try {
+    await notifyAdministration(ctx.db, {
+      societyId: ctx.auth.societyId,
+      template: {
+        type: 'ADMIN_PAYMENT_RECEIVED',
+        memberName: fee.memberName,
+        description: fee.description,
+        amountCents: fee.amountCents,
+      },
+      dedupeKey: `payment-received:${fee.id}`,
+      data: { feeId: fee.id, memberId: fee.memberId },
+      exceptUserId: ctx.auth.userId,
+      now: new Date(),
+    });
+  } catch (error) {
+    log.error({ err: error, feeId: fee.id }, 'could not notify the administration of a payment');
+  }
 }
 
 export interface ReceiptFile {

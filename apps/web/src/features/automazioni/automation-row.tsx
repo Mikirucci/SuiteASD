@@ -4,10 +4,14 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
   Bell,
+  BellRing,
   CalendarClock,
   Check,
+  ClipboardList,
   Clock,
   FileCheck,
+  FileUp,
+  Handshake,
   Lock,
   PauseCircle,
   Play,
@@ -35,6 +39,10 @@ const ICONS: Record<string, LucideIcon> = {
   standings: Trophy,
   receipts: Receipt,
   "notifications-dispatch": Bell,
+  "missing-documents": FileUp,
+  "admin-alerts": BellRing,
+  "admin-digest": ClipboardList,
+  "sponsor-expiry": Handshake,
 };
 
 const STATE_CHIPS: Record<AutomationState, { tone: ChipTone; icon: ReactNode }> = {

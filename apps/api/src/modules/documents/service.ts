@@ -1,4 +1,5 @@
 import type { Prisma } from '@prisma/client';
+import type { FastifyBaseLogger } from 'fastify';
 import { conflict, forbidden, notFound, unprocessable } from '../../lib/errors.js';
 import { cursorArgs, toPage, type Page, type PaginationQuery } from '../../lib/pagination.js';
 import { isUniqueViolation } from '../../lib/prisma-errors.js';
@@ -6,6 +7,7 @@ import { toIso } from '../../lib/schemas.js';
 import type { TenantRequestContext } from '../../plugins/auth.js';
 import { can } from '../../rbac/permissions.js';
 import { memberScope, ownMemberIds } from '../members/access.js';
+import { notifyAdministration } from '../notifications/admin-alerts.js';
 import type {
   CreateDocumentBody,
   CreateDocumentTypeBody,
@@ -16,6 +18,7 @@ import type {
   ExpirationsQuery,
   UpdateDocumentBody,
   UpdateDocumentTypeBody,
+  UploadDocumentQuery,
 } from './schema.js';
 import {
   MEDICAL_CERTIFICATE_KEY,
@@ -315,6 +318,96 @@ export async function uploadDocumentFile(
   } catch (error) {
     await storage.remove(fileKey);
     throw error;
+  }
+}
+
+export interface UploadedDocument {
+  document: DocumentDto;
+  memberName: string;
+  // True when an athlete or guardian uploaded it themselves (the administration is then told).
+  selfService: boolean;
+}
+
+// One request, one document: the record and its file are created together, so there is never a record without its
+// file. The secretary may do it for any member; an athlete or a guardian only for their own members ("area
+// personale"), which is what keeps the administration's view up to date by itself: the status of the member's
+// documents is computed from what is on file, so the upload shows up in the lists and the expiry timeline at once.
+export async function uploadMemberDocument(
+  ctx: TenantRequestContext,
+  memberId: string,
+  query: UploadDocumentQuery,
+  file: { content: Buffer; mimeType: AllowedMimeType },
+  storage: FileStorage,
+  now = new Date(),
+): Promise<UploadedDocument> {
+  const { db, auth } = ctx;
+  const viewer = await viewerOf(ctx);
+  if (!viewer.isWriter) {
+    if (!can(auth.roles, 'documents:uploadOwn')) throw forbidden();
+    // Somebody else's member looks like a missing one.
+    if (!viewer.ownMemberIds.has(memberId)) throw notFound('Member');
+  }
+  const member = await db.member.findFirst({ where: { id: memberId }, select: { firstName: true, lastName: true } });
+  if (!member) throw notFound('Member');
+  const type = await db.documentType.findFirst({ where: { id: query.documentTypeId } });
+  if (!type) throw notFound('Document type');
+  if (file.content.length === 0) throw unprocessable('empty_file', 'The uploaded file is empty');
+  if (!matchesSignature(file.content, file.mimeType)) {
+    throw unprocessable('file_content_mismatch', 'The file content does not match its declared type');
+  }
+  const issuedAt = optionalDate(query.issuedAt) ?? null;
+  const expiresAt = resolveExpiry(type, issuedAt, optionalDate(query.expiresAt) ?? null, true);
+
+  const fileKey = await storage.save(auth.societyId, file.content, file.mimeType);
+  try {
+    const created = await db.document.create({
+      data: {
+        societyId: auth.societyId,
+        memberId,
+        documentTypeId: type.id,
+        title: query.title ?? null,
+        issuedAt,
+        expiresAt,
+        fileKey,
+        fileName: sanitizeFileName(query.fileName),
+        mimeType: file.mimeType,
+        sizeBytes: file.content.length,
+        uploadedById: auth.userId,
+      },
+      include: { documentType: true },
+    });
+    return {
+      document: toDto(created, viewer, now),
+      memberName: `${member.firstName} ${member.lastName}`,
+      selfService: !viewer.isWriter,
+    };
+  } catch (error) {
+    await storage.remove(fileKey);
+    throw error;
+  }
+}
+
+// Tells the administration that an athlete or guardian uploaded a document. Best effort: a failure here must not
+// undo an upload that went through.
+export async function alertDocumentUploaded(ctx: TenantRequestContext, uploaded: UploadedDocument, log: FastifyBaseLogger): Promise<void> {
+  if (!uploaded.selfService) return;
+  const { document } = uploaded;
+  try {
+    await notifyAdministration(ctx.db, {
+      societyId: ctx.auth.societyId,
+      template: {
+        type: 'ADMIN_DOCUMENT_UPLOADED',
+        memberName: uploaded.memberName,
+        documentName: document.documentType.name,
+        expiresAt: document.expiresAt ? parseDateOnly(document.expiresAt) : null,
+      },
+      dedupeKey: `document-uploaded:${document.id}`,
+      data: { memberId: document.memberId, documentId: document.id },
+      exceptUserId: ctx.auth.userId,
+      now: new Date(),
+    });
+  } catch (error) {
+    log.error({ err: error, documentId: document.id }, 'could not notify the administration of an uploaded document');
   }
 }
 

@@ -60,11 +60,14 @@ describe('automations dashboard (SPEC 08)', () => {
       expect(body.data.map((item: { name: string }) => item.name)).toEqual([
         'Ricordare le quote',
         'Controllare i certificati',
+        'Sollecitare i documenti mancanti',
         'Inviare le convocazioni',
         'Aggiornare le classifiche',
         'Emettere le ricevute',
         'Avvisare atleti e genitori',
         "Avvisare l'amministrazione",
+        "Riepilogo per l'amministrazione",
+        'Avvisare i contratti sponsor in scadenza',
       ]);
       expect(body.data.map((item: { key: string }) => item.key)).toEqual(AUTOMATION_CATALOG.map((entry) => entry.key));
       expect(body.summary).toEqual({ active: TOTAL, total: TOTAL, percentage: 100 });

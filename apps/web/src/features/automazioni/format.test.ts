@@ -60,21 +60,37 @@ describe("automation settings", () => {
     expect(summarizeConfig("fee-reminders", { beforeDueDays: [1, 7], afterDueDays: [3] })).toEqual([
       "Promemoria: 1 e 7 giorni prima della scadenza",
       "Solleciti: 3 giorni dopo la scadenza",
+      "Avvisa: nell'app e per email",
     ]);
-    expect(summarizeConfig("fee-reminders", { beforeDueDays: [1], afterDueDays: [] })).toEqual([
+    expect(summarizeConfig("fee-reminders", { beforeDueDays: [1], afterDueDays: [], channels: ["EMAIL"] })).toEqual([
       "Promemoria: 1 giorno prima della scadenza",
       "Solleciti: nessuno",
+      "Avvisa: per email",
     ]);
-    expect(summarizeConfig("certificate-reminders", { thresholdsDays: [0, 7, 15, 30] })).toEqual([
+    expect(summarizeConfig("certificate-reminders", { thresholdsDays: [0, 7, 15, 30], channels: ["IN_APP"] })).toEqual([
       "Avvisi: alla scadenza, 7, 15 e 30 giorni prima",
+      "Avvisa: nell'app",
     ]);
-    expect(summarizeConfig("convocation-dispatch", { daysBefore: 3, remindNonRespondents: true, reminderDaysBefore: 1 })).toEqual([
+    expect(summarizeConfig("convocation-dispatch", { daysBefore: 3, remindNonRespondents: true, reminderDaysBefore: 1, channels: ["IN_APP"] })).toEqual([
       "Convocazioni: 3 giorni prima dell'evento",
       "Promemoria a chi non risponde: 1 giorno prima",
+      "Avvisa: nell'app",
     ]);
-    expect(summarizeConfig("convocation-dispatch", { daysBefore: 1, remindNonRespondents: false, reminderDaysBefore: 1 })).toEqual([
+    expect(summarizeConfig("convocation-dispatch", { daysBefore: 1, remindNonRespondents: false, reminderDaysBefore: 1, channels: ["IN_APP"] })).toEqual([
       "Convocazioni: 1 giorno prima dell'evento",
       "Promemoria a chi non risponde: disattivato",
+      "Avvisa: nell'app",
+    ]);
+    expect(summarizeConfig("missing-documents", { graceDays: 3, everyDays: 7, channels: ["IN_APP", "EMAIL"] })).toEqual([
+      "Primo sollecito: dopo 3 giorni dall'iscrizione",
+      "Poi ogni 7 giorni",
+      "Avvisa: nell'app e per email",
+    ]);
+    expect(summarizeConfig("admin-digest", { everyDays: 7, channels: ["IN_APP"] })).toEqual(["Ogni lunedì", "Avvisa: nell'app"]);
+    expect(summarizeConfig("admin-digest", { everyDays: 1, channels: ["IN_APP"] })).toEqual(["Ogni 1 giorno", "Avvisa: nell'app"]);
+    expect(summarizeConfig("sponsor-expiry", { thresholdsDays: [7, 30], channels: ["IN_APP"] })).toEqual([
+      "Avvisi: 7 e 30 giorni prima della fine del contratto",
+      "Avvisa: nell'app",
     ]);
     expect(summarizeConfig("notifications-dispatch", { maxAttempts: 3, batchSize: 100 })).toEqual([
       "Tentativi per email: 3",
@@ -90,15 +106,28 @@ describe("automation settings", () => {
 
   it("round-trips settings through the form values", () => {
     const fields = configFieldsOf("convocation-dispatch");
-    const values = toFormValues(fields, { daysBefore: 3, remindNonRespondents: true, reminderDaysBefore: 0 });
-    expect(values).toEqual({ daysBefore: "3", remindNonRespondents: true, reminderDaysBefore: "0" });
-    expect(toConfigBody(fields, values)).toEqual({ daysBefore: 3, remindNonRespondents: true, reminderDaysBefore: 0 });
+    const stored = { hour: 7, channels: ["EMAIL"], daysBefore: 3, remindNonRespondents: true, reminderDaysBefore: 0 };
+    const values = toFormValues(fields, stored);
+    expect(values).toEqual({
+      hour: "7",
+      channels_IN_APP: false,
+      channels_EMAIL: true,
+      daysBefore: "3",
+      remindNonRespondents: true,
+      reminderDaysBefore: "0",
+    });
+    expect(toConfigBody(fields, values)).toEqual(stored);
+  });
+
+  it("offers both channels when the society never saved the settings", () => {
+    const values = toFormValues(configFieldsOf("admin-digest"), { everyDays: 7 });
+    expect([values.channels_IN_APP, values.channels_EMAIL]).toEqual([true, true]);
   });
 
   it("validates day lists and numbers against the limits of the API", () => {
     const schema = configFormSchema(configFieldsOf("fee-reminders"));
     const issues = (before: string, after: string) => {
-      const result = schema.safeParse({ beforeDueDays: before, afterDueDays: after });
+      const result = schema.safeParse({ hour: "9", channels_IN_APP: true, channels_EMAIL: false, beforeDueDays: before, afterDueDays: after });
       return result.success ? [] : result.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`);
     };
     expect(issues("1, 7", "3 10")).toEqual([]);
@@ -107,6 +136,13 @@ describe("automation settings", () => {
     expect(issues("1,2,3,4,5,6", "3")).toEqual(["beforeDueDays: Al massimo 5 valori"]);
     expect(issues("1", "121")).toEqual(["afterDueDays: Ogni valore va da 1 a 120"]);
     expect(issues("uno", "3")).toEqual(["beforeDueDays: Ogni valore va da 1 a 60"]);
+
+    // The hour is one of the 24 of the day and at least one channel must stay on
+    const base = { beforeDueDays: "1", afterDueDays: "3", channels_IN_APP: true, channels_EMAIL: false };
+    expect(schema.safeParse({ ...base, hour: "24" }).success).toBe(false);
+    expect(schema.safeParse({ ...base, hour: "" }).success).toBe(false);
+    expect(schema.safeParse({ ...base, hour: "0" }).success).toBe(true);
+    expect(schema.safeParse({ ...base, hour: "9", channels_IN_APP: false }).success).toBe(false);
 
     const numbers = configFormSchema(configFieldsOf("notifications-dispatch"));
     expect(numbers.safeParse({ maxAttempts: "11", batchSize: "100" }).success).toBe(false);

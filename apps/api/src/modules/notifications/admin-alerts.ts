@@ -19,6 +19,8 @@ export interface AdministrationAlert {
   dedupeKey: string;
   // References to the subject, so the web app can deep-link.
   data?: Prisma.InputJsonObject;
+  // Whoever caused the event already knows about it: they are not notified.
+  exceptUserId?: string;
   now: Date;
 }
 
@@ -27,7 +29,8 @@ export interface AdministrationAlert {
 // off, nobody is to be told, or the alert was already sent).
 export async function notifyAdministration(db: TenantDb, alert: AdministrationAlert): Promise<number> {
   if (!(await isAutomationEnabled(db, ADMIN_ALERTS_KEY))) return 0;
-  const userIds = await resolveRecipients(db, { kind: 'ROLES', roles: ['ADMIN', 'SEGRETERIA'] });
+  const recipients = await resolveRecipients(db, { kind: 'ROLES', roles: ['ADMIN', 'SEGRETERIA'] });
+  const userIds = recipients.filter((userId) => userId !== alert.exceptUserId);
   const { title, body } = renderNotification(alert.template);
   const written = await createNotification(db, {
     societyId: alert.societyId,

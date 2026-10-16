@@ -91,6 +91,15 @@ export const uploadQuerySchema = z.object({
   fileName: z.string().trim().min(1).max(200).optional().describe('Original file name (sanitized by the server)'),
 });
 
+// Upload of a whole document in one request (the file is the body): either the record and the file exist, or neither.
+export const uploadDocumentQuerySchema = z.object({
+  documentTypeId: idRef,
+  title: z.string().trim().min(1).max(120).optional(),
+  issuedAt: dateOnly.optional(),
+  expiresAt: dateOnly.optional().describe('Required when the type has an expiry unless issuedAt + validityDays apply'),
+  fileName: z.string().trim().min(1).max(200).optional().describe('Original file name (sanitized by the server)'),
+});
+
 // ---- Expiry timeline ------------------------------------------------------------------------------------------
 
 export const expirationsQuerySchema = z.object({
@@ -133,6 +142,7 @@ export type CreateDocumentTypeBody = z.infer<typeof createDocumentTypeBodySchema
 export type UpdateDocumentTypeBody = z.infer<typeof updateDocumentTypeBodySchema>;
 export type DocumentTypeDto = z.infer<typeof documentTypeSchema>;
 export type CreateDocumentBody = z.infer<typeof createDocumentBodySchema>;
+export type UploadDocumentQuery = z.infer<typeof uploadDocumentQuerySchema>;
 export type UpdateDocumentBody = z.infer<typeof updateDocumentBodySchema>;
 export type DocumentDto = z.infer<typeof documentSchema>;
 export type ExpirationsQuery = z.infer<typeof expirationsQuerySchema>;

@@ -5,9 +5,18 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Save } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
-import { Alert, Button, Dialog, DialogClose, DialogContent, Input, Switch, useToast } from "@/components/ui";
+import { Alert, Button, Dialog, DialogClose, DialogContent, Input, Select, Switch, useToast } from "@/components/ui";
 import { ApiError, useApiMutation } from "@/lib/api";
-import { configFieldsOf, configFormSchema, toConfigBody, toFormValues, type ConfigFormValues } from "./config";
+import {
+  CHANNEL_OPTIONS,
+  HOURS,
+  channelFieldName,
+  configFieldsOf,
+  configFormSchema,
+  toConfigBody,
+  toFormValues,
+  type ConfigFormValues,
+} from "./config";
 import { describeAutomationError } from "./format";
 import type { Automation, AutomationPatch } from "./types";
 
@@ -61,6 +70,28 @@ function ConfigForm({ automation, onDone }: ConfigFormProps) {
         {fields.map((field) =>
           field.type === "toggle" ? (
             <Switch key={field.name} label={field.label} hint={field.hint} {...register(field.name)} />
+          ) : field.type === "hour" ? (
+            <Select
+              key={field.name}
+              label={field.label}
+              hint={field.hint}
+              options={HOURS}
+              error={errors[field.name]?.message}
+              {...register(field.name)}
+            />
+          ) : field.type === "channels" ? (
+            <fieldset key={field.name} className="flex flex-col gap-2">
+              <legend className="text-sm font-semibold text-fg">{field.label}</legend>
+              <p className="text-sm text-fg-muted">{field.hint}</p>
+              {CHANNEL_OPTIONS.map((option) => (
+                <Switch key={option.value} label={option.label} {...register(channelFieldName(field.name, option.value))} />
+              ))}
+              {errors[field.name]?.message ? (
+                <p role="alert" className="text-sm font-semibold text-danger">
+                  {errors[field.name]?.message}
+                </p>
+              ) : null}
+            </fieldset>
           ) : (
             <Input
               key={field.name}
@@ -92,7 +123,7 @@ export interface ConfigDialogProps {
   onClose: () => void;
 }
 
-/** Settings of one automation (thresholds, days, limits). The schedule is fixed by the backend and is not editable. */
+/** Settings of one automation: when it runs, where it notifies, thresholds and limits. */
 export function ConfigDialog({ automation, onClose }: ConfigDialogProps) {
   if (!automation) return null;
   return (

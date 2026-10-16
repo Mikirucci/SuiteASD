@@ -13,9 +13,11 @@ import {
   expirationsSchema,
   updateDocumentBodySchema,
   updateDocumentTypeBodySchema,
+  uploadDocumentQuerySchema,
   uploadQuerySchema,
 } from './schema.js';
 import {
+  alertDocumentUploaded,
   createDocument,
   createDocumentType,
   deleteDocument,
@@ -28,6 +30,7 @@ import {
   updateDocument,
   updateDocumentType,
   uploadDocumentFile,
+  uploadMemberDocument,
 } from './service.js';
 import { ALLOWED_MIME_TYPES, MAX_UPLOAD_BYTES, createFileStorage, isAllowedMimeType } from './storage.js';
 
@@ -137,6 +140,36 @@ export const documentRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     async (request, reply) => reply.status(201).send(await createDocument(tenantOf(request), request.params.id, request.body)),
+  );
+
+  app.post(
+    '/members/:id/documents/upload',
+    {
+      onRequest: [app.requirePermission('documents:readOwn')],
+      schema: {
+        tags: ['Documents'],
+        summary: 'Upload a document for a member in one request (the secretary, or the athlete or guardian of that member)',
+        description:
+          'The request body is the raw file; the document type, dates and title travel in the query string. The record and ' +
+          'the file are created together. When an athlete or guardian uploads, the administration is notified. ' +
+          `Content-Type must be one of ${ALLOWED_MIME_TYPES.join(', ')}; maximum ${MAX_UPLOAD_BYTES / (1024 * 1024)} MB.`,
+        security: bearerSecurity,
+        consumes: [...ALLOWED_MIME_TYPES],
+        params: idParamsSchema,
+        querystring: uploadDocumentQuerySchema,
+        response: { 201: documentSchema, ...problemResponses(400, 401, 403, 404, 415, 422) },
+      },
+    },
+    async (request, reply) => {
+      const mimeType = (request.headers['content-type'] ?? '').split(';')[0]?.trim().toLowerCase() ?? '';
+      if (!isAllowedMimeType(mimeType) || !Buffer.isBuffer(request.body)) {
+        throw unprocessable('unsupported_file_type', `Allowed file types: ${ALLOWED_MIME_TYPES.join(', ')}`);
+      }
+      const ctx = tenantOf(request);
+      const uploaded = await uploadMemberDocument(ctx, request.params.id, request.query, { content: request.body, mimeType }, storage);
+      await alertDocumentUploaded(ctx, uploaded, request.log);
+      return reply.status(201).send(uploaded.document);
+    },
   );
 
   // ---- Expiry timeline (declared before /documents/:id: static segments win anyway) ---------------------------

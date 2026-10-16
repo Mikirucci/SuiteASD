@@ -5,6 +5,8 @@ import type { Automation, AutomationDashboard, AutomationRun } from "./types";
 export const WRITE_PERMISSIONS = ["automations:read", "automations:write"];
 export const READ_PERMISSIONS = ["automations:read"];
 
+const BOTH_CHANNELS = ["IN_APP", "EMAIL"];
+
 export function makeRun(overrides: Partial<AutomationRun> = {}): AutomationRun {
   return {
     id: "run-1",
@@ -30,7 +32,7 @@ export function makeAutomation(overrides: Partial<Automation> = {}): Automation 
     toggleable: true,
     runnable: true,
     state: "COMPLETED",
-    config: { beforeDueDays: [1, 7], afterDueDays: [3, 10] },
+    config: { hour: 9, channels: BOTH_CHANNELS, beforeDueDays: [1, 7], afterDueDays: [3, 10] },
     lastRunAt: "2026-11-12T08:00:00.000Z",
     lastRun: makeRun(),
     ...overrides,
@@ -45,7 +47,7 @@ export const CERTIFICATE_REMINDERS = makeAutomation({
   description: "Avvisa atleti e genitori quando un documento sta per scadere o è scaduto.",
   schedule: "0 8 * * *",
   state: "FAILED",
-  config: { thresholdsDays: [0, 7, 15, 30] },
+  config: { hour: 8, channels: BOTH_CHANNELS, thresholdsDays: [0, 7, 15, 30] },
   lastRun: makeRun({
     id: "run-cert",
     automationKey: "certificate-reminders",
@@ -63,7 +65,7 @@ export const CONVOCATION_DISPATCH = makeAutomation({
   runnable: false,
   enabled: false,
   state: "DISABLED",
-  config: { daysBefore: 3, remindNonRespondents: true, reminderDaysBefore: 1 },
+  config: { hour: 9, channels: BOTH_CHANNELS, daysBefore: 3, remindNonRespondents: true, reminderDaysBefore: 1 },
   lastRunAt: null,
   lastRun: null,
 });
@@ -106,6 +108,52 @@ export const NOTIFICATIONS_DISPATCH = makeAutomation({
   lastRun: null,
 });
 
+export const MISSING_DOCUMENTS = makeAutomation({
+  key: "missing-documents",
+  name: "Sollecitare i documenti mancanti",
+  description: "Ricorda ad atleti e genitori i documenti richiesti che non hanno ancora caricato.",
+  schedule: "0 10 * * *",
+  state: "WAITING",
+  config: { hour: 10, channels: BOTH_CHANNELS, graceDays: 3, everyDays: 7 },
+  lastRunAt: null,
+  lastRun: null,
+});
+
+export const ADMIN_ALERTS = makeAutomation({
+  key: "admin-alerts",
+  name: "Avvisare l'amministrazione",
+  description: "Avvisa subito segreteria e amministratori di pagamenti ricevuti, documenti caricati e nuove iscrizioni.",
+  kind: "EVENT",
+  schedule: null,
+  runnable: false,
+  state: "COMPLETED",
+  config: {},
+  lastRunAt: null,
+  lastRun: null,
+});
+
+export const ADMIN_DIGEST = makeAutomation({
+  key: "admin-digest",
+  name: "Riepilogo per l'amministrazione",
+  description: "Riassume a segreteria e amministratori le quote scadute e i documenti da sistemare.",
+  schedule: "0 8 * * *",
+  state: "WAITING",
+  config: { hour: 8, channels: BOTH_CHANNELS, everyDays: 7 },
+  lastRunAt: null,
+  lastRun: null,
+});
+
+export const SPONSOR_EXPIRY = makeAutomation({
+  key: "sponsor-expiry",
+  name: "Avvisare i contratti sponsor in scadenza",
+  description: "Avvisa l'amministrazione prima che scada il contratto di uno sponsor.",
+  schedule: "0 9 * * *",
+  state: "WAITING",
+  config: { hour: 9, channels: BOTH_CHANNELS, thresholdsDays: [7, 30] },
+  lastRunAt: null,
+  lastRun: null,
+});
+
 export function makeDashboard(data: Automation[]): AutomationDashboard {
   const active = data.filter((automation) => automation.enabled).length;
   return { data, summary: { active, total: data.length, percentage: Math.round((active / data.length) * 100) } };
@@ -114,10 +162,14 @@ export function makeDashboard(data: Automation[]): AutomationDashboard {
 export const ALL_AUTOMATIONS: Automation[] = [
   FEE_REMINDERS,
   CERTIFICATE_REMINDERS,
+  MISSING_DOCUMENTS,
   CONVOCATION_DISPATCH,
   STANDINGS,
   RECEIPTS,
   NOTIFICATIONS_DISPATCH,
+  ADMIN_ALERTS,
+  ADMIN_DIGEST,
+  SPONSOR_EXPIRY,
 ];
 
 export const DASHBOARD = makeDashboard(ALL_AUTOMATIONS);

@@ -8,6 +8,7 @@ import { AutomazioniPage } from "./automazioni-page";
 import {
   ALL_AUTOMATIONS,
   CERTIFICATE_REMINDERS,
+  CONVOCATION_DISPATCH,
   DASHBOARD,
   FEE_REMINDERS,
   READ_PERMISSIONS,
@@ -45,21 +46,25 @@ afterEach(() => {
 });
 
 describe("AutomazioniPage", () => {
-  it("shows the share of active automations and the six-item checklist with state and automatic tag", async () => {
+  it("shows the share of active automations and the checklist with state and automatic tag", async () => {
     installFakeApi(ROUTES);
     const { container } = renderWithQuery(<AutomazioniPage />);
     expect(screen.getByRole("heading", { level: 1, name: "Tu pensi alla squadra. Al resto, l'app." })).toBeInTheDocument();
     expect(screen.getByRole("status", { name: "Caricamento delle attività" })).toBeInTheDocument();
 
-    expect(await screen.findByText("5 su 6 attive · 83%")).toBeInTheDocument();
+    expect(await screen.findByText("9 su 10 attive · 90%")).toBeInTheDocument();
     const list = screen.getByRole("list", { name: "Checklist delle attività" });
     expect(within(list).getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent)).toEqual([
       "Ricordare le quote",
       "Controllare i certificati",
+      "Sollecitare i documenti mancanti",
       "Inviare le convocazioni",
       "Aggiornare le classifiche",
       "Emettere le ricevute",
       "Avvisare atleti e genitori",
+      "Avvisare l'amministrazione",
+      "Riepilogo per l'amministrazione",
+      "Avvisare i contratti sponsor in scadenza",
     ]);
     expect(within(row("Ricordare le quote")).getByText("Completata")).toBeInTheDocument();
     expect(within(row("Ricordare le quote")).getByText("Automatico")).toBeInTheDocument();
@@ -71,14 +76,14 @@ describe("AutomazioniPage", () => {
     expect(within(row("Avvisare atleti e genitori")).getByText("In corso")).toBeInTheDocument();
     expect(within(row("Avvisare atleti e genitori")).getByText("Ogni 10 minuti")).toBeInTheDocument();
     expect(within(row("Aggiornare le classifiche")).getByText("Scatta da sola a ogni evento")).toBeInTheDocument();
-    expect(screen.getAllByText("Automatico")).toHaveLength(5);
+    expect(screen.getAllByText("Automatico")).toHaveLength(9);
     await expectNoA11yViolations(container);
   });
 
   it("congratulates when every activity is delegated", async () => {
     installFakeApi({ "GET /automations": { body: makeDashboard(ALL_AUTOMATIONS.map((automation) => ({ ...automation, enabled: true }))) } });
     renderWithQuery(<AutomazioniPage />);
-    expect(await screen.findByText("6 su 6 attive · 100%")).toBeInTheDocument();
+    expect(await screen.findByText("10 su 10 attive · 100%")).toBeInTheDocument();
     expect(screen.getByText("Tutto sotto controllo: l'app gestisce ogni attività al posto tuo.")).toBeInTheDocument();
   });
 
@@ -189,14 +194,16 @@ describe("AutomazioniPage", () => {
     await userEvent.click(within(dialog).getByRole("button", { name: "Salva le impostazioni" }));
 
     expect(await screen.findByText("Impostazioni salvate")).toBeInTheDocument();
-    expect(api.calls.find((call) => call.method === "PATCH")?.body).toEqual({ config: { beforeDueDays: [2, 5], afterDueDays: [3, 10] } });
+    expect(api.calls.find((call) => call.method === "PATCH")?.body).toEqual({
+      config: { hour: 9, channels: ["IN_APP", "EMAIL"], beforeDueDays: [2, 5], afterDueDays: [3, 10] },
+    });
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
 
   it("edits the convocation settings, including the reminder switch", async () => {
     const api = installFakeApi({
       ...ROUTES,
-      "PATCH /automations/convocation-dispatch": { body: ALL_AUTOMATIONS[2] },
+      "PATCH /automations/convocation-dispatch": { body: CONVOCATION_DISPATCH },
     });
     renderWithQuery(<AutomazioniPage />);
     await screen.findByRole("list", { name: "Checklist delle attività" });
@@ -207,8 +214,37 @@ describe("AutomazioniPage", () => {
     await userEvent.type(within(dialog).getByLabelText(/Invio delle convocazioni/), "5");
     await userEvent.click(within(dialog).getByRole("button", { name: "Salva le impostazioni" }));
     await waitFor(() => expect(api.calls.find((call) => call.method === "PATCH")?.body).toEqual({
-      config: { daysBefore: 5, remindNonRespondents: false, reminderDaysBefore: 1 },
+      config: { hour: 9, channels: ["IN_APP", "EMAIL"], daysBefore: 5, remindNonRespondents: false, reminderDaysBefore: 1 },
     }));
+  });
+
+  it("changes when an automation runs and where it notifies", async () => {
+    const api = installFakeApi({ ...ROUTES, "PATCH /automations/fee-reminders": { body: FEE_REMINDERS } });
+    renderWithQuery(<AutomazioniPage />);
+    await userEvent.click(within(await screen.findByRole("list", { name: "Checklist delle attività" })).getAllByRole("button", { name: /Impostazioni/ })[0] as HTMLElement);
+    const dialog = await screen.findByRole("dialog", { name: "Impostazioni: Ricordare le quote" });
+
+    const hour = within(dialog).getByLabelText("A che ora parte");
+    expect(hour).toHaveValue("9");
+    await userEvent.selectOptions(hour, "18");
+    await userEvent.click(within(dialog).getByRole("switch", { name: "Email" }));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Salva le impostazioni" }));
+
+    await waitFor(() => expect(api.calls.find((call) => call.method === "PATCH")?.body).toEqual({
+      config: { hour: 18, channels: ["IN_APP"], beforeDueDays: [1, 7], afterDueDays: [3, 10] },
+    }));
+  });
+
+  it("does not save when every channel is switched off", async () => {
+    const api = installFakeApi({ ...ROUTES, "PATCH /automations/fee-reminders": { body: FEE_REMINDERS } });
+    renderWithQuery(<AutomazioniPage />);
+    await userEvent.click(within(await screen.findByRole("list", { name: "Checklist delle attività" })).getAllByRole("button", { name: /Impostazioni/ })[0] as HTMLElement);
+    const dialog = await screen.findByRole("dialog", { name: "Impostazioni: Ricordare le quote" });
+    await userEvent.click(within(dialog).getByRole("switch", { name: "Nell'app" }));
+    await userEvent.click(within(dialog).getByRole("switch", { name: "Email" }));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Salva le impostazioni" }));
+    expect(await within(dialog).findByText("Scegli almeno un canale")).toBeInTheDocument();
+    expect(api.calls.some((call) => call.method === "PATCH")).toBe(false);
   });
 
   it("shows a server-side settings error in the dialog", async () => {
@@ -299,7 +335,7 @@ describe("AutomazioniPage", () => {
     await screen.findByRole("list", { name: "Checklist delle attività" });
     expect(screen.queryByRole("switch")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Impostazioni|Esegui ora/ })).not.toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: /Registro/ })).toHaveLength(6);
+    expect(screen.getAllByRole("button", { name: /Registro/ })).toHaveLength(ALL_AUTOMATIONS.length);
     expect(within(row("Aggiornare le classifiche")).getByText("Sempre attiva")).toBeInTheDocument();
     expect(within(row("Ricordare le quote")).getByText("Promemoria: 1 e 7 giorni prima della scadenza")).toBeInTheDocument();
   });

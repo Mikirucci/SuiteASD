@@ -19,6 +19,9 @@ function dayList(options: { min: number; max: number; maxItems: number }) {
 export const FEE_REMINDERS_DEFAULT_HOUR = 9;
 export const CERTIFICATE_REMINDERS_DEFAULT_HOUR = 8;
 export const CONVOCATION_DISPATCH_DEFAULT_HOUR = 9;
+export const MISSING_DOCUMENTS_DEFAULT_HOUR = 10;
+export const ADMIN_DIGEST_DEFAULT_HOUR = 8;
+export const SPONSOR_EXPIRY_DEFAULT_HOUR = 9;
 
 // Local hour (Europe/Rome) at which a daily automation runs for the society.
 function hourField(defaultHour: number) {
@@ -59,6 +62,29 @@ export const convocationDispatchConfigSchema = z.strictObject({
   // Whether athletes who have not answered get a reminder, and how many days before the event.
   remindNonRespondents: z.boolean().default(true),
   reminderDaysBefore: z.number().int().min(0).max(14).default(1),
+});
+
+export const missingDocumentsConfigSchema = z.strictObject({
+  hour: hourField(MISSING_DOCUMENTS_DEFAULT_HOUR),
+  channels: channelsField(),
+  // Days after the enrolment (or the creation of the member) before the first reminder: time to upload.
+  graceDays: z.number().int().min(0).max(60).default(3),
+  // The reminder repeats this often while the documents are still missing.
+  everyDays: z.number().int().min(1).max(60).default(7),
+});
+
+export const adminDigestConfigSchema = z.strictObject({
+  hour: hourField(ADMIN_DIGEST_DEFAULT_HOUR),
+  channels: channelsField(),
+  // The summary reaches the administration this often (1 = every day, 7 = every week, on Monday).
+  everyDays: z.number().int().min(1).max(30).default(7),
+});
+
+export const sponsorExpiryConfigSchema = z.strictObject({
+  hour: hourField(SPONSOR_EXPIRY_DEFAULT_HOUR),
+  channels: channelsField(),
+  // Days before the end of a sponsor's contract on which the administration is warned.
+  thresholdsDays: dayList({ min: 0, max: 365, maxItems: 5 }).default([7, 30]),
 });
 
 export const noConfigSchema = z.strictObject({});
@@ -106,6 +132,15 @@ export const certificateRemindersEntry = entry({
   configSchema: certificateRemindersConfigSchema,
 });
 
+export const missingDocumentsEntry = entry({
+  key: 'missing-documents',
+  name: 'Sollecitare i documenti mancanti',
+  description: "Ricorda ad atleti e genitori i documenti richiesti che non hanno ancora caricato.",
+  kind: 'SCHEDULED',
+  toggleable: true,
+  configSchema: missingDocumentsConfigSchema,
+});
+
 export const convocationDispatchEntry = entry({
   key: 'convocation-dispatch',
   name: 'Inviare le convocazioni',
@@ -151,15 +186,36 @@ export const adminAlertsEntry = entry({
   configSchema: noConfigSchema,
 });
 
+export const adminDigestEntry = entry({
+  key: 'admin-digest',
+  name: "Riepilogo per l'amministrazione",
+  description: 'Riassume a segreteria e amministratori le quote scadute e i documenti da sistemare.',
+  kind: 'SCHEDULED',
+  toggleable: true,
+  configSchema: adminDigestConfigSchema,
+});
+
+export const sponsorExpiryEntry = entry({
+  key: 'sponsor-expiry',
+  name: 'Avvisare i contratti sponsor in scadenza',
+  description: "Avvisa l'amministrazione prima che scada il contratto di uno sponsor.",
+  kind: 'SCHEDULED',
+  toggleable: true,
+  configSchema: sponsorExpiryConfigSchema,
+});
+
 // Dashboard order = SPEC 08 checklist order.
 export const AUTOMATION_CATALOG: readonly CatalogEntry[] = [
   feeRemindersEntry,
   certificateRemindersEntry,
+  missingDocumentsEntry,
   convocationDispatchEntry,
   standingsEntry,
   receiptsEntry,
   notificationsDispatchEntry,
   adminAlertsEntry,
+  adminDigestEntry,
+  sponsorExpiryEntry,
 ];
 
 export function catalogEntryFor(key: string): CatalogEntry | undefined {

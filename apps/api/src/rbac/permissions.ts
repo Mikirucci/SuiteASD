@@ -39,6 +39,7 @@ export const PERMISSIONS = {
   'documents:read': [A, S, C, D],
   'documents:readOwn': ALL,
   'documents:write': [A, S],
+  'documents:uploadOwn': [T, G],
 
   'payments:read': [A, S],
   'payments:readOwn': ALL,
