@@ -13,6 +13,7 @@ import { documentRoutes } from './documents/routes.js';
 import { eventRoutes } from './events/routes.js';
 import { feeRoutes } from './fees/routes.js';
 import { enrolmentRoutes } from './enrolment/routes.js';
+import { joinRoutes } from './auth/join-routes.js';
 import { evaluationRoutes } from './evaluations/routes.js';
 import { guardianLinkRoutes } from './guardian-links/routes.js';
 import { healthRoutes } from './health/routes.js';
@@ -33,6 +34,7 @@ export const moduleRoutes: readonly FastifyPluginAsyncZod[] = [
   authRoutes,
   invitationRoutes,
   enrolmentRoutes,
+  joinRoutes,
   userRoutes,
   guardianLinkRoutes,
   deviceRoutes,

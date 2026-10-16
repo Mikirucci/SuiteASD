@@ -32,7 +32,6 @@ export interface AuthDeps {
   log: FastifyBaseLogger;
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000;
 const MAGIC_LINK_TTL_MINUTES = 15;
 
 function slugify(name: string): string {
