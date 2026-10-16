@@ -3,7 +3,7 @@
 > Leggere questo file all'inizio di ogni conversazione. Va aggiornato a ogni tappa e **obbligatoriamente prima di esaurire i token**.
 > Regole del team: `CLAUDE.md`. Specifica: `docs/SPEC.md`. Decisioni: `docs/DECISIONS.md`. Guide: `docs/API.md`, `docs/FRONTEND.md`.
 
-Ultimo aggiornamento: 2026-10-13 (notte). PRODOTTO COMPLETO secondo SPEC. Verifica finale eseguita: lint e typecheck puliti; test api 731 + web 582; build ok; E2E mockati 106/106; E2E su backend reale (seed demo) 15/15.
+Ultimo aggiornamento: 2026-10-17. PRODOTTO COMPLETO secondo SPEC, Fase 2 inclusa. Verifica finale eseguita: lint e typecheck puliti; test api 931 + web 722; build ok; E2E mockati 110/110; E2E su backend reale 18/18.
 
 ## Obiettivo originale (/goal dell'utente)
 Consegnare SuiteASD finita e testata: backend API-first + web app, lavorando "da team di ingegneria" con agenti specializzati, senza chiedere conferme.
@@ -63,14 +63,16 @@ Ordine di lavoro e stato (aggiornare le caselle):
 - [x] 9. Area personale atleta/genitore (/area-personale: home, documenti con upload, pagamenti, calendario, classifica, notifiche, profilo con dati, password, figli)
 - Pagelle: invariata (da eliminare in futuro). Quote: invariata.
 
-### 2026-10-16 — sospeso su richiesta dell'utente ("continuiamo domani")
-Fase 2 completa lato codice e unit test (api 930 test, web 722 test, lint e typecheck verdi). Commit fino a 3e362f6 + questo.
-DA FARE DOMANI (in ordine):
-1. Eseguire gli E2E: `npm run test:e2e` (mockati) e `npm run test:e2e:real` (backend reale). Non ancora lanciati dopo la Fase 2. Attese rotture note:
-   - e2e mock (apps/web/e2e/support/mock-api.ts): un utente solo ATLETA/GENITORE ora viene portato a /area-personale; la home admin ora chiama molti endpoint (members/summary, documents/expirations, fees/summary, events, seasons/competitions, notifications, automations) e va aggiunta ai mock; le automazioni sono 10 (non 6); le notifiche chiamano anche /notifications/preferences per il filtro tipo.
-   - e2e reali (apps/web/e2e-real): "6 attività su 6 attive" diventa 10 su 10; la home non ha piu la griglia dei moduli; il seed ora contiene 3 notifiche organizzative per admin e segreteria e il link demo iscrizione-demo-u16.
-2. Scrivere E2E nuovi: iscrizione con link demo (/iscrizione/iscrizione-demo-u16) fino a /area-personale; upload certificato dall'area personale e comparsa nello stato dei tesserati; export PDF commercialista da Bilancio; allegato su una palestra.
-3. Aggiornare i documenti: docs/SPEC.md (addendum: area personale, iscrizione da link, notifiche organizzative, allegati, report PDF, import), docs/DECISIONS.md (D-21 notifiche per audience, D-22 link di iscrizione senza approvazione, D-23 allegati, D-24 report PDF, D-25 import da file, niente scraping), docs/API.md (nuovi endpoint: /join-links, /join/{code}, /attachments, /reports/accounting.pdf e /summary, /members/{id}/documents/upload, /members/{id}/contact, /me/children, /events/import, /competitions/{id}/groups/{gid}/matches/import), docs/FRONTEND.md (area personale, AppShell con ShellNavigation).
-4. Controllare a vista il PDF del commercialista (non ancora aperto in un visualizzatore) e le schermate nuove nel browser (dev: `npm run dev:api` e `npm run dev:web` separati, perche `npm run dev` non trova npm-run-all; fare `npm install` dalla root).
-5. Rifiniture note: i dati demo oltre il 14 novembre 2026 (vedi punto 2 dei limiti); WeekStrip a 320px ora scorre (44px mantenuti).
-Nota tecnica: nei file con CRLF modificare con script che normalizzano gli a capo; il tool Bash si rompe con heredoc lunghi che contengono apostrofi: usare il tool Write per scrivere i file.
+### 2026-10-17: Fase 2 chiusa e verificata
+Eseguiti e sistemati gli E2E dopo la Fase 2. Verifica finale: lint e typecheck puliti; test api 931 + web 722; build ok; E2E mockati 110/110; E2E reali 18/18.
+- E2E mockati: nuovo `e2e/area-personale.spec.ts` (reindirizzamento atleta, documenti, upload certificato, 320px); test di genitore (calendario, pagamenti) e atleta (notifiche) puntati su `/area-personale/...`; aggiornati conteggi (10 automazioni, 14 preferenze di notifica, pill "Senza squadra", chip documenti). Rimossi 4 test "atleta sulle pagine di amministrazione" (non più raggiungibili, DECISIONS D-20): coperti dal test di reindirizzamento. `mockBackend` accetta un `/me` personalizzato.
+- E2E reali: nuovo `e2e-real/04-fase-2.spec.ts` (iscrizione da link -> upload certificato -> compare in Tesserati e nelle notifiche admin; PDF del commercialista; allegato su una palestra); aggiornati 01-03.
+- Correzioni emerse: periodo del report con data UTC (di notte slittava al giorno prima, ora `toDayKey`); segno meno U+2212 non rendibile nel PDF (ora "entrate meno uscite"); ricerca Tesserati troncata sotto 1280px (barra azioni sotto la ricerca fino a `xl`); selettore `Sezioni` ambiguo con "Altre sezioni".
+- PDF del commercialista controllato a vista (3 pagine, impaginazione corretta); controllate nel browser home admin, Tesserati, Bilancio, area personale.
+- Documenti aggiornati: SPEC (addendum §9), DECISIONS (D-20..D-25, M-5), API.md, FRONTEND.md.
+
+DA FARE (solo rifiniture):
+1. Dopo il 14 novembre 2026 i dati demo (partita fissata dalla SPEC) richiedono di aggiornare le date del seed e gli E2E reali di calendario/ruoli.
+2. Le pagine di amministrazione conservano la vista "solo i propri dati" per atleta/genitore (Tesserati, Scadenze, Pagelle) che ora serve solo ai ruoli misti: valutare se toglierla insieme alle pagelle (decisione dell utente).
+3. Raccomandazioni di claude-automation-recommender: presentate, NON applicate.
+Nota tecnica: nei file con CRLF modificare con script che normalizzano gli a capo; con il tool Bash evitare heredoc lunghi con apostrofi o backtick dentro node -e (usare Edit/Write).

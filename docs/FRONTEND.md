@@ -29,9 +29,11 @@ apps/web/
     app/                    Route (App Router) e layout
       layout.tsx            font, <Providers>
       globals.css           TOKEN DEL DESIGN (unico posto)
-      (auth)/               pagine pubbliche: login, registrazione
-      (app)/                area privata: layout = AuthGuard + AppShell
-        page.tsx            home (griglia dei moduli)
+      (auth)/               pagine di accesso: login, registrazione
+      (public)/             pagine pubbliche senza sessione: iscrizione/[code] (link di iscrizione)
+      (app)/                amministrazione: layout = AuthGuard + AdministrationFrame (AppShell)
+        page.tsx            home: cruscotto con l’anteprima di ogni servizio
+      (personale)/          area personale di atleta e genitore (/area-personale/...): layout = AuthGuard + PersonalFrame
         [...slug]/page.tsx  fallback onesto per le rotte non ancora esistenti
       design/page.tsx       vetrina di token e componenti
     components/ui/          libreria componenti (un file per componente) + index.ts
@@ -41,6 +43,8 @@ apps/web/
     test/                   setup Vitest e helper (a11y)
   e2e/                      test Playwright (+ support/mock-api.ts, support/axe.ts)
 ```
+
+Chi è solo atleta o genitore viene portato in `/area-personale`; chi ha anche un ruolo di amministrazione vede un link per passare da un’area all’altra. `features/shell` espone `AppShell` con la navigazione ricevuta come `ShellNavigation` (voci, barra in basso, home) e i due frame in `area-frames.tsx`. L’area personale riusa le pagine di calendario, pagamenti (`quote`), classifica e notifiche, e ha le sue (`features/personale`: home, documenti con caricamento, profilo).
 
 Ogni modulo vive in `src/features/<modulo>/` e ha la sua rotta in `src/app/(app)/<modulo>/`. Così più agenti lavorano in parallelo senza toccare gli stessi file.
 
@@ -114,7 +118,7 @@ Chiave query = `[risorsa, ...parametri]`. Dopo una scrittura si invalida la chia
 
 **Unit (Vitest)**: file `*.test.tsx` accanto al codice. `src/test/a11y.ts` espone `expectNoA11yViolations(container)` (jest-axe; il contrasto colori non è misurabile in jsdom, lo copre Playwright). Si usano query per ruolo/nome (`getByRole`) come farebbe un utente da tastiera o screen reader. Per i moduli che usano `useAuth` o `next/navigation` si mockano come in `features/auth/auth-session.test.tsx`.
 
-**E2E (Playwright)**: file in `e2e/*.spec.ts`. L'API è mockata a livello di rete con `mockApi(page)` (`e2e/support/mock-api.ts`: gestisce CORS, `OPTIONS` e gli endpoint auth con errori RFC 7807). Per un nuovo modulo estendere lo `switch` di `mockApi` con i suoi endpoint (o usare `page.route` nel test). `seedStoredSession(page)` simula un utente già autenticato. `auditAccessibility(page)` esegue axe-core nel browser vero (WCAG 2.2 A/AA, contrasti inclusi): ogni pagina nuova dovrebbe avere il suo controllo.
+**E2E (Playwright)**: due suite. `npm run test:e2e` (file in `e2e/*.spec.ts`, API mockata) e `npm run test:e2e:real` (file in `e2e-real/`, API vera con database temporaneo e seed demo; i test girano in sequenza e condividono il database). L'API è mockata a livello di rete con `mockApi(page)` (`e2e/support/mock-api.ts`: gestisce CORS, `OPTIONS` e gli endpoint auth con errori RFC 7807). Per un nuovo modulo estendere lo `switch` di `mockApi` con i suoi endpoint (o usare `page.route` nel test). `seedStoredSession(page)` simula un utente già autenticato. `auditAccessibility(page)` esegue axe-core nel browser vero (WCAG 2.2 A/AA, contrasti inclusi): ogni pagina nuova dovrebbe avere il suo controllo.
 
 ```ts
 test("lista tesserati", async ({ page }) => {
@@ -142,6 +146,7 @@ Con il backend reale acceso (`npm run dev` dalla root) si possono scrivere E2E s
 
 ## 9. Note e limiti noti
 
-- Le voci del menu portano a rotte che esistono solo quando il modulo è costruito: fino ad allora si vede "Questa pagina non è ancora disponibile" dentro la shell.
+- Tutti i moduli della SPEC sono costruiti; `[...slug]` resta come fallback onesto per le rotte che non esistono ("Questa pagina non è ancora disponibile" dentro la shell).
+- Le pagine di amministrazione conservano la vista "solo i propri dati" per atleta e genitore (ad esempio Tesserati, Scadenze, Pagelle): oggi chi ha solo quei ruoli viene portato in `/area-personale`, quindi quella vista serve solo a chi unisce un ruolo di amministrazione e uno personale con permessi limitati. Le pagelle sono destinate a essere eliminate.
 - `AGENTS.md` in `apps/web` è generato da `next dev` (Next 16.4): lascialo, ricorda di leggere `node_modules/next/dist/docs/` prima di usare API Next poco comuni.
 - Vitest: il workspace ha altre copie di vitest (backend); i matcher di jest-dom sono registrati a mano in `src/test/setup.ts` per estendere la copia giusta.

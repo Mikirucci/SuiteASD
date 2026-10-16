@@ -103,7 +103,7 @@ test.describe("quote e pagamenti, segreteria", () => {
 test.describe("quote e pagamenti, genitore", () => {
   test("sees only the own fees and can download receipts, without staff tools", async ({ page }) => {
     await mockQuoteApi(page, "athlete");
-    await page.goto("/quote");
+    await page.goto("/area-personale/pagamenti");
 
     await expect(page.getByRole("heading", { level: 1, name: /Quote incassate/ })).toBeVisible();
     const list = page.getByRole("list", { name: "Quote", exact: true });

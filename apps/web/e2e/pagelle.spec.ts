@@ -1,7 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { COMPETITION, GROUP, SEASON, match } from "../src/features/classifiche/test-fixtures";
 import {
-  GIULIA,
   HISTORY_GIULIA,
   MARTA,
   SQUAD,
@@ -112,28 +111,6 @@ test.describe("pagelle", () => {
     await expect(page.getByText("2 pagelle pubblicate")).toBeVisible();
     await expect(page.getByText("sono in bozza")).toHaveCount(0);
     await expect(marta.getByText("Pubblicata")).toBeVisible();
-  });
-
-  test("an athlete sees only her own published report cards, read only", async ({ page }) => {
-    const own = SQUAD.filter((entry) => entry.member.id === GIULIA.id);
-    await openAs(
-      page,
-      "/pagelle",
-      { permissions: ["competitions:read", "evaluations:readOwn"], roles: ["ATLETA"], member: { id: GIULIA.id, firstName: "Giulia", lastName: "Rossi" } },
-      pagelleBackend(own),
-    );
-
-    await expect(page.getByRole("heading", { level: 2, name: "Giulia Rossi" })).toBeVisible();
-    await expect(page.getByRole("img", { name: "Media voto di Giulia Rossi: 8,2 su 10" })).toBeVisible();
-    await expect(page.getByRole("tab")).toHaveCount(0);
-    await expect(page.getByRole("list", { name: "Pagelle partita per partita" })).toContainText("Aquile Volley 3–1 Delfini Volley");
-    expect(await auditAccessibility(page)).toEqual([]);
-
-    await page.getByRole("link", { name: /Aquile Volley 3–1 Delfini Volley/ }).click();
-    await expect(page.getByRole("heading", { level: 3, name: "Giulia Rossi" })).toBeVisible();
-    await expect(page.getByRole("heading", { level: 3 })).toHaveCount(1);
-    await expect(page.getByRole("button", { name: /Assegna voto|Modifica pagella|Pubblica/ })).toHaveCount(0);
-    expect(await auditAccessibility(page)).toEqual([]);
   });
 
   test("fits a 320px screen without horizontal scrolling", async ({ page }) => {

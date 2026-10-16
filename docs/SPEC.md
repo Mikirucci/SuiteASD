@@ -140,3 +140,18 @@ Società "Aquile Volley". Squadre: U14, U16, U18, Serie D (+2). Tesserati: Anna 
 - Non inventare requisiti: segna le ipotesi in `DECISIONS.md` e fai domande solo se bloccanti.
 - Ogni automazione deve essere visibile, spiegabile e disattivabile dall'utente.
 - Privacy/GDPR: dati di minori e certificati medici sono **dati sensibili** → minimo accesso, cifratura a riposo, consensi, log accessi, diritto all'oblio/export.
+
+## 9. Addendum — Fase 2 (richieste del 2026-10-16)
+
+Principio: **tutto automatico**. Chi ha un dato da consegnare lo carica da sé e la società lo vede aggiornato, senza passaggi manuali. Decisioni di dettaglio: `DECISIONS.md` (D-20…D-25).
+
+- **Tesserati**: filtri per squadra (anche "senza squadra"), stato dei documenti, genere, ruolo in campo e anno di nascita; ogni riga mostra un chip rosso "N documenti mancanti", ambra "N in scadenza" oppure verde "In regola".
+- **Iscrizione da link**: l'amministrazione genera un link (per una squadra, con scadenza e numero massimo di usi opzionali). La pagina pubblica crea in un colpo account e tesserato e porta l'atleta nella sua area personale. Nessuna approvazione. Sotto i 14 anni può iscrivere solo un genitore.
+- **Area personale** (`/area-personale`, ruoli atleta e genitore): home con ciò che c'è da fare, documenti con caricamento (certificato medico incluso: la scadenza si aggiorna da sola), pagamenti con ricevute, calendario con risposta alle convocazioni, classifica, notifiche, profilo (dati di contatto, password, figli collegati). Atleta e genitore non entrano più nell'amministrazione.
+- **Notifiche organizzative** per amministratore e segreteria: pagamento ricevuto, quote scadute, documenti da sistemare, documento caricato, nuova iscrizione, contratto sponsor in scadenza. Gli atleti non scrivono notifiche all'amministrazione.
+- **Automazioni** (ora 10): si aggiungono sollecito dei documenti mancanti, avviso immediato all'amministrazione, riepilogo periodico per l'amministrazione, scadenza dei contratti sponsor. Ora di esecuzione e canali (app, email) sono configurabili dalla UI.
+- **Allegati** (PDF, JPG, PNG fino a 5 MB) su palestre, sponsor, trasferte, divise, staff, arbitri e voci di bilancio.
+- **Report per il commercialista** (Altro > Bilancio): PDF del periodo scelto, completo o per singola sezione (bilancio, quote e incassi, sponsor, trasferte, arbitri).
+- **Home dell'amministrazione**: cruscotto con un'anteprima di ogni servizio (tesserati, scadenze, quote, calendario, classifica, notifiche, automazioni).
+- **Calendario e classifiche**: nessuno scraping dei siti federali. Gli eventi si importano da file iCalendar (.ics), le partite e i risultati del girone da CSV; l'inserimento manuale resta.
+- **Pagelle** e **Quote**: invariate (le pagelle sono destinate a essere eliminate in futuro).

@@ -88,7 +88,7 @@ Un torneo è una `Competition` con `kind = TOURNAMENT`: ha gironi e una classifi
 Ogni evento scrive nel centro notifiche; l'email è accodata solo se l'utente non l'ha disattivata. La consegna è un job (`notifications-dispatch`) con nuovi tentativi, così un fornitore email fermo non blocca le operazioni. Senza `RESEND_API_KEY` le email risultano `SKIPPED` (utile in sviluppo). WhatsApp/SMS non sono implementati: la SPEC li chiede solo come predisposizione opzionale. Il push web non è implementato lato server (solo la registrazione dei device token).
 
 ### M-5. Automazioni: cosa si configura
-Le impostazioni esposte sono soglie e giorni (validate per chiave con Zod `strict`). Gli orari di esecuzione sono fissi nel catalogo (cron) e mostrati in sola lettura; i canali si scelgono per utente nelle preferenze di notifica, non per automazione. La SPEC 08 parla di "soglie, orari, canali": orari e canali per automazione sono rimandati a una fase successiva.
+Le impostazioni esposte sono soglie, giorni, ora di esecuzione e canali (validate per chiave con Zod `strict`). Orari e canali per automazione sono stati aggiunti nella Fase 2 (vedi in fondo); le preferenze di notifica per utente restano un livello a parte.
 
 ### M-6. Invio convocazioni
 Le convocazioni sono preparate dall'allenatore (bozza, `sentAt` nullo) e inviate dal job `convocation-dispatch` quando mancano `daysBefore` giorni di calendario alla gara (UTC). Il promemoria ai non rispondenti parte negli ultimi `reminderDaysBefore` giorni, al massimo uno al giorno, e mai nel giorno stesso dell'invio. L'invio manuale ("Invia convocazioni") usa la stessa funzione ed è idempotente. L'API non distingue invio manuale e automatico: il badge "Inviate in automatico" della UI compare quando esiste una data di invio.
@@ -104,3 +104,26 @@ Il seed (`npm run db:seed -w apps/api`) crea la società Aquile Volley: 118 tess
 - Bilancio: i movimenti nati da un pagamento non sono modificabili da UI, per non sfasare il legame con le Quote.
 - La scheda partita del calendario ricava "SERIE D · GIRONE B · GIORNATA N" dalla partita collegata all'evento (`Match.eventId`); senza collegamento mostra il nome della squadra.
 - Il fuso orario della società è assunto uguale a quello del browser per l'intervallo settimanale.
+
+## Fase 2 (richieste del 2026-10-16)
+
+### D-20. Due aree, decise dai ruoli
+Chi ha almeno un ruolo di amministrazione (admin, segreteria, allenatore, staff) lavora in `/`; chi è solo atleta o genitore va in `/area-personale` (reindirizzamento lato client, i permessi restano applicati dall'API). Chi ha entrambi i ruoli passa da un'area all'altra con un link nella navigazione. Le pagine dei moduli usate anche dall'area personale (calendario, pagamenti, classifica, notifiche) sono le stesse, montate su rotte diverse: l'API restituisce già solo i dati che il ruolo può vedere.
+
+### D-21. Notifiche per destinatario
+I tipi `ADMIN_*` (pagamento ricevuto, quote scadute, documenti da sistemare, documento caricato, nuova iscrizione, sponsor in scadenza) sono per amministratore e segreteria; gli altri per atleti, genitori e staff. L'API offre a ciascuno solo i tipi dei suoi ruoli (preferenze e filtro). Nessuna notifica va dall'atleta all'amministrazione per sua iniziativa: l'avviso nasce da un fatto (documento caricato, pagamento) tramite l'automazione `admin-alerts`.
+
+### D-22. Link di iscrizione senza approvazione
+`POST /join-links` crea un link (squadra, scadenza e massimo di usi opzionali; revocabile). Chi lo usa ottiene subito account e tesserato attivo, già nella squadra, senza passaggio di approvazione: il controllo è il link stesso. Sotto i 14 anni l'iscrizione la fa un genitore (account genitore collegato al figlio). Se l'email ha già un account, la password scritta deve essere quella esistente e i dati si collegano a quell'account. La pagina `/iscrizione/[code]` è pubblica; un link scaduto, revocato o esaurito mostra "Link non utilizzabile".
+
+### D-23. Allegati
+Un solo modello `Attachment` legato a un record (`entityType` + `entityId`) con i file su disco come i documenti. Può allegare chi gestisce quel tipo di record (permesso `attachments:use` più il controllo per tipo). Formati e limiti uguali a quelli dei documenti (PDF, JPG, PNG, 5 MB, contenuto verificato).
+
+### D-24. Report PDF per il commercialista
+`GET /reports/accounting.pdf?from&to&sections` genera il PDF al volo (PDFKit, font standard: niente caratteri fuori da WinAnsi, ad esempio il segno meno tipografico). `GET /reports/accounting/summary` dice cosa conterrebbe, sezione per sezione, per la schermata. Richiede `ledger:read`; ogni generazione è nel log di audit. Il periodo proposto dalla UI va dal 1° gennaio a oggi.
+
+### D-25. Import da file, niente scraping
+I siti delle federazioni non hanno un'interfaccia stabile né un permesso d'uso: lo scraping sarebbe fragile e non verificabile. Al suo posto: `POST /events/import` (file iCalendar) e `POST /competitions/:id/groups/:gid/matches/import` (CSV di partite e risultati), entrambi con anteprima prima di scrivere. Inserimento manuale invariato.
+
+### Aggiornamento di M-5
+Ora di esecuzione e canali (app, email) sono configurabili per ogni automazione pianificata (`config.hour`, `config.channels`), oltre alle soglie. Le automazioni sono 10: alle sei di prima si aggiungono `missing-documents`, `admin-alerts`, `admin-digest`, `sponsor-expiry`.

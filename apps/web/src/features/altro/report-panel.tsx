@@ -4,6 +4,7 @@ import { Download, FileText } from "lucide-react";
 import { useState } from "react";
 import { Alert, Button, Card, Checkbox, DataBoundary, EmptyState, Input, useToast } from "@/components/ui";
 import { api, describeError, useApiMutation, useApiQuery } from "@/lib/api";
+import { toDayKey } from "@/lib/dates";
 import { formatEuro, pluralize } from "@/lib/format";
 import { saveFile } from "@/lib/save-file";
 
@@ -44,7 +45,7 @@ export interface ReportPanelProps {
 
 function defaultPeriod(year: number): { from: string; to: string } {
   const today = new Date();
-  const to = year === today.getFullYear() ? today.toISOString().slice(0, 10) : `${year}-12-31`;
+  const to = year === today.getFullYear() ? toDayKey(today) : `${year}-12-31`;
   return { from: `${year}-01-01`, to };
 }
 

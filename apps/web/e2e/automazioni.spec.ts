@@ -75,16 +75,16 @@ test.describe("gestione delegata, amministratore", () => {
     await openAs(page, WRITE_PERMISSIONS);
 
     await expect(page.getByRole("heading", { level: 1, name: /Tu pensi alla squadra/ })).toBeVisible();
-    await expect(page.getByText("5 su 6 attive · 83%")).toBeVisible();
+    await expect(page.getByText("9 su 10 attive · 90%")).toBeVisible();
     const checklist = page.getByRole("list", { name: "Checklist delle attività" });
-    await expect(checklist.getByRole("heading", { level: 3 })).toHaveCount(6);
+    await expect(checklist.getByRole("heading", { level: 3 })).toHaveCount(10);
     await expect(rowOf(page, "Ricordare le quote")).toContainText("Completata");
     await expect(rowOf(page, "Ricordare le quote")).toContainText("Ogni giorno alle 09:00");
     await expect(rowOf(page, "Controllare i certificati")).toContainText("Errore");
     await expect(rowOf(page, "Inviare le convocazioni")).toContainText("Disattivata");
     await expect(rowOf(page, "Avvisare atleti e genitori")).toContainText("In corso");
     await expect(rowOf(page, "Aggiornare le classifiche")).toContainText("Sempre attiva");
-    await expect(page.getByText("Automatico", { exact: true })).toHaveCount(5);
+    await expect(page.getByText("Automatico", { exact: true })).toHaveCount(9);
 
     await settle(page);
     expect(await auditAccessibility(page)).toEqual([]);
@@ -92,16 +92,16 @@ test.describe("gestione delegata, amministratore", () => {
 
   test("switches an automation on and the percentage follows", async ({ page }) => {
     const { api } = await openAs(page, WRITE_PERMISSIONS);
-    await expect(page.getByText("5 su 6 attive · 83%")).toBeVisible();
+    await expect(page.getByText("9 su 10 attive · 90%")).toBeVisible();
 
     await page.getByRole("switch", { name: "Attiva Inviare le convocazioni" }).check();
     await expect(page.getByText("Attività attivata")).toBeVisible();
-    await expect(page.getByText("6 su 6 attive · 100%")).toBeVisible();
+    await expect(page.getByText("10 su 10 attive · 100%")).toBeVisible();
     expect(api.bodies.get("PATCH /automations/convocation-dispatch")).toEqual({ enabled: true });
     await expect(rowOf(page, "Inviare le convocazioni")).toContainText("Completata");
 
     await page.getByRole("switch", { name: "Attiva Ricordare le quote" }).uncheck();
-    await expect(page.getByText("5 su 6 attive · 83%")).toBeVisible();
+    await expect(page.getByText("9 su 10 attive · 90%")).toBeVisible();
     await expect(rowOf(page, "Ricordare le quote")).toContainText("Disattivata");
     await settle(page);
     expect(await auditAccessibility(page)).toEqual([]);
@@ -124,7 +124,9 @@ test.describe("gestione delegata, amministratore", () => {
     await dialog.getByRole("button", { name: "Salva le impostazioni" }).click();
     await expect(page.getByText("Impostazioni salvate")).toBeVisible();
     await expect(dialog).toBeHidden();
-    expect(api.bodies.get("PATCH /automations/fee-reminders")).toEqual({ config: { beforeDueDays: [2, 5, 14], afterDueDays: [3, 10] } });
+    expect(api.bodies.get("PATCH /automations/fee-reminders")).toEqual({
+      config: { hour: 9, channels: ["IN_APP", "EMAIL"], beforeDueDays: [2, 5, 14], afterDueDays: [3, 10] },
+    });
     await expect(rowOf(page, "Ricordare le quote")).toContainText("Promemoria: 2, 5 e 14 giorni prima della scadenza");
   });
 
@@ -152,10 +154,10 @@ test.describe("gestione delegata, amministratore", () => {
 test.describe("gestione delegata, segreteria", () => {
   test("sees state and log but has no controls to change anything", async ({ page }) => {
     await openAs(page, READ_PERMISSIONS);
-    await expect(page.getByText("5 su 6 attive · 83%")).toBeVisible();
+    await expect(page.getByText("9 su 10 attive · 90%")).toBeVisible();
     await expect(page.getByRole("switch")).toHaveCount(0);
     await expect(page.getByRole("button", { name: /Impostazioni|Esegui ora/ })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: /Registro/ })).toHaveCount(6);
+    await expect(page.getByRole("button", { name: /Registro/ })).toHaveCount(10);
     await settle(page);
     expect(await auditAccessibility(page)).toEqual([]);
   });
@@ -172,7 +174,7 @@ test.describe("gestione delegata, errori", () => {
     await settle(page);
     expect(await auditAccessibility(page)).toEqual([]);
     await page.getByRole("button", { name: "Riprova" }).click();
-    await expect(page.getByText("5 su 6 attive · 83%")).toBeVisible();
+    await expect(page.getByText("9 su 10 attive · 90%")).toBeVisible();
   });
 });
 
@@ -181,7 +183,7 @@ test.describe("gestione delegata su telefono", () => {
 
   test("fits a 320px screen, keeps targets at 44px and has no accessibility violations", async ({ page }) => {
     await openAs(page, WRITE_PERMISSIONS);
-    await expect(page.getByText("5 su 6 attive · 83%")).toBeVisible();
+    await expect(page.getByText("9 su 10 attive · 90%")).toBeVisible();
     await settle(page);
 
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);

@@ -140,7 +140,7 @@ test.describe("app shell on a phone", () => {
 
     const bar = page.getByRole("navigation", { name: "Navigazione principale" });
     await expect(bar).toBeVisible();
-    await expect(page.getByRole("navigation", { name: "Sezioni" })).toBeHidden();
+    await expect(page.getByRole("navigation", { name: "Sezioni", exact: true })).toBeHidden();
 
     await bar.getByRole("button", { name: "Menu" }).click();
     const drawer = page.getByRole("dialog", { name: "Menu" });

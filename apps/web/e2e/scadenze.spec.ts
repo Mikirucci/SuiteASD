@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { auditAccessibility } from "./support/axe";
-import { CERTIFICATE_TYPE, TEAMS, mockBackend, pageOf, problem, type Role } from "./support/tesserati-fixtures";
+import { CERTIFICATE_TYPE, TEAMS, mockBackend, pageOf, problem } from "./support/tesserati-fixtures";
 import type { Expirations, ExpirationItem } from "../src/features/scadenze/types";
 
 function expiration(
@@ -39,9 +39,9 @@ function windowOf(items: ExpirationItem[], overdue: ExpirationItem[]): Expiratio
   return { from: "2026-10-01", to: "2027-03-31", months, overdue };
 }
 
-async function expirationsBackend(page: Page, role: Role = "admin", failures = 0) {
+async function expirationsBackend(page: Page, failures = 0) {
   let remainingFailures = failures;
-  const recorded = await mockBackend(page, role, ({ method, path, query }) => {
+  const recorded = await mockBackend(page, "admin", ({ method, path, query }) => {
     if (method !== "GET") return undefined;
     if (path === "/teams") return { body: pageOf(TEAMS) };
     if (path === "/document-types") return { body: pageOf([CERTIFICATE_TYPE]) };
@@ -50,7 +50,6 @@ async function expirationsBackend(page: Page, role: Role = "admin", failures = 0
         remainingFailures -= 1;
         return { status: 500, body: problem(500, "internal_error") };
       }
-      if (role === "athlete") return { body: windowOf([SARA], []) };
       const serieD = query.get("teamId") === "team-4";
       return { body: serieD ? windowOf([GIULIA, ELENA], []) : windowOf([GIULIA, SARA, SARA_COLLEAGUE, ELENA], [ANNA]) };
     }
@@ -119,20 +118,11 @@ test.describe("Certificati e scadenze (02)", () => {
   });
 
   test("shows an error with retry", async ({ page }) => {
-    await expirationsBackend(page, "admin", 3); // first attempt plus the two automatic retries
+    await expirationsBackend(page, 3); // first attempt plus the two automatic retries
     await page.goto("/scadenze");
     await expect(page.getByRole("alert").filter({ hasText: "Il servizio non è disponibile al momento" })).toBeVisible();
     await page.getByRole("button", { name: "Riprova" }).click();
     await expect(page.getByRole("list", { name: "Scadenze dei documenti nei prossimi mesi" })).toBeVisible();
-  });
-
-  test("tells an athlete only about their own expiries", async ({ page }) => {
-    await expirationsBackend(page, "athlete");
-    await page.goto("/scadenze");
-    const timeline = page.getByRole("list", { name: "Scadenze dei documenti nei prossimi mesi" });
-    await expect(timeline.getByRole("listitem")).toHaveCount(1);
-    await expect(page.getByRole("group", { name: "Filtra per squadra" })).toHaveCount(0);
-    await expect(page.getByText("Sara Conti · Certificato medico")).toBeVisible();
   });
 
   test("fits a 320px screen: the timeline scrolls instead of squeezing", async ({ page }) => {

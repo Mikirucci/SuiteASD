@@ -9,7 +9,7 @@ test.describe("società demo, in sola lettura", () => {
 
   test("la home saluta e porta a tutti i moduli", async ({ page }) => {
     await expect(page.getByRole("heading", { level: 1 })).toContainText("Ciao");
-    const sidebar = page.getByRole("navigation", { name: "Sezioni" });
+    const sidebar = page.getByRole("navigation", { name: "Sezioni", exact: true });
     for (const label of ["Tesserati", "Scadenze", "Quote", "Calendario", "Classifiche", "Pagelle", "Notifiche", "Automazioni", "Altro"]) {
       await expect(sidebar.getByRole("link", { name: label })).toBeVisible();
     }
@@ -62,9 +62,9 @@ test.describe("società demo, in sola lettura", () => {
     await expect(page.getByText(/5\/12\s+confermate/)).toBeVisible();
   });
 
-  test("automazioni: 6 attività su 6 attive, 100%", async ({ page }) => {
+  test("automazioni: 10 attività su 10 attive, 100%", async ({ page }) => {
     await page.goto("/automazioni");
-    await expect(page.getByText("6 su 6 attive · 100%")).toBeVisible();
+    await expect(page.getByText("10 su 10 attive · 100%")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Inviare le convocazioni" })).toBeVisible();
   });
 

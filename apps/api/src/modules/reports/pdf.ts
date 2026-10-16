@@ -140,7 +140,7 @@ function renderSummary(writer: Writer, report: AccountingReport): void {
   const columns = cols(writer.contentWidth, [['Sezione', 5], ['Voci', 1, 'right'], ['Importo', 2, 'right']]);
   const rows: string[][] = [];
   if (report.ledger) {
-    rows.push(['Bilancio · saldo (entrate − uscite)', String(report.ledger.entries.length), formatEuro(report.ledger.totals.balanceCents)]);
+    rows.push(['Bilancio · saldo (entrate meno uscite)', String(report.ledger.entries.length), formatEuro(report.ledger.totals.balanceCents)]);
   }
   if (report.fees) {
     rows.push(['Quote · incassato nel periodo', String(report.fees.payments.length), formatEuro(report.fees.collectedCents)]);

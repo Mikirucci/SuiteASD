@@ -180,7 +180,7 @@ test.describe("calendario, allenatore", () => {
 
 test.describe("calendario, genitore", () => {
   test("answers the convocation of the daughter from the page, without staff tools", async ({ page }) => {
-    const { api } = await openAs(page, "/calendario", GUARDIAN, { viewer: "athlete" });
+    const { api } = await openAs(page, "/area-personale/calendario", GUARDIAN, { viewer: "athlete" });
 
     const section = page.getByRole("region", { name: "Da confermare" });
     await expect(section).toContainText("Giulia Rossi");
@@ -200,7 +200,7 @@ test.describe("calendario, genitore", () => {
   });
 
   test("confirms with one tap", async ({ page }) => {
-    const { api } = await openAs(page, "/calendario", GUARDIAN, { viewer: "athlete" });
+    const { api } = await openAs(page, "/area-personale/calendario", GUARDIAN, { viewer: "athlete" });
     await page.getByRole("button", { name: "Confermo la presenza di Giulia Rossi" }).click();
     await expect(page.getByText("Presenza confermata", { exact: true })).toBeVisible();
     expect(api.bodies.get("PUT /convocations/cv-m-giulia/response")).toEqual({ status: "CONFIRMED" });
@@ -242,11 +242,6 @@ test.describe("presenze agli allenamenti", () => {
     await expect(history.getByRole("list", { name: "Storico degli allenamenti" })).toContainText("Presente");
     await settle(page);
     expect(await auditAccessibility(page)).toEqual([]);
-  });
-
-  test("is closed to athletes", async ({ page }) => {
-    await openAs(page, "/calendario/presenze", GUARDIAN, { viewer: "athlete" });
-    await expect(page.getByRole("heading", { name: "Le presenze sono riservate" })).toBeVisible();
   });
 });
 

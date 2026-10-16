@@ -206,6 +206,11 @@ Tutti sotto `/api/v1`, tutti con validazione Zod, schema OpenAPI (`/docs/`), iso
 | Pagelle e statistiche (06) | `GET /matches/:id/report-cards`, `PUT/DELETE /matches/:id/evaluations/:memberId`, `POST /matches/:id/evaluations/publish`, `PUT/DELETE /matches/:id/stats/:memberId`, `GET /members/:id/evaluations`, `GET /members/:id/evaluation-summary`, `GET /evaluation-summaries` |
 | Notifiche (07) | `GET /notifications`, `GET /notifications/unread-count`, `POST /notifications/read-all`, `POST /notifications/:id/read`, `GET/PUT /notifications/preferences` |
 | Gestione delegata (08) | `GET /automations`, `PATCH /automations/:key`, `GET /automations/:key/runs`, `POST /automations/:key/run` |
+| Iscrizione da link (Fase 2) | `POST/GET /join-links`, `DELETE /join-links/:id` (admin, segreteria); pubblici: `GET /join/:code` (a cosa serve il link), `POST /join/:code` (crea account e tesserato e apre la sessione) |
+| Area personale (Fase 2) | `POST /members/:id/documents/upload` (un colpo solo: record e file; `documentTypeId`, `expiresAt`, `fileName` in query), `PATCH /members/:id/contact` (dati di contatto propri), `POST /me/children` (il genitore collega un figlio) |
+| Allegati (Fase 2) | `GET/POST /attachments` (per `entityType` + `entityId`), `GET /attachments/:id/file`, `DELETE /attachments/:id` |
+| Report (Fase 2) | `GET /reports/accounting/summary`, `GET /reports/accounting.pdf` (`from`, `to`, `sections`) |
+| Import da file (Fase 2) | `POST /events/import` (iCalendar), `POST /competitions/:id/groups/:gid/matches/import` (CSV); entrambi con `dryRun` per l'anteprima |
 | Moduli secondari | `/venues`, `/trips`, `/kits`, `/sponsors`, `/staff`, `/ledger/entries` + `GET /ledger/report`, `/announcements`, `/referees`, `/referee-assignments`, `GET /statistics/overview`. I tornei sono competizioni con `kind = TOURNAMENT` (`GET /competitions?kind=TOURNAMENT`) |
 
 ### Operazioni sensibili e idempotenza
@@ -214,19 +219,23 @@ Tutti sotto `/api/v1`, tutti con validazione Zod, schema OpenAPI (`/docs/`), iso
 
 ### Notifiche
 
-Sei tipi (`CONVOCATION`, `FEE_DUE`, `CERTIFICATE_EXPIRING`, `EVENT_CHANGED`, `EVALUATION_PUBLISHED`, `ANNOUNCEMENT`), testi in italiano in `modules/notifications/templates.ts`. Ogni notifica è scritta nel centro in-app e, se il destinatario non l'ha disattivata nelle preferenze, in coda email. I destinatari sono risolti per ruolo (atleta + genitori collegati). `dedupeKey` impedisce doppi invii. L'invio email usa Resend quando `RESEND_API_KEY` ed `EMAIL_FROM` sono impostati; altrimenti le email sono registrate come `SKIPPED` nel log (`NotificationLog`).
+Tipi per atleti, genitori e staff: `CONVOCATION`, `FEE_DUE`, `CERTIFICATE_EXPIRING`, `DOCUMENT_MISSING`, `EVENT_CHANGED`, `EVALUATION_PUBLISHED`, `ANNOUNCEMENT`. Tipi organizzativi per amministratore e segreteria (DECISIONS D-21): `ADMIN_PAYMENT_RECEIVED`, `ADMIN_FEE_OVERDUE`, `ADMIN_DOCUMENT_ALERT`, `ADMIN_DOCUMENT_UPLOADED`, `ADMIN_NEW_ENROLMENT`, `ADMIN_SPONSOR_EXPIRING`. Testi in italiano in `modules/notifications/templates.ts`. Ogni notifica è scritta nel centro in-app e, se il destinatario non l'ha disattivata nelle preferenze, in coda email. I destinatari sono risolti per ruolo (atleta + genitori collegati). `dedupeKey` impedisce doppi invii. L'invio email usa Resend quando `RESEND_API_KEY` ed `EMAIL_FROM` sono impostati; altrimenti le email sono registrate come `SKIPPED` nel log (`NotificationLog`).
 
 ### Automazioni (SPEC 08)
 
-Catalogo in `src/jobs/catalog.ts`, nell'ordine della checklist della dashboard:
+Catalogo in `src/jobs/catalog.ts`. Per le automazioni giornaliere "ogni giorno HH:00" è l'ora predefinita: `config.hour` (0-23, ora di Roma) la cambia e `config.channels` limita i canali (app, email) oltre alle preferenze di ciascun utente; servono entrambi i consensi per recapitare su un canale.
 
 | Chiave | Tipo | Quando | Impostazioni |
 |---|---|---|---|
-| `fee-reminders` | pianificata | ogni giorno 09:00 | `beforeDueDays` (default 1, 7), `afterDueDays` (3, 10) |
-| `certificate-reminders` | pianificata | ogni giorno 08:00 | `thresholdsDays` (0, 7, 15, 30) |
-| `convocation-dispatch` | pianificata | ogni giorno 09:00 | `daysBefore` (3), `remindNonRespondents` (true), `reminderDaysBefore` (1) |
+| `fee-reminders` | pianificata | ogni giorno 09:00 | `hour`, `channels`, `beforeDueDays` (default 1, 7), `afterDueDays` (3, 10) |
+| `certificate-reminders` | pianificata | ogni giorno 08:00 | `hour`, `channels`, `thresholdsDays` (0, 7, 15, 30) |
+| `missing-documents` | pianificata | ogni giorno 10:00 | `hour`, `channels`, `graceDays` (3), `everyDays` (7) |
+| `convocation-dispatch` | pianificata | ogni giorno 09:00 | `hour`, `channels`, `daysBefore` (3), `remindNonRespondents` (true), `reminderDaysBefore` (1) |
 | `standings` | evento | a ogni risultato | nessuna, sempre attiva (la classifica è derivata) |
 | `receipts` | evento | a ogni pagamento | nessuna, disattivabile (ricevuta emessa a mano con `POST /fees/:id/receipt`) |
 | `notifications-dispatch` | pianificata | ogni 10 minuti | `maxAttempts` (3), `batchSize` (100) |
+| `admin-alerts` | evento | a ogni pagamento, documento caricato, nuova iscrizione | nessuna, disattivabile |
+| `admin-digest` | pianificata | ogni giorno 08:00 | `hour`, `channels`, `everyDays` (7) |
+| `sponsor-expiry` | pianificata | ogni giorno 09:00 | `hour`, `channels`, `thresholdsDays` (7, 30) |
 
 La percentuale della dashboard è automazioni attive / totali. Ogni esecuzione è registrata (`AutomationRun`) ed è consultabile con `GET /automations/:key/runs`; `POST /automations/:key/run` esegue subito un'automazione pianificata (solo amministratori).

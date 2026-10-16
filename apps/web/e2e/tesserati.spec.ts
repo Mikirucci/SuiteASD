@@ -11,22 +11,20 @@ import {
   mockBackend,
   pageOf,
   problem,
-  type Role,
 } from "./support/tesserati-fixtures";
 import type { MemberListItem } from "../src/features/tesserati/types";
 
 const PAGE_SIZE = 25;
 
 /** Members backend: list with filters and cursor, detail, documents, create, import and delete. */
-async function membersBackend(page: Page, role: Role = "admin") {
+async function membersBackend(page: Page) {
   const members = demoMembers();
-  const recorded = await mockBackend(page, role, ({ method, path, query, body }) => {
-    const visible = role === "admin" ? members : members.filter((item) => item.id === "m-sara");
+  const recorded = await mockBackend(page, "admin", ({ method, path, query, body }) => {
     switch (`${method} ${path}`) {
       case "GET /members": {
         const q = (query.get("q") ?? "").toLowerCase();
         const teamId = query.get("teamId");
-        const matching = visible.filter(
+        const matching = members.filter(
           (item) =>
             (!q || `${item.firstName} ${item.lastName}`.toLowerCase().includes(q)) &&
             (!teamId || item.teams.some((team) => team.id === teamId)),
@@ -104,15 +102,16 @@ test.describe("Tesserati (01)", () => {
 
     const sara = list.getByRole("listitem").filter({ hasText: "Sara Conti" });
     await expect(sara.getByText("U16")).toBeVisible();
-    await expect(sara.getByRole("img", { name: "Certificato medico: In scadenza" })).toBeVisible();
+    await expect(sara.getByText("1 in scadenza: Certificato medico")).toBeVisible();
     const anna = list.getByRole("listitem").filter({ hasText: "Anna Ferri" });
-    await expect(anna.getByRole("img", { name: "Certificato medico: Mancante o scaduto" })).toBeVisible();
+    await expect(anna.getByText("1 documento mancante: Certificato medico")).toBeVisible();
+    await expect(list.getByRole("listitem").filter({ hasText: "In regola" }).first()).toBeVisible();
 
     await expect(page.getByRole("group", { name: "Riepilogo" })).toHaveText(
       "27 tesserati · 4 squadre · 1 documento mancante",
     );
     const pills = page.getByRole("group", { name: "Filtra per squadra" }).getByRole("button");
-    await expect(pills).toHaveText(["Tutte", "U14", "U16", "U18", "Serie D"]);
+    await expect(pills).toHaveText(["Tutte", "U14", "U16", "U18", "Serie D", "Senza squadra"]);
 
     expect(await auditAccessibility(page)).toEqual([]);
   });
@@ -226,22 +225,6 @@ test.describe("Tesserati (01)", () => {
       .click();
     await expect(page).toHaveURL(/\/tesserati$/);
     expect(recorded.calls).toContain("DELETE /members/m-sara");
-  });
-
-  test("an athlete sees only their own card, without management actions", async ({ page }) => {
-    await membersBackend(page, "athlete");
-    await page.goto("/tesserati");
-    const rows = page.getByRole("list", { name: "Tesserati" }).getByRole("listitem");
-    await expect(rows).toHaveCount(1);
-    await expect(rows.first()).toContainText("Sara Conti");
-    await expect(page.getByRole("button", { name: "Nuovo tesserato" })).toHaveCount(0);
-    await expect(page.getByRole("searchbox")).toHaveCount(0);
-    await expect(page.getByRole("group", { name: "Riepilogo" })).toHaveCount(0);
-
-    await rows.first().getByRole("link").click();
-    await expect(page.getByRole("heading", { level: 1, name: "Sara Conti" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Modifica", exact: true })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Elimina", exact: true })).toHaveCount(0);
   });
 
   test("shows an error with retry when the list cannot be loaded", async ({ page }) => {

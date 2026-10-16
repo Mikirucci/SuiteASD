@@ -157,7 +157,7 @@ export function MembersPage() {
 
       {canReadAll ? (
         <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-3 md:flex-row md:items-end">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-end">
             <Input
               label="Cerca tesserato"
               hideLabel
@@ -166,7 +166,7 @@ export function MembersPage() {
               leadingIcon={<Search />}
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              className="md:flex-1"
+              className="xl:flex-1"
             />
             {canWrite ? (
               <div className="flex flex-wrap gap-2">

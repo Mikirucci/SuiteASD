@@ -39,10 +39,10 @@ test.describe("scritture sul backend reale", () => {
   test("l'amministratore spegne un'automazione e la percentuale scende", async ({ page }) => {
     await loginAs(page, "admin", "/automazioni");
     await page.getByRole("switch", { name: "Attiva Ricordare le quote" }).click();
-    await expect(page.getByText("5 su 6 attive · 83%")).toBeVisible();
+    await expect(page.getByText("9 su 10 attive · 90%")).toBeVisible();
     await page.reload();
-    await expect(page.getByText("5 su 6 attive · 83%")).toBeVisible();
+    await expect(page.getByText("9 su 10 attive · 90%")).toBeVisible();
     await page.getByRole("switch", { name: "Attiva Ricordare le quote" }).click();
-    await expect(page.getByText("6 su 6 attive · 100%")).toBeVisible();
+    await expect(page.getByText("10 su 10 attive · 100%")).toBeVisible();
   });
 });

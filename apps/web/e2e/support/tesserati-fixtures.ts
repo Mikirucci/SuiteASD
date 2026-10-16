@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
 import type { DocumentIndicator, MemberDetail, MemberListItem, Team } from "../../src/features/tesserati/types";
 import { mockApi, seedStoredSession } from "./mock-api";
+import { meWith, type MeOptions } from "./route-api";
 
 /** Network-level fixtures for the members (01) and expirations (02) modules. The backend is never needed. */
 
@@ -50,8 +51,16 @@ export function problem(status: number, code: string) {
   return { type: "about:blank", title: "Error", status, code };
 }
 
-/** Logs the user in (as `role`) and answers every other /api/v1 request through `handler`. */
-export async function mockBackend(page: Page, role: Role, handler: FixtureHandler): Promise<Recorded> {
+/**
+ * Logs the user in (as `role`, or as the user described by `me`) and answers every other /api/v1 request through
+ * `handler`.
+ */
+export async function mockBackend(
+  page: Page,
+  role: Role,
+  handler: FixtureHandler,
+  me?: MeOptions,
+): Promise<Recorded> {
   const recorded: Recorded = { calls: [], bodies: {} };
   await mockApi(page);
   await seedStoredSession(page);
@@ -67,7 +76,9 @@ export async function mockBackend(page: Page, role: Role, handler: FixtureHandle
     const key = `${request.method()} ${path}`;
 
     let response: FixtureResponse | undefined;
-    if (key === "GET /me") {
+    if (key === "GET /me" && me) {
+      response = { body: meWith(me) };
+    } else if (key === "GET /me") {
       response = {
         body: {
           user: { id: "u1", email: "presidente@aquilevolley.it", firstName: "Michele", lastName: "Rucci", phone: null },
