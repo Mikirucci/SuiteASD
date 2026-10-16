@@ -37,7 +37,7 @@ export const updatePreferencesBodySchema = z.object({
   preferences: z
     .array(preferenceSchema)
     .min(1)
-    .max(24)
+    .max(64)
     .refine((items) => new Set(items.map((item) => `${item.type}:${item.channel}`)).size === items.length, {
       message: 'Each type and channel pair can appear only once',
     }),

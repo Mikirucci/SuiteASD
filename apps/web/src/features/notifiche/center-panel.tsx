@@ -2,14 +2,15 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { BellOff, CheckCheck, Search } from "lucide-react";
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Button, DataList, EmptyState, LoadMore, PillFilter, type PillOption, Select, useToast } from "@/components/ui";
 import { NOTIFICATIONS_KEY, useUnreadCount } from "@/hooks/use-unread-count";
 import { describeError, useApiMutation } from "@/lib/api";
 import { useCursorQuery } from "@/lib/use-cursor-query";
-import { NOTIFICATION_TYPES, TYPE_INFO } from "./catalog";
+import { TYPE_INFO } from "./catalog";
 import { pluralize } from "./format";
 import { NotificationRow } from "./notification-row";
+import { offeredTypes, useNotificationPreferences } from "./preferences-query";
 import type { AppNotification, ReadAllResult } from "./types";
 
 const PAGE_SIZE = 25;
@@ -17,11 +18,6 @@ const PAGE_SIZE = 25;
 const STATUS_OPTIONS: readonly PillOption[] = [
   { value: "all", label: "Tutte" },
   { value: "unread", label: "Non lette" },
-];
-
-const TYPE_OPTIONS = [
-  { value: "", label: "Tutti i tipi" },
-  ...NOTIFICATION_TYPES.map((type) => ({ value: type, label: TYPE_INFO[type].label })),
 ];
 
 function summaryOf(unread: number): string {
@@ -39,6 +35,12 @@ export function CenterPanel() {
   const summaryRef = useRef<HTMLParagraphElement>(null);
 
   const unreadCount = useUnreadCount();
+  // The filter only offers the types this user can receive (the administration has its own)
+  const preferences = useNotificationPreferences();
+  const typeOptions = useMemo(
+    () => [{ value: "", label: "Tutti i tipi" }, ...offeredTypes(preferences.data).map((type) => ({ value: type, label: TYPE_INFO[type].label }))],
+    [preferences.data],
+  );
   const list = useCursorQuery<AppNotification>(
     [...NOTIFICATIONS_KEY, "list", { status, type }],
     "/notifications",
@@ -126,7 +128,7 @@ export function CenterPanel() {
         <PillFilter label="Filtra per stato" options={STATUS_OPTIONS} value={status} onChange={setStatus} />
         <Select
           label="Tipo di notifica"
-          options={TYPE_OPTIONS}
+          options={typeOptions}
           value={type}
           onChange={(event) => setType(event.target.value)}
           className="sm:max-w-xs"

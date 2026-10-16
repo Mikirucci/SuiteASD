@@ -1,4 +1,7 @@
 import { CHANNELS, NOTIFICATION_TYPES } from "./catalog";
+
+/** The types of the organisation audience: what the API lists to the administration instead of the personal ones. */
+export const ORGANISATION_TYPES: readonly NotificationPreference["type"][] = NOTIFICATION_TYPES.filter((type) => type.startsWith("ADMIN_"));
 import type { AppNotification, NotificationPreference } from "./types";
 
 /** Fixtures shared by the Vitest component tests and the Playwright spec. */
@@ -36,9 +39,10 @@ export const EVALUATION_READ = notification({
 
 export const ALL_NOTIFICATIONS: AppNotification[] = [CONVOCATION, FEE_UNREAD, EVALUATION_READ];
 
-/** Every (type, channel) pair, enabled unless listed in `off` as "TYPE:CHANNEL". */
-export function preferences(off: readonly string[] = []): NotificationPreference[] {
-  return NOTIFICATION_TYPES.flatMap((type) =>
+/** Every (type, channel) pair of the personal types (organisation ones when asked), enabled unless in `off` as "TYPE:CHANNEL". */
+export function preferences(off: readonly string[] = [], audience: "personal" | "organisation" = "personal"): NotificationPreference[] {
+  const types = NOTIFICATION_TYPES.filter((type) => type.startsWith("ADMIN_") === (audience === "organisation"));
+  return types.flatMap((type) =>
     CHANNELS.map((channel) => ({ type, channel, enabled: !off.includes(`${type}:${channel}`) })),
   );
 }

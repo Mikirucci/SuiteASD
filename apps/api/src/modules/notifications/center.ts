@@ -1,9 +1,9 @@
 import type { Notification, Prisma } from '@prisma/client';
-import { notFound } from '../../lib/errors.js';
+import { notFound, unprocessable } from '../../lib/errors.js';
 import { cursorArgs, toPage, type Page } from '../../lib/pagination.js';
 import { toIso, toIsoOrNull } from '../../lib/schemas.js';
 import type { TenantRequestContext } from '../../plugins/auth.js';
-import { NOTIFICATION_CHANNELS, NOTIFICATION_TYPES, notificationTypeSchema } from '../../shared/enums.js';
+import { NOTIFICATION_CHANNELS, notificationTypeSchema, notificationTypesForRoles } from '../../shared/enums.js';
 import type { ListNotificationsQuery, NotificationDto, PreferenceDto, UpdatePreferencesBody } from './schema.js';
 
 // The notification center of the signed-in user (SPEC 07 "in-app"): only their own in-app rows, never anybody else's.
@@ -21,8 +21,9 @@ function toDto(row: Notification): NotificationDto {
   };
 }
 
+// Only the types the user's roles take part in: rows written before a role change stay hidden rather than confusing.
 function ownInApp({ auth }: TenantRequestContext): Prisma.NotificationWhereInput {
-  return { userId: auth.userId, channel: 'IN_APP' };
+  return { userId: auth.userId, channel: 'IN_APP', type: { in: [...notificationTypesForRoles(auth.roles)] } };
 }
 
 export async function listNotifications(
@@ -33,7 +34,7 @@ export async function listNotifications(
     where: {
       ...ownInApp(ctx),
       ...(query.unread ? { readAt: null } : {}),
-      ...(query.type ? { type: query.type } : {}),
+      ...(query.type ? { AND: [{ type: query.type }] } : {}),
     },
     orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
     ...cursorArgs(query),
@@ -67,13 +68,18 @@ export async function markAllRead(ctx: TenantRequestContext): Promise<number> {
 export async function getPreferences(ctx: TenantRequestContext): Promise<PreferenceDto[]> {
   const stored = await ctx.db.notificationPreference.findMany({ where: { userId: ctx.auth.userId } });
   const disabled = new Set(stored.filter((row) => !row.enabled).map((row) => `${row.type}:${row.channel}`));
-  return NOTIFICATION_TYPES.flatMap((type) =>
+  return notificationTypesForRoles(ctx.auth.roles).flatMap((type) =>
     NOTIFICATION_CHANNELS.map((channel) => ({ type, channel, enabled: !disabled.has(`${type}:${channel}`) })),
   );
 }
 
 export async function updatePreferences(ctx: TenantRequestContext, body: UpdatePreferencesBody): Promise<PreferenceDto[]> {
   const { db, auth } = ctx;
+  const available = notificationTypesForRoles(auth.roles);
+  const unavailable = body.preferences.find(({ type }) => !available.includes(type));
+  if (unavailable) {
+    throw unprocessable('notification_type_unavailable', `The notification type ${unavailable.type} does not apply to your role`);
+  }
   for (const { type, channel, enabled } of body.preferences) {
     await db.notificationPreference.upsert({
       where: { userId_societyId_type_channel: { userId: auth.userId, societyId: auth.societyId, type, channel } },

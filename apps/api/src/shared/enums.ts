@@ -87,16 +87,40 @@ export const staffRoleSchema = z.enum(STAFF_ROLES);
 export type StaffRole = z.infer<typeof staffRoleSchema>;
 
 // Notifiche (SPEC 07). Push is a future channel: device tokens are stored but nothing sends to them yet.
-export const NOTIFICATION_TYPES = [
+// Two audiences (docs/DECISIONS.md D-21): "personal" types are about the person (athlete, guardian, coach, staff),
+// "organisation" types are what the administration needs to run the society. Admin and secretary only ever get the
+// organisation ones: they are not told when an athlete is convocated.
+export const PERSONAL_NOTIFICATION_TYPES = [
   'CONVOCATION',
   'FEE_DUE',
   'CERTIFICATE_EXPIRING',
+  'DOCUMENT_MISSING',
   'EVENT_CHANGED',
   'EVALUATION_PUBLISHED',
   'ANNOUNCEMENT',
 ] as const;
+export const ORGANISATION_NOTIFICATION_TYPES = [
+  'ADMIN_PAYMENT_RECEIVED',
+  'ADMIN_FEE_OVERDUE',
+  'ADMIN_DOCUMENT_ALERT',
+  'ADMIN_DOCUMENT_UPLOADED',
+  'ADMIN_NEW_ENROLMENT',
+  'ADMIN_SPONSOR_EXPIRING',
+] as const;
+export const NOTIFICATION_TYPES = [...PERSONAL_NOTIFICATION_TYPES, ...ORGANISATION_NOTIFICATION_TYPES] as const;
 export const notificationTypeSchema = z.enum(NOTIFICATION_TYPES);
 export type NotificationType = z.infer<typeof notificationTypeSchema>;
+
+const ORGANISATION_ROLES: readonly Role[] = ['ADMIN', 'SEGRETERIA'];
+
+// The notification types a user holding these roles takes part in (union when they hold roles of both audiences).
+export function notificationTypesForRoles(roles: readonly Role[]): readonly NotificationType[] {
+  const organisation = roles.some((role) => ORGANISATION_ROLES.includes(role));
+  const personal = roles.some((role) => !ORGANISATION_ROLES.includes(role));
+  return NOTIFICATION_TYPES.filter((type) =>
+    (ORGANISATION_NOTIFICATION_TYPES as readonly string[]).includes(type) ? organisation : personal,
+  );
+}
 
 export const NOTIFICATION_CHANNELS = ['IN_APP', 'EMAIL'] as const;
 export const notificationChannelSchema = z.enum(NOTIFICATION_CHANNELS);
