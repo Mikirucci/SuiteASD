@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { json, page, problem, renderWithProviders, stubApi } from "@/test/stub-api";
 import { expectNoA11yViolations } from "@/test/a11y";
 import { BilancioPage } from "./bilancio-page";
-import { AFFITTO, QUOTE_NOVEMBRE, REPORT } from "./test-fixtures";
+import { AFFITTO, QUOTE_NOVEMBRE, REPORT, REPORT_SUMMARY } from "./test-fixtures";
 
 const auth = vi.hoisted(() => ({ permissions: [] as string[] }));
 vi.mock("@/features/auth/auth-provider", () => ({
@@ -15,6 +15,7 @@ function routes(extra: Parameters<typeof stubApi>[0] = {}) {
   return {
     "GET /ledger/report": () => json(200, REPORT),
     "GET /ledger/entries": () => json(200, page([QUOTE_NOVEMBRE, AFFITTO])),
+    "GET /reports/accounting/summary": () => json(200, REPORT_SUMMARY),
     ...extra,
   };
 }

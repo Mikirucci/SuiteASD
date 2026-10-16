@@ -133,3 +133,15 @@ export const REPORT: LedgerReport = {
     { kind: "EXPENSE", category: "Affitto palestra", totalCents: 45000 },
   ],
 };
+
+/** What GET /reports/accounting/summary answers for the demo year. */
+export const REPORT_SUMMARY = {
+  period: { from: "2026-01-01", to: "2026-12-31" },
+  sections: [
+    { section: "LEDGER", records: 12, amountCents: -39000 },
+    { section: "FEES", records: 8, amountCents: 24000 },
+    { section: "SPONSORS", records: 0, amountCents: 0 },
+    { section: "TRIPS", records: 1, amountCents: 12050 },
+    { section: "REFEREES", records: 3, amountCents: 12000 },
+  ],
+};
