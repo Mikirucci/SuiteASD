@@ -14,7 +14,8 @@ import {
   at,
   attendanceSheet,
 } from "./test-fixtures";
-import { TEAMS, json, page, problem, renderWithProviders, stubApi } from "./test-support";
+import { json, page, problem, renderWithProviders, stubApi } from "@/test/stub-api";
+import { TEAMS } from "./test-support";
 
 const auth = vi.hoisted(() => ({ permissions: [] as string[] }));
 vi.mock("@/features/auth/auth-provider", () => ({

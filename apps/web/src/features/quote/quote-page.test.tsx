@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { tokens } from "@/lib/api";
 import { expectNoA11yViolations } from "@/test/a11y";
 import { QuotePage } from "./quote-page";
+import { json, page, problem, renderWithProviders, stubApi } from "@/test/stub-api";
 import {
   ATHLETE_PERMISSIONS,
   OVERDUE_FEE,
@@ -12,11 +13,6 @@ import {
   STAFF_PERMISSIONS,
   SUMMARY,
   TEAMS,
-  json,
-  page,
-  problem,
-  renderWithProviders,
-  stubApi,
 } from "./test-support";
 
 const auth = vi.hoisted(() => ({ permissions: [] as string[], roles: [] as string[] }));

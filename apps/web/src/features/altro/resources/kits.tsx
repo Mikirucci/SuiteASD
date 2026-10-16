@@ -1,7 +1,7 @@
 import { Shirt } from "lucide-react";
 import { z } from "zod";
 import { Badge } from "@/components/ui";
-import { formatDay } from "@/features/quote/format";
+import { formatDay } from "@/lib/format";
 import type { ResourceConfig } from "../crud/types";
 import { bodyReader, numberToInput, optionalInteger, optionalText, requiredText } from "../crud/values";
 import { joinParts } from "../format";

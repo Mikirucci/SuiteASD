@@ -3,17 +3,16 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { BellOff, CheckCheck, Search } from "lucide-react";
 import { useRef, useState } from "react";
-import { Button, DataList, EmptyState, PillFilter, Select, useToast, type PillOption } from "@/components/ui";
-import { describeError, useApiMutation, useApiQuery } from "@/lib/api";
-import { LoadMore } from "@/features/quote/load-more";
-import { useCursorQuery } from "@/features/quote/use-cursor-query";
+import { Button, DataList, EmptyState, LoadMore, PillFilter, type PillOption, Select, useToast } from "@/components/ui";
+import { NOTIFICATIONS_KEY, useUnreadCount } from "@/hooks/use-unread-count";
+import { describeError, useApiMutation } from "@/lib/api";
+import { useCursorQuery } from "@/lib/use-cursor-query";
 import { NOTIFICATION_TYPES, TYPE_INFO } from "./catalog";
 import { pluralize } from "./format";
 import { NotificationRow } from "./notification-row";
-import type { AppNotification, ReadAllResult, UnreadCount } from "./types";
+import type { AppNotification, ReadAllResult } from "./types";
 
 const PAGE_SIZE = 25;
-const ROOT_KEY = ["notifications"] as const;
 
 const STATUS_OPTIONS: readonly PillOption[] = [
   { value: "all", label: "Tutte" },
@@ -39,23 +38,23 @@ export function CenterPanel() {
   // A row that was just marked read loses its button: focus moves here so keyboard users do not lose their place
   const summaryRef = useRef<HTMLParagraphElement>(null);
 
-  const unreadCount = useApiQuery<UnreadCount>([...ROOT_KEY, "unread-count"], "/notifications/unread-count");
+  const unreadCount = useUnreadCount();
   const list = useCursorQuery<AppNotification>(
-    [...ROOT_KEY, "list", { status, type }],
+    [...NOTIFICATIONS_KEY, "list", { status, type }],
     "/notifications",
     { unread: status === "unread" ? true : undefined, type: type || undefined, limit: PAGE_SIZE },
   );
 
   const markRead = useApiMutation((id: string, client) => client.post<AppNotification>(`/notifications/${id}/read`), {
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ROOT_KEY });
+      await queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_KEY });
       summaryRef.current?.focus();
     },
     onError: (error) => toast({ title: "Non sono riuscito a segnarla come letta", description: describeError(error), tone: "danger" }),
   });
   const markAllRead = useApiMutation((_: void, client) => client.post<ReadAllResult>("/notifications/read-all"), {
     onSuccess: async (result) => {
-      await queryClient.invalidateQueries({ queryKey: ROOT_KEY });
+      await queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_KEY });
       toast({
         title: "Notifiche segnate come lette",
         description: `${result.updated} ${pluralize(result.updated, "notifica", "notifiche")}.`,

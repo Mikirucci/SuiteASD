@@ -3,8 +3,8 @@
 import { Lock } from "lucide-react";
 import { useState } from "react";
 import { EmptyState, SectionHeading, Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui";
-import { useCursorQuery } from "@/features/quote/use-cursor-query";
-import { usePermission } from "@/features/tesserati/use-permission";
+import { useCursorQuery } from "@/lib/use-cursor-query";
+import { usePermission } from "@/hooks/use-permission";
 import { AssignmentsPanel } from "./assignments-panel";
 import { RefereesPanel } from "./referees-panel";
 import type { Referee } from "./types";

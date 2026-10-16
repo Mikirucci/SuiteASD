@@ -3,10 +3,20 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Megaphone, Plus, Search } from "lucide-react";
 import { useState } from "react";
-import { Button, ConfirmDialog, DataList, EmptyState, PillFilter, SectionHeading, Select, useToast, type PillOption } from "@/components/ui";
-import { LoadMore } from "@/features/quote/load-more";
-import { useCursorQuery } from "@/features/quote/use-cursor-query";
-import { usePermission } from "@/features/tesserati/use-permission";
+import {
+  Button,
+  ConfirmDialog,
+  DataList,
+  EmptyState,
+  LoadMore,
+  PillFilter,
+  type PillOption,
+  SectionHeading,
+  Select,
+  useToast,
+} from "@/components/ui";
+import { useCursorQuery } from "@/lib/use-cursor-query";
+import { usePermission } from "@/hooks/use-permission";
 import { describeError, useApiMutation } from "@/lib/api";
 import { AnnouncementDialog, type AnnouncementDialogState } from "./announcement-dialog";
 import { AnnouncementItem } from "./announcement-item";

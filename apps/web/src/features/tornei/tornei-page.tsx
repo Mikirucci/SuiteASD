@@ -12,7 +12,7 @@ import { MatchesView } from "@/features/classifiche/matches-view";
 import { ScopePicker } from "@/features/classifiche/scope-picker";
 import { StandingsView } from "@/features/classifiche/standings-view";
 import { useCompetitionScope } from "@/features/classifiche/use-competition-scope";
-import { usePermission } from "@/features/tesserati/use-permission";
+import { usePermission } from "@/hooks/use-permission";
 import { describeError } from "@/lib/api";
 
 const TRIGGER_CLASS = "h-11";

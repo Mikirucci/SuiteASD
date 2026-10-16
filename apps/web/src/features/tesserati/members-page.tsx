@@ -17,8 +17,8 @@ import { ImportDialog } from "./import-dialog";
 import { MemberFormDialog } from "./member-form-dialog";
 import { MemberRow } from "./member-row";
 import { MembersSummaryBar } from "./members-summary-bar";
-import { usePermission } from "./use-permission";
-import { useDebouncedValue } from "./use-debounced-value";
+import { usePermission } from "@/hooks/use-permission";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 
 const ALL_TEAMS = "";
 

@@ -1,7 +1,7 @@
 import { Handshake } from "lucide-react";
 import { z } from "zod";
 import { Badge, type BadgeVariant } from "@/components/ui";
-import { formatDay, formatEuro } from "@/features/quote/format";
+import { formatDay, formatEuro } from "@/lib/format";
 import type { ResourceConfig } from "../crud/types";
 import {
   amountToInput,

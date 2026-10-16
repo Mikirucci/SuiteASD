@@ -120,7 +120,7 @@ export function FoundationsSection() {
       highlight="in un solo posto."
       description="Tutti i valori vivono come token in globals.css. I componenti usano solo i nomi semantici."
     >
-      <div className="grid gap-8 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
         {SCALES.map((scale) => (
           <Specimen key={scale.title} caption={scale.title}>
             <ul className="grid grid-cols-4 gap-x-2 gap-y-3 sm:grid-cols-5">
@@ -148,7 +148,7 @@ export function FoundationsSection() {
         </Card>
       </Specimen>
 
-      <div className="grid gap-8 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
         <Specimen caption="Spaziatura 4 / 8 / 12 / 16 / 24 / 32">
           <Card className="flex flex-col gap-3">
             {SPACING.map((step) => (

@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { json, page, problem, renderWithProviders, stubApi } from "@/features/quote/test-support";
+import { json, page, problem, renderWithProviders, stubApi } from "@/test/stub-api";
 import { expectNoA11yViolations } from "@/test/a11y";
 import { venuesConfig } from "../resources/venues";
 import { PALAZZETTO, SCUOLA } from "../test-fixtures";

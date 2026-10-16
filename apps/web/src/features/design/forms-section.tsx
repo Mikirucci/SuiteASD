@@ -24,7 +24,7 @@ export function FormsSection() {
       highlight="errori leggibili."
       description="Etichetta sempre visibile sopra il campo, aiuto e messaggio d'errore collegati con aria-describedby."
     >
-      <div className="grid gap-x-8 gap-y-8 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-x-8 gap-y-8 md:grid-cols-2">
         <Specimen caption="Campo normale con aiuto" className="flex flex-col gap-5">
           <Input label="Nome e cognome" placeholder="Giulia Rossi" hint="Come compare sul tesserino." />
           <Input label="Email" type="email" leadingIcon={<Mail />} placeholder="nome@societa.it" required />
@@ -43,7 +43,7 @@ export function FormsSection() {
         </Specimen>
       </div>
 
-      <div className="grid gap-8 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
         <Specimen caption="Checkbox: vuota, selezionata, disabilitata, con errore" className="flex flex-col gap-1">
           <Checkbox label="Certificato medico consegnato" />
           <Checkbox label="Modulo d'iscrizione firmato" defaultChecked />

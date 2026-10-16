@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ProgressBar } from "@/components/ui/progress-bar";
-import { pluralize } from "@/features/quote/format";
+import { pluralize } from "@/lib/format";
 import type { TeamCount } from "./types";
 
 /** Active members per team: horizontal bars with the value written next to them, switchable to a plain table. */

@@ -2,13 +2,13 @@
 
 import { ClipboardList, Pencil, Plus, Users } from "lucide-react";
 import { useState } from "react";
-import { Badge, Button, DataList, EmptyState } from "@/components/ui";
+import { Badge, Button, DataList, EmptyState, LoadMore } from "@/components/ui";
 import { GenerateFeesDialog } from "./generate-fees-dialog";
-import { formatEuro, KIND_LABELS } from "./format";
-import { LoadMore } from "./load-more";
+import { formatEuro } from "@/lib/format";
+import { KIND_LABELS } from "./format";
 import { PlanFormDialog, type PlanDialogState } from "./plan-form-dialog";
 import type { FeePlan, TeamOption } from "./types";
-import { useCursorQuery } from "./use-cursor-query";
+import { useCursorQuery } from "@/lib/use-cursor-query";
 import { useQuoteAccess } from "./use-quote-access";
 
 function planDetails(plan: FeePlan, teamName: string): string {

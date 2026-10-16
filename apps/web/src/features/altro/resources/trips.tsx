@@ -1,7 +1,7 @@
 import { Bus } from "lucide-react";
 import { z } from "zod";
 import { Badge, type BadgeVariant } from "@/components/ui";
-import { formatEuro } from "@/features/quote/format";
+import { formatEuro } from "@/lib/format";
 import type { ResourceConfig } from "../crud/types";
 import {
   amountToInput,

@@ -3,11 +3,10 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Plus, Search, SearchX } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import { Button, ConfirmDialog, DataList, EmptyState, Input, PillFilter, useToast } from "@/components/ui";
-import { usePermission } from "@/features/tesserati/use-permission";
-import { LoadMore } from "@/features/quote/load-more";
-import { useCursorQuery } from "@/features/quote/use-cursor-query";
-import { useDebouncedValue } from "@/features/quote/use-debounced-value";
+import { Button, ConfirmDialog, DataList, EmptyState, Input, LoadMore, PillFilter, useToast } from "@/components/ui";
+import { usePermission } from "@/hooks/use-permission";
+import { useCursorQuery } from "@/lib/use-cursor-query";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { describeError, useApiMutation, type QueryParams } from "@/lib/api";
 import { ResourceFormDialog, type ResourceDialogState } from "./resource-form-dialog";
 import { ResourceRow } from "./resource-row";

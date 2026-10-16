@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { centsToInput } from "@/features/quote/format";
+import { centsToInput } from "@/lib/format";
 import type { FormMode, FormValues } from "./types";
 
 /** Largest amount the API accepts (euro cents). */

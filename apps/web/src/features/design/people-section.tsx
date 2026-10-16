@@ -47,7 +47,7 @@ export function PeopleSection() {
       highlight="a che punto siamo."
       description="Avatar a iniziali con colore sempre uguale per la stessa persona, badge e chip che non si affidano al solo colore."
     >
-      <div className="grid gap-8 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
         <Specimen caption="Avatar: taglie, conferma presenza, evidenziato" className="flex flex-wrap items-end gap-4">
           {SIZES.map((size) => (
             <Avatar key={size} name="Giulia Rossi" size={size} />
@@ -74,7 +74,7 @@ export function PeopleSection() {
         </Specimen>
       </div>
 
-      <div className="grid gap-8 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
         <Specimen caption="Chip di stato dei pagamenti" className="flex flex-wrap items-center gap-2">
           <PaymentChip status="paid" />
           <PaymentChip status="pending" />

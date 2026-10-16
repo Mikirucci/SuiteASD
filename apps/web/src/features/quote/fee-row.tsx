@@ -1,6 +1,7 @@
 import { Ban } from "lucide-react";
 import { Avatar, Chip, PaymentChip } from "@/components/ui";
-import { chipStatusOf, formatDateTime, formatDayShort, formatEuro } from "./format";
+import { formatDateTime, formatDayShort, formatEuro } from "@/lib/format";
+import { chipStatusOf } from "./format";
 import type { Fee } from "./types";
 
 /** One line of context under the fee: when it is due, or when and how it was settled. */

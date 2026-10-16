@@ -1,6 +1,6 @@
 "use client";
 
-import { usePermission } from "@/features/tesserati/use-permission";
+import { usePermission } from "@/hooks/use-permission";
 
 export interface CalendarAccess {
   /** Create, edit, move and cancel events. */

@@ -5,8 +5,9 @@ import type { ReactNode } from "react";
 import { Alert, AutoChip, Button, Dialog, DialogContent, useToast } from "@/components/ui";
 import { describeError, useApiMutation } from "@/lib/api";
 import { FeeStatusChip } from "./fee-row";
-import { formatDateTime, formatDay, formatEuro, METHOD_LABELS } from "./format";
-import { saveFile } from "./save-file";
+import { formatDateTime, formatDay, formatEuro } from "@/lib/format";
+import { METHOD_LABELS } from "./format";
+import { saveFile } from "@/lib/save-file";
 import type { Fee } from "./types";
 
 function Detail({ label, children }: { label: string; children: ReactNode }) {

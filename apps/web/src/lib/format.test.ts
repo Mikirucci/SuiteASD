@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { centsToInput, chipStatusOf, formatDay, formatDayShort, formatEuro, parseEuroToCents, pluralize } from "./format";
+import { centsToInput, formatDay, formatDayShort, formatEuro, parseEuroToCents, pluralize } from "./format";
 
 describe("formatEuro", () => {
   it("drops the decimals for whole euros and groups from five digits, as Italian does", () => {
@@ -44,14 +44,7 @@ describe("dates", () => {
   });
 });
 
-describe("status and plurals", () => {
-  it("maps API statuses to the payment chip", () => {
-    expect(chipStatusOf("PAID")).toBe("paid");
-    expect(chipStatusOf("PENDING")).toBe("pending");
-    expect(chipStatusOf("OVERDUE")).toBe("overdue");
-    expect(chipStatusOf("CANCELLED")).toBeNull();
-  });
-
+describe("pluralize", () => {
   it("pluralizes counts", () => {
     expect(pluralize(1, "quota", "quote")).toBe("1 quota");
     expect(pluralize(3, "quota", "quote")).toBe("3 quote");

@@ -20,10 +20,6 @@ export interface AppNotification {
   createdAt: string;
 }
 
-export interface UnreadCount {
-  count: number;
-}
-
 export interface ReadAllResult {
   updated: number;
 }

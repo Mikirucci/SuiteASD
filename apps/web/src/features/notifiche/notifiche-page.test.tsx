@@ -1,6 +1,7 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { useUnreadCount } from "@/hooks/use-unread-count";
 import { expectNoA11yViolations } from "@/test/a11y";
 import { installFakeApi, pageOf, problem, type FakeRoutes } from "@/test/fake-api";
 import { renderWithQuery } from "@/test/render-with-query";
@@ -40,6 +41,12 @@ function centerBackend(initial: AppNotification[] = ALL_NOTIFICATIONS) {
 afterEach(() => {
   vi.unstubAllGlobals();
 });
+
+/** Stands in for the navigation badge: it reads the same counter through the shared hook. */
+function BadgeProbe() {
+  const { data } = useUnreadCount();
+  return <output aria-label="Badge">{data?.count ?? "-"}</output>;
+}
 
 describe("NotifichePage, centro notifiche", () => {
   it("lists the notifications with their read state and the unread counter", async () => {
@@ -125,6 +132,23 @@ describe("NotifichePage, centro notifiche", () => {
     expect(screen.queryByRole("button", { name: "Segna come letta: Quota in scadenza" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Segna come letta: Convocazione" })).toBeInTheDocument();
     await waitFor(() => expect(screen.getByText("1 notifica da leggere")).toHaveFocus());
+  });
+
+  it("keeps the navigation badge in step when notifications are read", async () => {
+    installFakeApi(centerBackend().routes);
+    renderWithQuery(
+      <>
+        <BadgeProbe />
+        <NotifichePage />
+      </>,
+    );
+    await waitFor(() => expect(screen.getByLabelText("Badge")).toHaveTextContent("2"));
+
+    await userEvent.click(await screen.findByRole("button", { name: "Segna come letta: Quota in scadenza" }));
+    await waitFor(() => expect(screen.getByLabelText("Badge")).toHaveTextContent("1"));
+
+    await userEvent.click(screen.getByRole("button", { name: "Segna tutte come lette" }));
+    await waitFor(() => expect(screen.getByLabelText("Badge")).toHaveTextContent("0"));
   });
 
   it("marks everything as read", async () => {

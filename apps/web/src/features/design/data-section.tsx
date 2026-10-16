@@ -83,7 +83,7 @@ export function DataSection() {
       highlight="progressi"
       description="Ogni elenco gestisce da solo caricamento, errore e vuoto: provali tutti qui sotto."
     >
-      <div className="grid gap-8 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
         <Specimen caption="Barra di progresso (anima al caricamento)" className="flex flex-col gap-5">
           <div className="flex flex-col gap-2">
             <p className="flex justify-between text-sm font-bold">
@@ -138,7 +138,7 @@ export function DataSection() {
         </Card>
       </Specimen>
 
-      <div className="grid gap-8 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
         <Specimen caption="Striscia settimanale con pallino evento">
           <WeekStrip weekOf={MATCH_DAY} selected={selectedDay} onSelect={setSelectedDay} eventDays={EVENT_DAYS} />
         </Specimen>
@@ -155,7 +155,7 @@ export function DataSection() {
         </Specimen>
       </div>
 
-      <div className="grid gap-8 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
         <Specimen caption="Elenco: con dati">
           <DataList
             items={PLAYERS}

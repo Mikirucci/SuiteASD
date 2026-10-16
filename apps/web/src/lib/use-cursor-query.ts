@@ -2,7 +2,7 @@
 
 import { useInfiniteQuery, type QueryKey } from "@tanstack/react-query";
 import { api, type ApiError, type QueryParams } from "@/lib/api";
-import type { CursorPage } from "./types";
+import type { Page as CursorPage } from "./use-all-pages";
 
 export interface CursorQueryResult<T> {
   items: T[] | undefined;

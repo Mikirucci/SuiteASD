@@ -8,7 +8,7 @@ import { useForm } from "react-hook-form";
 import { Alert, Button, Dialog, DialogClose, DialogContent, Input, useToast } from "@/components/ui";
 import { ApiError, describeError, useApiMutation } from "@/lib/api";
 import { toDayKey } from "@/lib/dates";
-import { formatEuro, pluralize } from "./format";
+import { formatEuro, pluralize } from "@/lib/format";
 import { generateSchema, toGenerateBody, type GenerateValues } from "./schemas";
 import type { FeePlan, GenerateFeesBody, GenerateFeesResult } from "./types";
 

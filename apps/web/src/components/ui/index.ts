@@ -16,6 +16,7 @@ export { Drawer, DrawerClose, DrawerContent, DrawerTrigger, type DrawerContentPr
 export { EmptyState, type EmptyStateProps } from "./empty-state";
 export { ErrorState, type ErrorStateProps } from "./error-state";
 export { Input, type InputProps } from "./input";
+export { LoadMore, type LoadMoreProps } from "./load-more";
 export { AppIcon, Logo, type AppIconProps, type LogoProps } from "./logo";
 export { PillFilter, type PillFilterProps, type PillOption } from "./pill-filter";
 export { ProgressBar, type ProgressBarProps, type ProgressTone } from "./progress-bar";

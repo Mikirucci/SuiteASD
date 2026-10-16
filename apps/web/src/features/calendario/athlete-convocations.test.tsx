@@ -4,7 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { expectNoA11yViolations } from "@/test/a11y";
 import { CalendarioPage } from "./calendario-page";
 import { ATHLETE_PERMISSIONS, GIULIA, MATCH_EVENT, NOW, SARA, makeConvocation } from "./test-fixtures";
-import { calendarRoutes, json, page, problem, renderWithProviders, stubApi } from "./test-support";
+import { json, page, problem, renderWithProviders, stubApi } from "@/test/stub-api";
+import { calendarRoutes } from "./test-support";
 
 const auth = vi.hoisted(() => ({ permissions: [] as string[] }));
 vi.mock("@/features/auth/auth-provider", () => ({
