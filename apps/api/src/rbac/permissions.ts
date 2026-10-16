@@ -32,6 +32,9 @@ export const PERMISSIONS = {
   'members:read': [A, S, C, D],
   'members:readOwn': ALL,
   'members:write': [A, S],
+  // Athletes and guardians keep their own contact details up to date; guardians add their children.
+  'members:updateOwn': [T, G],
+  'children:create': [G],
 
   'teams:read': ALL,
   'teams:write': [A, S],

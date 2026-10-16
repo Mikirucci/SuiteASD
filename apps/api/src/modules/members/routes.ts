@@ -6,6 +6,7 @@ import { idParamsSchema } from '../../lib/schemas.js';
 import { bearerSecurity, tenantOf } from '../../plugins/auth.js';
 import { createFileStorage } from '../documents/storage.js';
 import {
+  createChildBodySchema,
   createMemberBodySchema,
   exportMembersQuerySchema,
   importMembersBodySchema,
@@ -15,9 +16,11 @@ import {
   memberListItemSchema,
   memberSummarySchema,
   updateMemberBodySchema,
+  updateOwnContactBodySchema,
 } from './schema.js';
 import {
   createMember,
+  createOwnChild,
   deleteMember,
   exportMembersCsv,
   getMember,
@@ -25,6 +28,7 @@ import {
   importMembers,
   listMembers,
   updateMember,
+  updateOwnContact,
 } from './service.js';
 
 export const memberRoutes: FastifyPluginAsyncZod = async (app) => {
@@ -147,6 +151,37 @@ export const memberRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     async (request) => updateMember(tenantOf(request), request.params.id, request.body),
+  );
+
+  app.patch(
+    '/members/:id/contact',
+    {
+      onRequest: [app.requirePermission('members:updateOwn')],
+      schema: {
+        tags: ['Members'],
+        summary: 'An athlete or guardian updates the contact details of their own member (email, phone, address, kit size)',
+        security: bearerSecurity,
+        params: idParamsSchema,
+        body: updateOwnContactBodySchema,
+        response: { 200: memberDetailSchema, ...problemResponses(401, 403, 404, 422) },
+      },
+    },
+    async (request) => updateOwnContact(tenantOf(request), request.params.id, request.body),
+  );
+
+  app.post(
+    '/me/children',
+    {
+      onRequest: [app.requirePermission('children:create')],
+      schema: {
+        tags: ['Members'],
+        summary: 'A guardian registers a child: the child becomes a member linked to the guardian, with no team yet',
+        security: bearerSecurity,
+        body: createChildBodySchema,
+        response: { 201: memberDetailSchema, ...problemResponses(401, 403, 409, 422) },
+      },
+    },
+    async (request, reply) => reply.status(201).send(await createOwnChild(tenantOf(request), request.body, request.log)),
   );
 
   app.delete(

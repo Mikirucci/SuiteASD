@@ -18,7 +18,7 @@ describe('permission matrix (SPEC section 2)', () => {
   });
 
   it('gives ADMIN every administrative permission and no role more than ADMIN, except athlete/guardian self-service', () => {
-    const selfService: Permission[] = ['convocations:respond', 'documents:uploadOwn', 'evaluations:readOwn'];
+    const selfService: Permission[] = ['children:create', 'convocations:respond', 'documents:uploadOwn', 'evaluations:readOwn', 'members:updateOwn'];
     const nonAdmin = (Object.keys(PERMISSIONS) as Permission[]).filter((permission) => !can(['ADMIN'], permission));
     expect(nonAdmin.sort()).toEqual([...selfService].sort());
   });

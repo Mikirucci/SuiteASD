@@ -1,4 +1,5 @@
 import type { Prisma } from '@prisma/client';
+import type { FastifyBaseLogger } from 'fastify';
 import { CsvParseError, parseCsv, toCsv } from '../../lib/csv.js';
 import { conflict, notFound, unprocessable } from '../../lib/errors.js';
 import { cursorArgs, toPage, type Page, type PaginationQuery } from '../../lib/pagination.js';
@@ -10,13 +11,15 @@ import { guardianRelationSchema } from '../../shared/enums.js';
 import { loadDocumentStates, type MemberDocumentState } from '../documents/indicators.js';
 import { formatDateOnly, parseDateOnly } from '../documents/status.js';
 import type { FileStorage } from '../documents/storage.js';
-import { memberScope } from './access.js';
+import { notifyAdministration } from '../notifications/admin-alerts.js';
+import { memberScope, ownMemberIds } from './access.js';
 import { importColumns, normalizeImportRow, normalizeHeader } from './csv-columns.js';
 import {
   memberFieldsSchema,
   memberGenderSchema,
   memberStatusSchema,
   MAX_IMPORT_ROWS,
+  type CreateChildBody,
   type CreateMemberBody,
   type ExportMembersQuery,
   type ImportMembersBody,
@@ -26,6 +29,7 @@ import {
   type MemberListItem,
   type MemberSummary,
   type UpdateMemberBody,
+  type UpdateOwnContactBody,
 } from './schema.js';
 
 const memberInclude = {
@@ -188,6 +192,51 @@ export async function createMember(ctx: TenantRequestContext, body: CreateMember
     if (isUniqueViolation(error)) throw conflict('fiscal_code_taken', 'A member with this fiscal code already exists');
     throw error;
   }
+}
+
+// An athlete or a guardian edits the contact details of their own member (or of a child). Somebody else's member
+// looks like a missing one.
+export async function updateOwnContact(ctx: TenantRequestContext, id: string, body: UpdateOwnContactBody): Promise<MemberDetail> {
+  if (!(await ownMemberIds(ctx)).has(id)) throw notFound('Member');
+  await ctx.db.member.update({ where: { id }, data: body });
+  return getMember(ctx, id);
+}
+
+// A guardian registers a child. The child has no team yet: the secretary assigns it (the administration is told).
+export async function createOwnChild(ctx: TenantRequestContext, body: CreateChildBody, log: FastifyBaseLogger): Promise<MemberDetail> {
+  const { relation, birthDate, ...fields } = body;
+  const now = new Date();
+  let memberId: string;
+  try {
+    const member = await ctx.db.member.create({
+      data: {
+        ...fields,
+        birthDate: parseDateOnly(birthDate),
+        societyId: ctx.auth.societyId,
+        status: 'ACTIVE',
+        joinedAt: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())),
+        guardianLinks: { create: { societyId: ctx.auth.societyId, guardianUserId: ctx.auth.userId, relation } },
+      },
+      select: { id: true },
+    });
+    memberId = member.id;
+  } catch (error) {
+    if (isUniqueViolation(error)) throw conflict('fiscal_code_taken', 'A member with this fiscal code already exists');
+    throw error;
+  }
+  try {
+    await notifyAdministration(ctx.db, {
+      societyId: ctx.auth.societyId,
+      template: { type: 'ADMIN_NEW_ENROLMENT', memberName: `${body.firstName} ${body.lastName}`, teamName: null },
+      dedupeKey: `enrolment:${memberId}`,
+      data: { memberId },
+      exceptUserId: ctx.auth.userId,
+      now,
+    });
+  } catch (error) {
+    log.error({ err: error, memberId }, 'could not notify the administration of a new child');
+  }
+  return getMember(ctx, memberId);
 }
 
 export async function updateMember(ctx: TenantRequestContext, id: string, body: UpdateMemberBody): Promise<MemberDetail> {
