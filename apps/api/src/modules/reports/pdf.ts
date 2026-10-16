@@ -222,7 +222,7 @@ function renderSponsors(writer: Writer, report: AccountingReport): void {
   const sponsors = report.sponsors;
   if (!sponsors) return;
   writer.sectionTitle('Sponsor', 'Contratti validi nel periodo (anche solo in parte).');
-  if (sponsors.items.length === 0) return writer.empty('Nessun contratto di sponsorizzazione nel periodo.');
+  if (sponsors.items.length === 0) { writer.empty('Nessun contratto di sponsorizzazione nel periodo.'); return; }
   writer.table(
     cols(writer.contentWidth, [['Sponsor', 5], ['Stato', 2], ['Dal', 2], ['Al', 2], ['Importo', 2, 'right']]),
     sponsors.items.map((item) => [
@@ -240,7 +240,7 @@ function renderTrips(writer: Writer, report: AccountingReport): void {
   const trips = report.trips;
   if (!trips) return;
   writer.sectionTitle('Trasferte', 'Trasferte del periodo, escluse quelle annullate.');
-  if (trips.items.length === 0) return writer.empty('Nessuna trasferta nel periodo.');
+  if (trips.items.length === 0) { writer.empty('Nessuna trasferta nel periodo.'); return; }
   writer.table(
     cols(writer.contentWidth, [['Partenza', 3], ['Destinazione', 6], ['Stato', 3], ['Costo', 2, 'right']]),
     trips.items.map((item) => [
@@ -257,7 +257,7 @@ function renderReferees(writer: Writer, report: AccountingReport): void {
   const referees = report.referees;
   if (!referees) return;
   writer.sectionTitle('Arbitri', 'Designazioni delle gare del periodo con il compenso e il rimborso.');
-  if (referees.items.length === 0) return writer.empty('Nessuna designazione nel periodo.');
+  if (referees.items.length === 0) { writer.empty('Nessuna designazione nel periodo.'); return; }
   writer.table(
     cols(writer.contentWidth, [['Gara del', 2], ['Arbitro', 4], ['Partita', 5], ['Compenso', 2, 'right'], ['Rimborsato il', 2]]),
     referees.items.map((item) => [
@@ -294,7 +294,7 @@ export function renderAccountingPdf(report: AccountingReport): Promise<Buffer> {
     });
     const chunks: Buffer[] = [];
     doc.on('data', (chunk: Buffer) => chunks.push(chunk));
-    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    doc.on('end', () => { resolve(Buffer.concat(chunks)); });
     doc.on('error', reject);
 
     const writer = new Writer(doc);
