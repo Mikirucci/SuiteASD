@@ -7,6 +7,7 @@ import { inject } from 'vitest';
 import { sqliteUrl } from './db-url.js';
 import { buildApp } from '../../src/app.js';
 import { loadConfig, type AppConfig } from '../../src/config/env.js';
+import type { EmailTransport } from '../../src/lib/email.js';
 
 export const API = '/api/v1';
 
@@ -19,7 +20,11 @@ export interface TestContext {
 
 // Builds a full app on a private copy of the migrated SQLite database: test files are fully isolated
 // from each other and from the dev database. Inside a file, isolate tests by creating a new society.
-export async function createTestContext(overrides: Record<string, string> = {}): Promise<TestContext> {
+// `email` replaces the email provider (default: none, as RESEND_API_KEY is unset).
+export async function createTestContext(
+  overrides: Record<string, string> = {},
+  options: { email?: EmailTransport | null } = {},
+): Promise<TestContext> {
   const dir = mkdtempSync(join(tmpdir(), 'suiteasd-test-'));
   const dbFile = join(dir, 'test.db');
   copyFileSync(inject('templateDb'), dbFile);
@@ -34,7 +39,7 @@ export async function createTestContext(overrides: Record<string, string> = {}):
     ...overrides,
   });
   const prisma = new PrismaClient({ datasourceUrl: config.DATABASE_URL });
-  const app = await buildApp({ config, prisma });
+  const app = await buildApp({ config, prisma, email: options.email ?? null });
   await app.ready();
 
   return {

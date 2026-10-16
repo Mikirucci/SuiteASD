@@ -25,7 +25,7 @@ export interface RunAutomationInput {
   runKey?: string;
 }
 
-function isJsonObject(value: unknown): value is Prisma.JsonObject {
+export function isJsonObject(value: unknown): value is Prisma.JsonObject {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 

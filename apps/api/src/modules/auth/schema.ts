@@ -33,6 +33,23 @@ export const acceptInvitationBodySchema = z.object({
   lastName: nameSchema.optional(),
 });
 
+export const magicLinkRequestBodySchema = z.object({ email: emailSchema });
+
+// Always the same body, whether or not the email belongs to an account.
+export const magicLinkRequestResponseSchema = z.object({ status: z.literal('accepted') });
+
+export const magicLinkConsumeBodySchema = z.object({
+  token: z.string().min(1).max(256),
+  // Needed only when the account belongs to several societies; defaults to the oldest membership (as login).
+  societyId: z.string().min(1).max(64).optional(),
+});
+
+export const changePasswordBodySchema = z.object({
+  newPassword: passwordSchema,
+  // Required unless the access token comes from a magic link.
+  currentPassword: z.string().min(1).max(128).optional(),
+});
+
 export const userSummarySchema = z.object({
   id: z.string(),
   email: z.string(),
@@ -70,5 +87,7 @@ export const meResponseSchema = z.object({
 export type RegisterBody = z.infer<typeof registerBodySchema>;
 export type LoginBody = z.infer<typeof loginBodySchema>;
 export type AcceptInvitationBody = z.infer<typeof acceptInvitationBodySchema>;
+export type MagicLinkConsumeBody = z.infer<typeof magicLinkConsumeBodySchema>;
+export type ChangePasswordBody = z.infer<typeof changePasswordBodySchema>;
 export type SessionResponse = z.infer<typeof sessionResponseSchema>;
 export type MeResponse = z.infer<typeof meResponseSchema>;

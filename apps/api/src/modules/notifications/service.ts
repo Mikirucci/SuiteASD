@@ -19,6 +19,8 @@ export interface CreateNotificationInput {
   data?: Prisma.InputJsonValue;
   // Makes the call idempotent: a user who already has a notification with this key (per channel) gets no second one.
   dedupeKey?: string;
+  // Restricts the delivery to these channels (an automation's own setting); the user's preferences still apply on top.
+  channels?: readonly NotificationChannel[];
 }
 
 // The slice of a (tenant or transaction) Prisma client that createNotification needs.
@@ -53,7 +55,8 @@ export async function createNotification(db: NotificationWriter, input: CreateNo
   if (userIds.length === 0) return 0;
 
   const emailEnabled = await isAutomationEnabled(db, DISPATCH_AUTOMATION_KEY);
-  const channels: NotificationChannel[] = emailEnabled ? ['IN_APP', 'EMAIL'] : ['IN_APP'];
+  const allowed: readonly NotificationChannel[] = input.channels ?? ['IN_APP', 'EMAIL'];
+  const channels = allowed.filter((channel) => channel === 'IN_APP' || emailEnabled);
 
   const preferences = await db.notificationPreference.findMany({
     where: { userId: { in: userIds }, type: input.type, enabled: false },

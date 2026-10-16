@@ -73,9 +73,10 @@ describe('automations dashboard (SPEC 08)', () => {
         state: 'WAITING',
         lastRun: null,
         lastRunAt: null,
-        config: { beforeDueDays: [1, 7], afterDueDays: [3, 10] },
+        config: { beforeDueDays: [1, 7], afterDueDays: [3, 10], hour: 9, channels: ['IN_APP', 'EMAIL'] },
       });
-      expect(byKey['certificate-reminders'].config).toEqual({ thresholdsDays: [0, 7, 15, 30] });
+      expect(byKey['certificate-reminders']).toMatchObject({ schedule: '0 8 * * *' });
+      expect(byKey['certificate-reminders'].config).toEqual({ thresholdsDays: [0, 7, 15, 30], hour: 8, channels: ['IN_APP', 'EMAIL'] });
       expect(byKey.standings).toMatchObject({ kind: 'EVENT', schedule: null, toggleable: false, runnable: false, state: 'COMPLETED' });
       expect(byKey.receipts).toMatchObject({ kind: 'EVENT', toggleable: true, runnable: false, state: 'COMPLETED' });
       expect(byKey['notifications-dispatch']).toMatchObject({ schedule: '*/10 * * * *', config: { maxAttempts: 3, batchSize: 100 } });
@@ -117,16 +118,22 @@ describe('automations dashboard (SPEC 08)', () => {
       const admin = await freshAdmin('Config ASD');
       const merged = await call('PATCH', admin, '/automations/fee-reminders', { config: { afterDueDays: [10, 5, 5] } });
       expect(merged.statusCode).toBe(200);
-      expect(merged.json().config).toEqual({ beforeDueDays: [1, 7], afterDueDays: [5, 10] });
+      expect(merged.json().config).toEqual({ beforeDueDays: [1, 7], afterDueDays: [5, 10], hour: 9, channels: ['IN_APP', 'EMAIL'] });
       const again = await call('PATCH', admin, '/automations/fee-reminders', { config: { beforeDueDays: [3] } });
-      expect(again.json().config).toEqual({ beforeDueDays: [3], afterDueDays: [5, 10] });
+      expect(again.json().config).toEqual({ beforeDueDays: [3], afterDueDays: [5, 10], hour: 9, channels: ['IN_APP', 'EMAIL'] });
 
       const certificates = await call('PATCH', admin, '/automations/certificate-reminders', { config: { thresholdsDays: [60, 30, 0] } });
-      expect(certificates.json().config).toEqual({ thresholdsDays: [0, 30, 60] });
+      expect(certificates.json().config).toEqual({ thresholdsDays: [0, 30, 60], hour: 8, channels: ['IN_APP', 'EMAIL'] });
       const dispatch = await call('PATCH', admin, '/automations/notifications-dispatch', { config: { maxAttempts: 5 } });
       expect(dispatch.json().config).toEqual({ maxAttempts: 5, batchSize: 100 });
       const convocations = await call('PATCH', admin, '/automations/convocation-dispatch', { config: { daysBefore: 5, remindNonRespondents: false } });
-      expect(convocations.json().config).toEqual({ daysBefore: 5, remindNonRespondents: false, reminderDaysBefore: 1 });
+      expect(convocations.json().config).toEqual({
+        daysBefore: 5,
+        remindNonRespondents: false,
+        reminderDaysBefore: 1,
+        hour: 9,
+        channels: ['IN_APP', 'EMAIL'],
+      });
     });
 
     it('rejects invalid settings with field errors and leaves the stored ones untouched', async () => {
@@ -137,6 +144,13 @@ describe('automations dashboard (SPEC 08)', () => {
         ['fee-reminders', { beforeDueDays: [0] }, 'config.beforeDueDays.0'],
         ['notifications-dispatch', { maxAttempts: 0 }, 'config.maxAttempts'],
         ['convocation-dispatch', { daysBefore: 'tre' }, 'config.daysBefore'],
+        ['fee-reminders', { hour: 24 }, 'config.hour'],
+        ['certificate-reminders', { hour: -1 }, 'config.hour'],
+        ['convocation-dispatch', { hour: 8.5 }, 'config.hour'],
+        ['fee-reminders', { channels: [] }, 'config.channels'],
+        ['certificate-reminders', { channels: ['SMS'] }, 'config.channels.0'],
+        ['convocation-dispatch', { channels: 'EMAIL' }, 'config.channels'],
+        ['notifications-dispatch', { hour: 8 }, 'config'],
         ['fee-reminders', { unknownSetting: 1 }, 'config'],
         ['receipts', { anything: true }, 'config'],
       ] as const) {
@@ -148,6 +162,8 @@ describe('automations dashboard (SPEC 08)', () => {
       const dashboard = (await call('GET', admin, '/automations')).json();
       expect(dashboard.data.find((item: { key: string }) => item.key === 'certificate-reminders').config).toEqual({
         thresholdsDays: [0, 7, 15, 30],
+        hour: 8,
+        channels: ['IN_APP', 'EMAIL'],
       });
     });
 

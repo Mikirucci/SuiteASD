@@ -93,6 +93,7 @@ model User {
 
   memberships   Membership[]
   refreshTokens RefreshToken[]
+  loginTokens   LoginToken[]
   guardianLinks GuardianLink[] @relation("GuardianUser")
   members       Member[]
   notifications Notification[]
@@ -164,6 +165,23 @@ model RefreshToken {
   @@index([societyId])
   @@index([userId])
   @@index([familyId])
+  @@index([expiresAt])
+}
+
+// Single-use magic-link login token. Only the SHA-256 of the token is stored. The row is deleted when it is
+// consumed (the atomic delete is the claim) or when the user requests a newer link, so at most one is live.
+// No societyId on purpose: it belongs to the global identity (see GLOBAL_MODELS in src/lib/tenant.ts).
+model LoginToken {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
   @@index([expiresAt])
 }
 

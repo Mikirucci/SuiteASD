@@ -24,6 +24,10 @@ export interface AutomationDefinition {
   description: string;
   // Cron expression (5 fields), evaluated in the Europe/Rome timezone.
   schedule: string;
+  // Set by daily automations whose hour each society configures: it reads the hour (0-23, Europe/Rome) out of the
+  // stored settings. The scheduler then ticks every hour and runs the automation only for the societies whose hour
+  // has come (see scheduler.ts); `schedule` is the default time, shown until a society picks its own.
+  hourOf?: (config: Prisma.InputJsonObject) => number;
   enabledByDefault: boolean;
   defaultConfig?: Prisma.InputJsonObject;
   // Idempotency bucket: at most one successful run per (society, automation, runKey).

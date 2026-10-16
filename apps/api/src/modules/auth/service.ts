@@ -1,16 +1,21 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import type { Prisma, PrismaClient, User } from '@prisma/client';
+import type { FastifyBaseLogger } from 'fastify';
 import type { AppConfig } from '../../config/env.js';
-import { conflict, unauthorized, unprocessable } from '../../lib/errors.js';
+import type { EmailTransport } from '../../lib/email.js';
+import { AppError, conflict, unauthorized, unprocessable } from '../../lib/errors.js';
 import type { PasswordHasher } from '../../lib/password.js';
 import { normalizeEmail } from '../../lib/schemas.js';
 import { createDefaultDocumentTypes } from '../../lib/society-defaults.js';
-import { generateOpaqueToken, hashToken, signAccessToken } from '../../lib/tokens.js';
+import { generateOpaqueToken, hashToken, signAccessToken, type AuthContext } from '../../lib/tokens.js';
 import { permissionsFor } from '../../rbac/permissions.js';
 import { guardianRelationSchema, roleSchema, type Role } from '../../shared/enums.js';
+import { magicLinkEmail } from './magic-link-email.js';
 import type {
   AcceptInvitationBody,
+  ChangePasswordBody,
   LoginBody,
+  MagicLinkConsumeBody,
   MeResponse,
   RegisterBody,
   SessionResponse,
@@ -21,9 +26,13 @@ export interface AuthDeps {
   prisma: PrismaClient;
   config: AppConfig;
   passwords: PasswordHasher;
+  // Null when no email provider is configured: magic links are then not delivered (only an event is logged).
+  email: EmailTransport | null;
+  log: FastifyBaseLogger;
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const MAGIC_LINK_TTL_MINUTES = 15;
 
 function slugify(name: string): string {
   const base = name
@@ -36,7 +45,7 @@ function slugify(name: string): string {
   return `${base || 'societa'}-${randomBytes(3).toString('hex')}`;
 }
 
-export function createAuthService({ prisma, config, passwords }: AuthDeps) {
+export function createAuthService({ prisma, config, passwords, email, log }: AuthDeps) {
   // Verified when the email is unknown so that response time does not reveal which emails exist.
   let dummyHash: Promise<string> | undefined;
   const getDummyHash = (): Promise<string> => (dummyHash ??= passwords.hash(randomUUID()));
@@ -49,6 +58,7 @@ export function createAuthService({ prisma, config, passwords }: AuthDeps) {
       roles: Role[];
       familyId?: string;
       userAgent?: string;
+      authMethod?: AuthContext['authMethod'];
     },
   ): Promise<SessionResponse> {
     const refreshToken = generateOpaqueToken();
@@ -66,6 +76,7 @@ export function createAuthService({ prisma, config, passwords }: AuthDeps) {
       userId: input.user.id,
       societyId: input.society.id,
       roles: input.roles,
+      authMethod: input.authMethod,
     });
     return {
       accessToken,
@@ -88,6 +99,27 @@ export function createAuthService({ prisma, config, passwords }: AuthDeps) {
       where: { familyId, revokedAt: null },
       data: { revokedAt: new Date() },
     });
+  }
+
+  // Society and roles a fresh login lands in: the requested one, else the oldest membership.
+  async function resolveLoginSociety(
+    client: Prisma.TransactionClient | PrismaClient,
+    userId: string,
+    societyId?: string,
+  ): Promise<{ society: { id: string; name: string }; roles: Role[] } | null> {
+    const memberships = await client.membership.findMany({
+      where: { userId, ...(societyId ? { societyId } : {}) },
+      include: { society: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    const first = memberships[0];
+    if (!first) return null;
+    return {
+      society: { id: first.society.id, name: first.society.name },
+      roles: memberships
+        .filter((membership) => membership.societyId === first.societyId)
+        .map((membership) => roleSchema.parse(membership.role)),
+    };
   }
 
   async function register(body: RegisterBody, userAgent?: string): Promise<SessionResponse> {
@@ -114,21 +146,11 @@ export function createAuthService({ prisma, config, passwords }: AuthDeps) {
     const passwordOk = await passwords.verify(user?.passwordHash ?? (await getDummyHash()), body.password);
     if (!user || !passwordOk || !user.isActive) throw unauthorized('Invalid email or password');
 
-    const memberships = await prisma.membership.findMany({
-      where: { userId: user.id, ...(body.societyId ? { societyId: body.societyId } : {}) },
-      include: { society: true },
-      orderBy: { createdAt: 'asc' },
-    });
-    const first = memberships[0];
-    if (!first) throw unauthorized('Invalid email or password');
-    const roles = memberships
-      .filter((membership) => membership.societyId === first.societyId)
-      .map((membership) => roleSchema.parse(membership.role));
+    const target = await resolveLoginSociety(prisma, user.id, body.societyId);
+    if (!target) throw unauthorized('Invalid email or password');
 
     await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
-    return prisma.$transaction((tx) =>
-      issueSession(tx, { user, society: { id: first.society.id, name: first.society.name }, roles, userAgent }),
-    );
+    return prisma.$transaction((tx) => issueSession(tx, { user, ...target, userAgent }));
   }
 
   // Refresh tokens are single-use. Presenting an already-used token means it leaked: the whole family is revoked.
@@ -256,6 +278,111 @@ export function createAuthService({ prisma, config, passwords }: AuthDeps) {
     });
   }
 
+  // Always completes the same way for known and unknown emails: the caller can never tell them apart.
+  async function requestMagicLink(rawEmail: string): Promise<void> {
+    const user = await prisma.user.findUnique({
+      where: { email: normalizeEmail(rawEmail) },
+      include: { memberships: { select: { id: true }, take: 1 } },
+    });
+    if (!user?.isActive || user.memberships.length === 0) return;
+
+    const token = generateOpaqueToken();
+    // One live link per user: a newer request invalidates the previous one. Expired rows are pruned here too.
+    const [, record] = await prisma.$transaction([
+      prisma.loginToken.deleteMany({ where: { OR: [{ userId: user.id }, { expiresAt: { lte: new Date() } }] } }),
+      prisma.loginToken.create({
+        data: {
+          userId: user.id,
+          tokenHash: hashToken(token),
+          expiresAt: new Date(Date.now() + MAGIC_LINK_TTL_MINUTES * 60 * 1000),
+        },
+      }),
+    ]);
+
+    // Neither the token nor the link is ever logged.
+    if (!email) {
+      log.info({ userId: user.id }, 'Magic link not sent: no email provider configured');
+      return;
+    }
+    const link = `${config.WEB_BASE_URL}/accesso-link?token=${encodeURIComponent(token)}`;
+    // Fire and forget: waiting for the provider would make known emails measurably slower than unknown ones.
+    void email
+      .send(
+        magicLinkEmail({
+          to: user.email,
+          firstName: user.firstName,
+          link,
+          ttlMinutes: MAGIC_LINK_TTL_MINUTES,
+          idempotencyKey: `magic-link:${record.id}`,
+        }),
+      )
+      .then((result) => {
+        if (result.ok) log.info({ userId: user.id, provider: email.provider }, 'Magic link email sent');
+        else log.warn({ userId: user.id, provider: email.provider, error: result.error }, 'Magic link email failed');
+      })
+      .catch((error: unknown) => {
+        log.error({ userId: user.id, error: error instanceof Error ? error.message : 'unknown' }, 'Magic link email failed');
+      });
+  }
+
+  // Wrong, expired and already used tokens are indistinguishable on purpose.
+  async function consumeMagicLink(body: MagicLinkConsumeBody, userAgent?: string): Promise<SessionResponse> {
+    const invalid = (): AppError => new AppError(401, 'invalid_magic_link', 'The login link is invalid or has expired');
+    const record = await prisma.loginToken.findUnique({
+      where: { tokenHash: hashToken(body.token) },
+      include: { user: true },
+    });
+    if (!record || record.expiresAt.getTime() <= Date.now() || !record.user.isActive) throw invalid();
+
+    return prisma.$transaction(async (tx) => {
+      // Atomic claim: deleting the row is what consumes it, so concurrent requests cannot both succeed.
+      // A failure below rolls the claim back, so a link rejected only for its societyId stays usable.
+      const claimed = await tx.loginToken.deleteMany({ where: { id: record.id, expiresAt: { gt: new Date() } } });
+      if (claimed.count === 0) throw invalid();
+
+      const target = await resolveLoginSociety(tx, record.userId, body.societyId);
+      if (!target) throw invalid();
+      await tx.user.update({ where: { id: record.userId }, data: { lastLoginAt: new Date() } });
+      return issueSession(tx, { user: record.user, ...target, userAgent, authMethod: 'magic_link' });
+    });
+  }
+
+  // Sets a new password and signs every session out (all societies), then opens a fresh one for the caller so the
+  // client that made the request stays logged in. Access tokens already issued live on until they expire.
+  async function changePassword(auth: AuthContext, body: ChangePasswordBody, userAgent?: string): Promise<SessionResponse> {
+    const user = await prisma.user.findUnique({ where: { id: auth.userId } });
+    if (!user?.isActive) throw unauthorized('Invalid or expired access token');
+
+    if (auth.authMethod !== 'magic_link') {
+      if (!body.currentPassword) {
+        throw unprocessable('current_password_required', 'The current password is required to set a new one');
+      }
+      if (!(await passwords.verify(user.passwordHash, body.currentPassword))) {
+        throw unprocessable('invalid_current_password', 'The current password is not correct');
+      }
+    }
+    const passwordHash = await passwords.hash(body.newPassword);
+
+    return prisma.$transaction(async (tx) => {
+      const memberships = await tx.membership.findMany({
+        where: { userId: user.id, societyId: auth.societyId },
+        include: { society: true },
+      });
+      const first = memberships[0];
+      if (!first) throw unauthorized('Invalid or expired access token');
+
+      await tx.user.update({ where: { id: user.id }, data: { passwordHash } });
+      await tx.refreshToken.updateMany({ where: { userId: user.id, revokedAt: null }, data: { revokedAt: new Date() } });
+      await tx.loginToken.deleteMany({ where: { userId: user.id } });
+      return issueSession(tx, {
+        user,
+        society: { id: first.society.id, name: first.society.name },
+        roles: memberships.map((membership) => roleSchema.parse(membership.role)),
+        userAgent,
+      });
+    });
+  }
+
   async function me(auth: { userId: string; societyId: string; roles: readonly Role[] }): Promise<MeResponse> {
     const [user, society, memberships, member, links] = await Promise.all([
       prisma.user.findUniqueOrThrow({ where: { id: auth.userId } }),
@@ -306,7 +433,17 @@ export function createAuthService({ prisma, config, passwords }: AuthDeps) {
     };
   }
 
-  return { register, login, refresh, logout, acceptInvitation, me };
+  return {
+    register,
+    login,
+    refresh,
+    logout,
+    acceptInvitation,
+    requestMagicLink,
+    consumeMagicLink,
+    changePassword,
+    me,
+  };
 }
 
 export type AuthService = ReturnType<typeof createAuthService>;

@@ -1,6 +1,6 @@
 import type { Prisma } from '@prisma/client';
 import { z } from 'zod';
-import type { AutomationKind } from '../shared/enums.js';
+import { NOTIFICATION_CHANNELS, notificationChannelSchema, type AutomationKind } from '../shared/enums.js';
 
 // The six "attivita gestite dall'app" of the delegated-management dashboard (SPEC 08), with their per-key
 // configuration schema. The scheduled jobs live in src/jobs/definitions and share these keys and defaults.
@@ -15,7 +15,29 @@ function dayList(options: { min: number; max: number; maxItems: number }) {
     .transform((days) => [...new Set(days)].sort((a, b) => a - b));
 }
 
+// Default run hours (the former fixed cron times).
+export const FEE_REMINDERS_DEFAULT_HOUR = 9;
+export const CERTIFICATE_REMINDERS_DEFAULT_HOUR = 8;
+export const CONVOCATION_DISPATCH_DEFAULT_HOUR = 9;
+
+// Local hour (Europe/Rome) at which a daily automation runs for the society.
+function hourField(defaultHour: number) {
+  return z.number().int().min(0).max(23).default(defaultHour);
+}
+
+// Channels the automation may notify through, on top of each user's own preferences (both must allow a channel).
+// Unique and in canonical order, so the stored value does not depend on how the client listed them.
+function channelsField() {
+  return z
+    .array(notificationChannelSchema)
+    .min(1)
+    .transform((channels) => NOTIFICATION_CHANNELS.filter((channel) => channels.includes(channel)))
+    .default([...NOTIFICATION_CHANNELS]);
+}
+
 export const feeRemindersConfigSchema = z.strictObject({
+  hour: hourField(FEE_REMINDERS_DEFAULT_HOUR),
+  channels: channelsField(),
   // Days BEFORE the due date on which a reminder goes out (7 = "one week before").
   beforeDueDays: dayList({ min: 1, max: 60, maxItems: 5 }).default([1, 7]),
   // Days AFTER the due date on which an overdue follow-up goes out.
@@ -23,11 +45,15 @@ export const feeRemindersConfigSchema = z.strictObject({
 });
 
 export const certificateRemindersConfigSchema = z.strictObject({
+  hour: hourField(CERTIFICATE_REMINDERS_DEFAULT_HOUR),
+  channels: channelsField(),
   // Days before expiry; 0 = the expiry day onwards ("a scadenza avvenuta").
   thresholdsDays: dayList({ min: 0, max: 365, maxItems: 6 }).default([0, 7, 15, 30]),
 });
 
 export const convocationDispatchConfigSchema = z.strictObject({
+  hour: hourField(CONVOCATION_DISPATCH_DEFAULT_HOUR),
+  channels: channelsField(),
   // Convocations of an event are sent this many days before it starts.
   daysBefore: z.number().int().min(1).max(30).default(3),
   // Whether athletes who have not answered get a reminder, and how many days before the event.
@@ -133,7 +159,7 @@ export function catalogEntryFor(key: string): CatalogEntry | undefined {
 // The stored configuration read through the key's schema; unreadable or outdated values fall back to the defaults.
 export function parseConfig<S extends z.ZodType<Prisma.InputJsonObject>>(
   catalogEntry: CatalogEntry<S>,
-  stored: Prisma.JsonValue | undefined,
+  stored: Prisma.InputJsonValue | null | undefined,
 ): z.output<S> {
   const parsed = catalogEntry.configSchema.safeParse(stored ?? {});
   return parsed.success ? parsed.data : catalogEntry.configSchema.parse({});

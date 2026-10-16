@@ -71,6 +71,8 @@ describe('route contract', () => {
     'POST /api/v1/auth/register',
     'POST /api/v1/auth/login',
     'POST /api/v1/auth/refresh',
+    'POST /api/v1/auth/magic-link/request',
+    'POST /api/v1/auth/magic-link/consume',
     'POST /api/v1/auth/logout',
     'POST /api/v1/invitations/accept',
   ]);
