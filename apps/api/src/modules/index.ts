@@ -4,6 +4,7 @@ import { attachmentRoutes } from './attachments/routes.js';
 import { automationRoutes } from './automations/routes.js';
 import { notificationRoutes } from './notifications/routes.js';
 import { refereeRoutes } from './referees/routes.js';
+import { reportRoutes } from './reports/routes.js';
 import { statisticsRoutes } from './statistics/routes.js';
 import { attendanceRoutes } from './attendance/routes.js';
 import { authRoutes } from './auth/routes.js';
@@ -60,4 +61,5 @@ export const moduleRoutes: readonly FastifyPluginAsyncZod[] = [
   notificationRoutes,
   refereeRoutes,
   statisticsRoutes,
+  reportRoutes,
 ];
