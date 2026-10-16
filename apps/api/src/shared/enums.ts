@@ -107,6 +107,7 @@ export const ORGANISATION_NOTIFICATION_TYPES = [
   'ADMIN_NEW_ENROLMENT',
   'ADMIN_SPONSOR_EXPIRING',
 ] as const;
+export type OrganisationNotificationType = (typeof ORGANISATION_NOTIFICATION_TYPES)[number];
 export const NOTIFICATION_TYPES = [...PERSONAL_NOTIFICATION_TYPES, ...ORGANISATION_NOTIFICATION_TYPES] as const;
 export const notificationTypeSchema = z.enum(NOTIFICATION_TYPES);
 export type NotificationType = z.infer<typeof notificationTypeSchema>;

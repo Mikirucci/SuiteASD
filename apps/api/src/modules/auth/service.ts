@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from 'node:crypto';
-import type { Prisma, PrismaClient, User } from '@prisma/client';
+import type { Prisma, PrismaClient } from '@prisma/client';
 import type { FastifyBaseLogger } from 'fastify';
 import type { AppConfig } from '../../config/env.js';
 import type { EmailTransport } from '../../lib/email.js';
@@ -7,10 +7,11 @@ import { AppError, conflict, unauthorized, unprocessable } from '../../lib/error
 import type { PasswordHasher } from '../../lib/password.js';
 import { normalizeEmail } from '../../lib/schemas.js';
 import { createDefaultDocumentTypes } from '../../lib/society-defaults.js';
-import { generateOpaqueToken, hashToken, signAccessToken, type AuthContext } from '../../lib/tokens.js';
+import { generateOpaqueToken, hashToken, type AuthContext } from '../../lib/tokens.js';
 import { permissionsFor } from '../../rbac/permissions.js';
 import { guardianRelationSchema, roleSchema, type Role } from '../../shared/enums.js';
 import { magicLinkEmail } from './magic-link-email.js';
+import { issueSession, type IssueSessionInput } from './session.js';
 import type {
   AcceptInvitationBody,
   ChangePasswordBody,
@@ -50,49 +51,8 @@ export function createAuthService({ prisma, config, passwords, email, log }: Aut
   let dummyHash: Promise<string> | undefined;
   const getDummyHash = (): Promise<string> => (dummyHash ??= passwords.hash(randomUUID()));
 
-  async function issueSession(
-    client: Prisma.TransactionClient,
-    input: {
-      user: Pick<User, 'id' | 'email' | 'firstName' | 'lastName'>;
-      society: { id: string; name: string };
-      roles: Role[];
-      familyId?: string;
-      userAgent?: string;
-      authMethod?: AuthContext['authMethod'];
-    },
-  ): Promise<SessionResponse> {
-    const refreshToken = generateOpaqueToken();
-    await client.refreshToken.create({
-      data: {
-        societyId: input.society.id,
-        userId: input.user.id,
-        familyId: input.familyId ?? randomUUID(),
-        tokenHash: hashToken(refreshToken),
-        expiresAt: new Date(Date.now() + config.REFRESH_TOKEN_TTL_DAYS * DAY_MS),
-        userAgent: input.userAgent?.slice(0, 255),
-      },
-    });
-    const accessToken = await signAccessToken(config, {
-      userId: input.user.id,
-      societyId: input.society.id,
-      roles: input.roles,
-      authMethod: input.authMethod,
-    });
-    return {
-      accessToken,
-      refreshToken,
-      tokenType: 'Bearer',
-      expiresIn: config.ACCESS_TOKEN_TTL_SECONDS,
-      user: {
-        id: input.user.id,
-        email: input.user.email,
-        firstName: input.user.firstName,
-        lastName: input.user.lastName,
-      },
-      society: input.society,
-      roles: input.roles,
-    };
-  }
+  const issue = (client: Prisma.TransactionClient, input: IssueSessionInput): Promise<SessionResponse> =>
+    issueSession(config, client, input);
 
   async function revokeFamily(familyId: string): Promise<void> {
     await prisma.refreshToken.updateMany({
@@ -137,7 +97,7 @@ export function createAuthService({ prisma, config, passwords, email, log }: Aut
       });
       await tx.membership.create({ data: { societyId: society.id, userId: user.id, role: 'ADMIN' } });
       await createDefaultDocumentTypes(tx, society.id);
-      return issueSession(tx, { user, society: { id: society.id, name: society.name }, roles: ['ADMIN'], userAgent });
+      return issue(tx, { user, society: { id: society.id, name: society.name }, roles: ['ADMIN'], userAgent });
     });
   }
 
@@ -150,7 +110,7 @@ export function createAuthService({ prisma, config, passwords, email, log }: Aut
     if (!target) throw unauthorized('Invalid email or password');
 
     await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
-    return prisma.$transaction((tx) => issueSession(tx, { user, ...target, userAgent }));
+    return prisma.$transaction((tx) => issue(tx, { user, ...target, userAgent }));
   }
 
   // Refresh tokens are single-use. Presenting an already-used token means it leaked: the whole family is revoked.
@@ -187,7 +147,7 @@ export function createAuthService({ prisma, config, passwords, email, log }: Aut
     // Roles are re-read here, so role changes take effect at the next refresh.
     const roles = memberships.map((membership) => roleSchema.parse(membership.role));
     return prisma.$transaction((tx) =>
-      issueSession(tx, {
+      issue(tx, {
         user,
         society: { id: first.society.id, name: first.society.name },
         roles,
@@ -269,7 +229,7 @@ export function createAuthService({ prisma, config, passwords, email, log }: Aut
       });
       const society = memberships[0]?.society;
       if (!society) return invalid();
-      return issueSession(tx, {
+      return issue(tx, {
         user,
         society: { id: society.id, name: society.name },
         roles: memberships.map((membership) => roleSchema.parse(membership.role)),
@@ -343,7 +303,7 @@ export function createAuthService({ prisma, config, passwords, email, log }: Aut
       const target = await resolveLoginSociety(tx, record.userId, body.societyId);
       if (!target) throw invalid();
       await tx.user.update({ where: { id: record.userId }, data: { lastLoginAt: new Date() } });
-      return issueSession(tx, { user: record.user, ...target, userAgent, authMethod: 'magic_link' });
+      return issue(tx, { user: record.user, ...target, userAgent, authMethod: 'magic_link' });
     });
   }
 
@@ -374,7 +334,7 @@ export function createAuthService({ prisma, config, passwords, email, log }: Aut
       await tx.user.update({ where: { id: user.id }, data: { passwordHash } });
       await tx.refreshToken.updateMany({ where: { userId: user.id, revokedAt: null }, data: { revokedAt: new Date() } });
       await tx.loginToken.deleteMany({ where: { userId: user.id } });
-      return issueSession(tx, {
+      return issue(tx, {
         user,
         society: { id: first.society.id, name: first.society.name },
         roles: memberships.map((membership) => roleSchema.parse(membership.role)),

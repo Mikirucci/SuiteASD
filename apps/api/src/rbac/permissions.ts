@@ -24,6 +24,8 @@ export const PERMISSIONS = {
   'users:read': [A, S],
   'invitations:read': [A, S],
   'invitations:write': [A, S],
+  'joinLinks:read': [A, S],
+  'joinLinks:write': [A, S],
   'guardianLinks:read': [A, S],
   'guardianLinks:write': [A, S],
 

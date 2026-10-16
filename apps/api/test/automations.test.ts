@@ -49,8 +49,12 @@ describe('automations dashboard (SPEC 08)', () => {
     });
   });
 
+  // The dashboard percentage is active / total over the whole catalog.
+  const TOTAL = AUTOMATION_CATALOG.length;
+  const percentOf = (active: number): number => Math.round((active / TOTAL) * 100);
+
   describe('dashboard', () => {
-    it('lists the six activities of the SPEC, all on, with 100% active', async () => {
+    it('lists the activities of the catalog, all on, with 100% active', async () => {
       const admin = await freshAdmin('Dashboard ASD');
       const body = (await call('GET', admin, '/automations')).json();
       expect(body.data.map((item: { name: string }) => item.name)).toEqual([
@@ -60,9 +64,10 @@ describe('automations dashboard (SPEC 08)', () => {
         'Aggiornare le classifiche',
         'Emettere le ricevute',
         'Avvisare atleti e genitori',
+        "Avvisare l'amministrazione",
       ]);
       expect(body.data.map((item: { key: string }) => item.key)).toEqual(AUTOMATION_CATALOG.map((entry) => entry.key));
-      expect(body.summary).toEqual({ active: 6, total: 6, percentage: 100 });
+      expect(body.summary).toEqual({ active: TOTAL, total: TOTAL, percentage: 100 });
       const byKey = Object.fromEntries(body.data.map((item: { key: string }) => [item.key, item]));
       expect(byKey['fee-reminders']).toMatchObject({
         kind: 'SCHEDULED',
@@ -87,12 +92,12 @@ describe('automations dashboard (SPEC 08)', () => {
       const off = await call('PATCH', admin, '/automations/fee-reminders', { enabled: false });
       expect(off.statusCode).toBe(200);
       expect(off.json()).toMatchObject({ key: 'fee-reminders', enabled: false, state: 'DISABLED' });
-      expect((await call('GET', admin, '/automations')).json().summary).toEqual({ active: 5, total: 6, percentage: 83 });
+      expect((await call('GET', admin, '/automations')).json().summary).toEqual({ active: TOTAL - 1, total: TOTAL, percentage: percentOf(TOTAL - 1) });
       await call('PATCH', admin, '/automations/certificate-reminders', { enabled: false });
       await call('PATCH', admin, '/automations/receipts', { enabled: false });
-      expect((await call('GET', admin, '/automations')).json().summary).toEqual({ active: 3, total: 6, percentage: 50 });
+      expect((await call('GET', admin, '/automations')).json().summary).toEqual({ active: TOTAL - 3, total: TOTAL, percentage: percentOf(TOTAL - 3) });
       await call('PATCH', admin, '/automations/fee-reminders', { enabled: true });
-      expect((await call('GET', admin, '/automations')).json().summary.active).toBe(4);
+      expect((await call('GET', admin, '/automations')).json().summary.active).toBe(TOTAL - 2);
     });
 
     it('keeps the societies apart', async () => {
@@ -100,7 +105,7 @@ describe('automations dashboard (SPEC 08)', () => {
       const second = await freshAdmin('Seconda ASD');
       await call('PATCH', first, '/automations/fee-reminders', { enabled: false, config: { afterDueDays: [5] } });
       const other = (await call('GET', second, '/automations')).json();
-      expect(other.summary.active).toBe(6);
+      expect(other.summary.active).toBe(TOTAL);
       expect(other.data[0].config.afterDueDays).toEqual([3, 10]);
     });
   });

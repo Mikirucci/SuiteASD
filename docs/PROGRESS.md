@@ -53,7 +53,7 @@ Tesserati, Scadenze, Quote, Calendario (+presenze), Classifiche, Pagelle, Notifi
 Parte amministrazione + nuova AREA PERSONALE (atleta/genitore). Principio: tutto automatico (l'atleta carica il certificato -> compare in admin con scadenza e stato aggiornati; reminder via job).
 Ordine di lavoro e stato (aggiornare le caselle):
 - [x] 1. Tesserati: filtri (senza squadra, stato documenti, genere, ruolo, anno) + chip "N documenti mancanti" rosso / "In regola" verde (api: noTeam/gender/fieldRole/birthYear, export con documentStatus)
-- [ ] 2. Notifiche: tipi organizzativi per admin/segreteria (pagamenti, scadenze, nuove iscrizioni, documenti caricati), niente notifiche da atleta all'admin
+- [x] 2. Notifiche: tipi organizzativi per admin/segreteria (pagamenti, scadenze, nuove iscrizioni, documenti caricati), niente notifiche da atleta all'admin
 - [ ] 3. Iscrizione: link/codice generato dall'admin (per squadra, scadenza, usi), registrazione dall'area personale, NESSUNA approvazione
 - [ ] 4. Allegati su palestre, sponsor, trasferte, divise, staff, arbitri, voci bilancio
 - [ ] 5. Report PDF per il commercialista (complessivo e per singola sezione) in Bilancio

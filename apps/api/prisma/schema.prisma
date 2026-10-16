@@ -38,6 +38,7 @@ model Society {
 
   memberships            Membership[]
   invitations            Invitation[]
+  joinLinks              JoinLink[]
   members                Member[]
   guardianLinks          GuardianLink[]
   teams                  Team[]
@@ -143,6 +144,29 @@ model Invitation {
 
   @@index([societyId, email])
   @@index([expiresAt])
+}
+
+// Shareable enrolment link (docs/DECISIONS.md D-22): whoever opens it can register as an athlete, or as the guardian
+// of a child, and lands in `teamId` (when set) with no approval step. The code is a bearer capability: it is stored as
+// is so the administration can copy the link again, and it stops working when revoked, expired or used up.
+model JoinLink {
+  id          String    @id @default(cuid())
+  societyId   String
+  teamId      String?
+  code        String    @unique
+  label       String?
+  expiresAt   DateTime?
+  maxUses     Int?
+  uses        Int       @default(0)
+  revokedAt   DateTime?
+  createdById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  team    Team?   @relation(fields: [teamId], references: [id], onDelete: SetNull)
+
+  @@index([societyId])
 }
 
 // Rotating refresh tokens. Only the SHA-256 of the opaque token is stored.
@@ -275,6 +299,7 @@ model Team {
   events      Event[]
   groupTeams  GroupTeam[]
   announcements Announcement[]
+  joinLinks     JoinLink[]
 
   @@unique([societyId, name])
   @@index([societyId])

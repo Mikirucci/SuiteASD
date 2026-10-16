@@ -142,6 +142,15 @@ export const notificationsDispatchEntry = entry({
   configSchema: notificationsDispatchConfigSchema,
 });
 
+export const adminAlertsEntry = entry({
+  key: 'admin-alerts',
+  name: "Avvisare l'amministrazione",
+  description: 'Avvisa subito segreteria e amministratori di pagamenti ricevuti, documenti caricati e nuove iscrizioni.',
+  kind: 'EVENT',
+  toggleable: true,
+  configSchema: noConfigSchema,
+});
+
 // Dashboard order = SPEC 08 checklist order.
 export const AUTOMATION_CATALOG: readonly CatalogEntry[] = [
   feeRemindersEntry,
@@ -150,6 +159,7 @@ export const AUTOMATION_CATALOG: readonly CatalogEntry[] = [
   standingsEntry,
   receiptsEntry,
   notificationsDispatchEntry,
+  adminAlertsEntry,
 ];
 
 export function catalogEntryFor(key: string): CatalogEntry | undefined {
