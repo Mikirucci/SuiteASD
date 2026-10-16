@@ -1,5 +1,6 @@
 import type { PrismaClient } from '@prisma/client';
 import type { PasswordHasher } from '../../src/lib/password.js';
+import { seedAdministration } from './administration.js';
 import type { SeedContext, SeedStep } from './context.js';
 import { seedCompetitions } from './competitions.js';
 import { seedEvents } from './events.js';
@@ -20,6 +21,7 @@ const STEPS: readonly { name: string; run: SeedStep }[] = [
   { name: 'competitions', run: seedCompetitions },
   { name: 'fees', run: seedFees },
   { name: 'secondary', run: seedSecondary },
+  { name: 'administration', run: seedAdministration },
 ];
 
 export async function runSeed(

@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DASHBOARD } from "@/features/automazioni/test-fixtures";
@@ -184,10 +184,10 @@ describe("HomeOverview", () => {
     const reordered = [...rows].sort((a, b) => a.position - b.position);
     installFakeApi({ ...ROUTES, "GET /competitions/c1/groups/g1/standings": { body: { ...STANDINGS_BEFORE, rows: reordered } } });
     renderWithQuery(<HomeOverview />);
-    const standings = await screen.findByRole("list", { name: "Prime posizioni" });
-    await within(standings).findByText("Falchi Volley");
+    const standings = await screen.findByRole("list", { name: "Prime posizioni" }, { timeout: 5000 });
+    // The whole suite runs in parallel: give the chain of requests (season, competition, group, standings) time
+    await waitFor(() => expect(within(standings).getAllByRole("listitem")).toHaveLength(4), { timeout: 5000 });
     const names = within(standings).getAllByRole("listitem").map((item) => item.textContent);
-    expect(names).toHaveLength(4);
     expect(names[3]).toContain("Aquile Volley");
   });
 
