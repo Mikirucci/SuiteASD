@@ -1,7 +1,8 @@
 import { remindPendingConvocations, sendConvocations } from '../../modules/convocations/service.js';
 import { startOfUtcDay } from '../../modules/documents/status.js';
-import { convocationDispatchEntry, parseConfig } from '../catalog.js';
+import { CONVOCATION_DISPATCH_DEFAULT_HOUR, convocationDispatchEntry, parseConfig } from '../catalog.js';
 import type { AutomationDefinition } from '../registry.js';
+import { dailyCron, localDayRunKey } from '../schedule.js';
 
 const DAY_MS = 86_400_000;
 
@@ -17,12 +18,14 @@ export const convocationDispatch: AutomationDefinition = {
   key: convocationDispatchEntry.key,
   name: convocationDispatchEntry.name,
   description: convocationDispatchEntry.description,
-  schedule: '0 9 * * *',
+  schedule: dailyCron(CONVOCATION_DISPATCH_DEFAULT_HOUR),
+  hourOf: (config) => parseConfig(convocationDispatchEntry, config).hour,
+  runKey: localDayRunKey,
   enabledByDefault: true,
   defaultConfig: convocationDispatchEntry.defaultConfig,
   async run({ db, societyId, config, now }) {
-    const { daysBefore, remindNonRespondents, reminderDaysBefore } = parseConfig(convocationDispatchEntry, config);
-    const scope = { db, societyId };
+    const { daysBefore, remindNonRespondents, reminderDaysBefore, channels } = parseConfig(convocationDispatchEntry, config);
+    const scope = { db, societyId, channels };
 
     const toSend = await db.event.findMany({
       where: {

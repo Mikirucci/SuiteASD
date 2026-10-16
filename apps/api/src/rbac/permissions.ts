@@ -24,12 +24,17 @@ export const PERMISSIONS = {
   'users:read': [A, S],
   'invitations:read': [A, S],
   'invitations:write': [A, S],
+  'joinLinks:read': [A, S],
+  'joinLinks:write': [A, S],
   'guardianLinks:read': [A, S],
   'guardianLinks:write': [A, S],
 
   'members:read': [A, S, C, D],
   'members:readOwn': ALL,
   'members:write': [A, S],
+  // Athletes and guardians keep their own contact details up to date; guardians add their children.
+  'members:updateOwn': [T, G],
+  'children:create': [G],
 
   'teams:read': ALL,
   'teams:write': [A, S],
@@ -37,6 +42,7 @@ export const PERMISSIONS = {
   'documents:read': [A, S, C, D],
   'documents:readOwn': ALL,
   'documents:write': [A, S],
+  'documents:uploadOwn': [T, G],
 
   'payments:read': [A, S],
   'payments:readOwn': ALL,
@@ -79,6 +85,7 @@ export const PERMISSIONS = {
   'announcements:write': [A, S, C],
   'referees:read': [A, S, D],
   'referees:write': [A, D],
+  'attachments:use': [A, S, D],
   'staff:read': [A, S, D],
   'staff:write': [A],
 } as const satisfies Record<string, readonly Role[]>;

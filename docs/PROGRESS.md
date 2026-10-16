@@ -47,3 +47,30 @@ Tesserati, Scadenze, Quote, Calendario (+presenze), Classifiche, Pagelle, Notifi
 - 2026-10-13 sera: ripresa dopo interruzione; sistemati lint test api (referees, email), 6 E2E rossi (retry React Query, route announcer, nome accessibile trend-bars, auth spec su /calendario); committati 7776eee (api) e aa561f6 (web). Lanciati agenti per frontend: calendario, notifiche, automazioni, altro-hub+secondari, tornei/arbitri/bacheca/statistiche.
 - 2026-10-13 notte: 5 agenti frontend completati; aggiunto job convocation-dispatch (mancava); sistemati 2 E2E (auth su rotta inesistente, selettore ambiguo). Commit e9a3f53, cfbc931.
 - 2026-10-13 notte: registrati i seed competitions/fees/secondary (mancavano in run.ts) e collegata la partita in evidenza all evento; creata la suite E2E su backend reale (109b6ee); docs/API.md e DECISIONS.md aggiornati (98fd094); corretto sfarfallio dello switch automazioni; verifica finale completa.
+- 2026-10-16: verificato e committato il lavoro in sospeso (692c594 api: magic link + impostazioni orari/canali automazioni; 8092c44 web: badge notifiche, formattatori in lib, fix 320px). lint/typecheck/test api 787 + web 593, E2E mockati 109/109, E2E reali 15/15.
+
+## Fase 2: richieste dell'utente del 2026-10-16 (decisioni, vedi DECISIONS.md D-20..)
+Parte amministrazione + nuova AREA PERSONALE (atleta/genitore). Principio: tutto automatico (l'atleta carica il certificato -> compare in admin con scadenza e stato aggiornati; reminder via job).
+Ordine di lavoro e stato (aggiornare le caselle):
+- [x] 1. Tesserati: filtri (senza squadra, stato documenti, genere, ruolo, anno) + chip "N documenti mancanti" rosso / "In regola" verde (api: noTeam/gender/fieldRole/birthYear, export con documentStatus)
+- [x] 2. Notifiche: tipi organizzativi per admin/segreteria (pagamenti, scadenze, nuove iscrizioni, documenti caricati), niente notifiche da atleta all'admin
+- [x] 3. Iscrizione: link generato dall'admin (dialog "Link di iscrizione" in Tesserati), pagina pubblica /iscrizione/[code], nessuna approvazione, atleta sotto i 14 anni solo tramite genitore
+- [x] 4. Allegati su palestre, sponsor, trasferte, divise, staff, arbitri, voci bilancio
+- [x] 5. Report PDF per il commercialista (complessivo e per singola sezione) in Bilancio
+- [x] 6. Automazioni: avviso all'amministrazione (pagamento, documento caricato, nuova iscrizione) + job missing-documents, admin-digest, sponsor-expiry; ora e canali configurabili da UI; upload self-service del certificato (POST /members/:id/documents/upload)
+- [x] 7. Home admin come dashboard con anteprime (tesserati, scadenze, quote, calendario, classifica, notifiche, automazioni)
+- [x] 8. Calendario/classifiche: NON si fa scraping dei siti federali (non verificabile, fragile). Import da file: .ics per gli eventi (Calendario > Importa da file) e CSV per partite e risultati del girone (Classifiche > Gestione > Importa partite da file). Inserimento manuale invariato.
+- [x] 9. Area personale atleta/genitore (/area-personale: home, documenti con upload, pagamenti, calendario, classifica, notifiche, profilo con dati, password, figli)
+- Pagelle: invariata (da eliminare in futuro). Quote: invariata.
+
+### 2026-10-16 — sospeso su richiesta dell'utente ("continuiamo domani")
+Fase 2 completa lato codice e unit test (api 930 test, web 722 test, lint e typecheck verdi). Commit fino a 3e362f6 + questo.
+DA FARE DOMANI (in ordine):
+1. Eseguire gli E2E: `npm run test:e2e` (mockati) e `npm run test:e2e:real` (backend reale). Non ancora lanciati dopo la Fase 2. Attese rotture note:
+   - e2e mock (apps/web/e2e/support/mock-api.ts): un utente solo ATLETA/GENITORE ora viene portato a /area-personale; la home admin ora chiama molti endpoint (members/summary, documents/expirations, fees/summary, events, seasons/competitions, notifications, automations) e va aggiunta ai mock; le automazioni sono 10 (non 6); le notifiche chiamano anche /notifications/preferences per il filtro tipo.
+   - e2e reali (apps/web/e2e-real): "6 attività su 6 attive" diventa 10 su 10; la home non ha piu la griglia dei moduli; il seed ora contiene 3 notifiche organizzative per admin e segreteria e il link demo iscrizione-demo-u16.
+2. Scrivere E2E nuovi: iscrizione con link demo (/iscrizione/iscrizione-demo-u16) fino a /area-personale; upload certificato dall'area personale e comparsa nello stato dei tesserati; export PDF commercialista da Bilancio; allegato su una palestra.
+3. Aggiornare i documenti: docs/SPEC.md (addendum: area personale, iscrizione da link, notifiche organizzative, allegati, report PDF, import), docs/DECISIONS.md (D-21 notifiche per audience, D-22 link di iscrizione senza approvazione, D-23 allegati, D-24 report PDF, D-25 import da file, niente scraping), docs/API.md (nuovi endpoint: /join-links, /join/{code}, /attachments, /reports/accounting.pdf e /summary, /members/{id}/documents/upload, /members/{id}/contact, /me/children, /events/import, /competitions/{id}/groups/{gid}/matches/import), docs/FRONTEND.md (area personale, AppShell con ShellNavigation).
+4. Controllare a vista il PDF del commercialista (non ancora aperto in un visualizzatore) e le schermate nuove nel browser (dev: `npm run dev:api` e `npm run dev:web` separati, perche `npm run dev` non trova npm-run-all; fare `npm install` dalla root).
+5. Rifiniture note: i dati demo oltre il 14 novembre 2026 (vedi punto 2 dei limiti); WeekStrip a 320px ora scorre (44px mantenuti).
+Nota tecnica: nei file con CRLF modificare con script che normalizzano gli a capo; il tool Bash si rompe con heredoc lunghi che contengono apostrofi: usare il tool Write per scrivere i file.

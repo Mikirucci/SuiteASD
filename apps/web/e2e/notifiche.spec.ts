@@ -92,6 +92,33 @@ test.describe("notifiche", () => {
     expect(api.calls).toContain("POST /notifications/read-all");
   });
 
+  test("keeps the unread badge of the navigation in step with what is read", async ({ page }) => {
+    await open(page);
+    const sidebar = page.getByRole("navigation", { name: "Sezioni" });
+
+    const link = sidebar.getByRole("link", { name: "Notifiche 2 da leggere" });
+    await expect(link).toBeVisible();
+    await expect(link).toContainText("2");
+    await settle(page);
+    expect(await auditAccessibility(page)).toEqual([]);
+
+    await page.getByRole("button", { name: "Segna come letta: Quota in scadenza" }).click();
+    await expect(sidebar.getByRole("link", { name: "Notifiche 1 da leggere" })).toBeVisible();
+
+    await page.getByRole("button", { name: "Segna tutte come lette" }).click();
+    await expect(sidebar.getByRole("link", { name: "Notifiche", exact: true })).toBeVisible();
+    await expect(sidebar.getByRole("link", { name: /da leggere/ })).toHaveCount(0);
+  });
+
+  test("shows no badge to a visitor who is not signed in", async ({ page }) => {
+    await mockApi(page);
+    const api = await routeApi(page, ME, notificationsBackend().handler);
+    await page.goto("/notifiche");
+
+    await expect(page).toHaveURL(/login/);
+    expect(api.calls).not.toContain("GET /notifications/unread-count");
+  });
+
   test("filters by read state and by type", async ({ page }) => {
     await open(page);
     const list = page.getByRole("list", { name: "Notifiche", exact: true });
@@ -153,6 +180,13 @@ test.describe("notifiche su telefono", () => {
     const overflow = () => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(await overflow()).toBeLessThanOrEqual(0);
     expect(await auditAccessibility(page)).toEqual([]);
+
+    const bar = page.getByRole("navigation", { name: "Navigazione principale" });
+    const barLink = bar.getByRole("link", { name: "Notifiche 2 da leggere" });
+    await expect(barLink).toBeVisible();
+    const barBox = await barLink.boundingBox();
+    expect(barBox?.height ?? 0).toBeGreaterThanOrEqual(44);
+    expect(barBox?.width ?? 0).toBeGreaterThanOrEqual(44);
 
     const markRead = await page.getByRole("button", { name: "Segna come letta: Convocazione" }).boundingBox();
     expect(markRead?.height ?? 0).toBeGreaterThanOrEqual(44);

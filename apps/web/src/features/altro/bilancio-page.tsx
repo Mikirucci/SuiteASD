@@ -6,6 +6,7 @@ import { useApiQuery } from "@/lib/api";
 import { ResourceView } from "./crud/resource-view";
 import { LedgerSummary } from "./ledger-summary";
 import { PageShell } from "./page-shell";
+import { ReportPanel } from "./report-panel";
 import { ledgerConfig } from "./resources/ledger";
 import type { LedgerReport } from "./types";
 
@@ -44,6 +45,7 @@ export function BilancioPage() {
           }}
         />
         <LedgerSummary year={year} report={report.data} isLoading={report.isLoading} error={report.error} onRetry={() => void report.refetch()} />
+        <ReportPanel year={year} />
         <ResourceView
           config={ledgerConfig}
           extraQuery={{ from: `${year}-01-01`, to: `${year}-12-31`, category: category || undefined }}

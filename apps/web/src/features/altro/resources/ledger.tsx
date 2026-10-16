@@ -1,7 +1,7 @@
 import { Banknote } from "lucide-react";
 import { z } from "zod";
 import { Badge } from "@/components/ui";
-import { formatDay, formatEuro } from "@/features/quote/format";
+import { formatDay, formatEuro } from "@/lib/format";
 import { toDayKey } from "@/lib/dates";
 import type { ResourceConfig } from "../crud/types";
 import { amountToInput, bodyReader, optionalText, parseAmount, requiredAmount, requiredDay, requiredText } from "../crud/values";
@@ -26,6 +26,7 @@ export const ledgerConfig: ResourceConfig<LedgerEntry> = {
   key: "ledger",
   path: "/ledger/entries",
   writePermission: "ledger:write",
+  attachmentType: "LEDGER_ENTRY",
   icon: Banknote,
   fieldAliases: { amountCents: "amount" },
   // Entries created by a payment belong to the Quote module: changing them here would desync the two.

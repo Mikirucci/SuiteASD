@@ -1,6 +1,6 @@
 import type { Prisma } from '@prisma/client';
 import { z } from 'zod';
-import type { AutomationKind } from '../shared/enums.js';
+import { NOTIFICATION_CHANNELS, notificationChannelSchema, type AutomationKind } from '../shared/enums.js';
 
 // The six "attivita gestite dall'app" of the delegated-management dashboard (SPEC 08), with their per-key
 // configuration schema. The scheduled jobs live in src/jobs/definitions and share these keys and defaults.
@@ -15,7 +15,32 @@ function dayList(options: { min: number; max: number; maxItems: number }) {
     .transform((days) => [...new Set(days)].sort((a, b) => a - b));
 }
 
+// Default run hours (the former fixed cron times).
+export const FEE_REMINDERS_DEFAULT_HOUR = 9;
+export const CERTIFICATE_REMINDERS_DEFAULT_HOUR = 8;
+export const CONVOCATION_DISPATCH_DEFAULT_HOUR = 9;
+export const MISSING_DOCUMENTS_DEFAULT_HOUR = 10;
+export const ADMIN_DIGEST_DEFAULT_HOUR = 8;
+export const SPONSOR_EXPIRY_DEFAULT_HOUR = 9;
+
+// Local hour (Europe/Rome) at which a daily automation runs for the society.
+function hourField(defaultHour: number) {
+  return z.number().int().min(0).max(23).default(defaultHour);
+}
+
+// Channels the automation may notify through, on top of each user's own preferences (both must allow a channel).
+// Unique and in canonical order, so the stored value does not depend on how the client listed them.
+function channelsField() {
+  return z
+    .array(notificationChannelSchema)
+    .min(1)
+    .transform((channels) => NOTIFICATION_CHANNELS.filter((channel) => channels.includes(channel)))
+    .default([...NOTIFICATION_CHANNELS]);
+}
+
 export const feeRemindersConfigSchema = z.strictObject({
+  hour: hourField(FEE_REMINDERS_DEFAULT_HOUR),
+  channels: channelsField(),
   // Days BEFORE the due date on which a reminder goes out (7 = "one week before").
   beforeDueDays: dayList({ min: 1, max: 60, maxItems: 5 }).default([1, 7]),
   // Days AFTER the due date on which an overdue follow-up goes out.
@@ -23,16 +48,43 @@ export const feeRemindersConfigSchema = z.strictObject({
 });
 
 export const certificateRemindersConfigSchema = z.strictObject({
+  hour: hourField(CERTIFICATE_REMINDERS_DEFAULT_HOUR),
+  channels: channelsField(),
   // Days before expiry; 0 = the expiry day onwards ("a scadenza avvenuta").
   thresholdsDays: dayList({ min: 0, max: 365, maxItems: 6 }).default([0, 7, 15, 30]),
 });
 
 export const convocationDispatchConfigSchema = z.strictObject({
+  hour: hourField(CONVOCATION_DISPATCH_DEFAULT_HOUR),
+  channels: channelsField(),
   // Convocations of an event are sent this many days before it starts.
   daysBefore: z.number().int().min(1).max(30).default(3),
   // Whether athletes who have not answered get a reminder, and how many days before the event.
   remindNonRespondents: z.boolean().default(true),
   reminderDaysBefore: z.number().int().min(0).max(14).default(1),
+});
+
+export const missingDocumentsConfigSchema = z.strictObject({
+  hour: hourField(MISSING_DOCUMENTS_DEFAULT_HOUR),
+  channels: channelsField(),
+  // Days after the enrolment (or the creation of the member) before the first reminder: time to upload.
+  graceDays: z.number().int().min(0).max(60).default(3),
+  // The reminder repeats this often while the documents are still missing.
+  everyDays: z.number().int().min(1).max(60).default(7),
+});
+
+export const adminDigestConfigSchema = z.strictObject({
+  hour: hourField(ADMIN_DIGEST_DEFAULT_HOUR),
+  channels: channelsField(),
+  // The summary reaches the administration this often (1 = every day, 7 = every week, on Monday).
+  everyDays: z.number().int().min(1).max(30).default(7),
+});
+
+export const sponsorExpiryConfigSchema = z.strictObject({
+  hour: hourField(SPONSOR_EXPIRY_DEFAULT_HOUR),
+  channels: channelsField(),
+  // Days before the end of a sponsor's contract on which the administration is warned.
+  thresholdsDays: dayList({ min: 0, max: 365, maxItems: 5 }).default([7, 30]),
 });
 
 export const noConfigSchema = z.strictObject({});
@@ -80,6 +132,15 @@ export const certificateRemindersEntry = entry({
   configSchema: certificateRemindersConfigSchema,
 });
 
+export const missingDocumentsEntry = entry({
+  key: 'missing-documents',
+  name: 'Sollecitare i documenti mancanti',
+  description: "Ricorda ad atleti e genitori i documenti richiesti che non hanno ancora caricato.",
+  kind: 'SCHEDULED',
+  toggleable: true,
+  configSchema: missingDocumentsConfigSchema,
+});
+
 export const convocationDispatchEntry = entry({
   key: 'convocation-dispatch',
   name: 'Inviare le convocazioni',
@@ -116,14 +177,45 @@ export const notificationsDispatchEntry = entry({
   configSchema: notificationsDispatchConfigSchema,
 });
 
+export const adminAlertsEntry = entry({
+  key: 'admin-alerts',
+  name: "Avvisare l'amministrazione",
+  description: 'Avvisa subito segreteria e amministratori di pagamenti ricevuti, documenti caricati e nuove iscrizioni.',
+  kind: 'EVENT',
+  toggleable: true,
+  configSchema: noConfigSchema,
+});
+
+export const adminDigestEntry = entry({
+  key: 'admin-digest',
+  name: "Riepilogo per l'amministrazione",
+  description: 'Riassume a segreteria e amministratori le quote scadute e i documenti da sistemare.',
+  kind: 'SCHEDULED',
+  toggleable: true,
+  configSchema: adminDigestConfigSchema,
+});
+
+export const sponsorExpiryEntry = entry({
+  key: 'sponsor-expiry',
+  name: 'Avvisare i contratti sponsor in scadenza',
+  description: "Avvisa l'amministrazione prima che scada il contratto di uno sponsor.",
+  kind: 'SCHEDULED',
+  toggleable: true,
+  configSchema: sponsorExpiryConfigSchema,
+});
+
 // Dashboard order = SPEC 08 checklist order.
 export const AUTOMATION_CATALOG: readonly CatalogEntry[] = [
   feeRemindersEntry,
   certificateRemindersEntry,
+  missingDocumentsEntry,
   convocationDispatchEntry,
   standingsEntry,
   receiptsEntry,
   notificationsDispatchEntry,
+  adminAlertsEntry,
+  adminDigestEntry,
+  sponsorExpiryEntry,
 ];
 
 export function catalogEntryFor(key: string): CatalogEntry | undefined {
@@ -133,7 +225,7 @@ export function catalogEntryFor(key: string): CatalogEntry | undefined {
 // The stored configuration read through the key's schema; unreadable or outdated values fall back to the defaults.
 export function parseConfig<S extends z.ZodType<Prisma.InputJsonObject>>(
   catalogEntry: CatalogEntry<S>,
-  stored: Prisma.JsonValue | undefined,
+  stored: Prisma.InputJsonValue | null | undefined,
 ): z.output<S> {
   const parsed = catalogEntry.configSchema.safeParse(stored ?? {});
   return parsed.success ? parsed.data : catalogEntry.configSchema.parse({});

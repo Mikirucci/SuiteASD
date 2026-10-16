@@ -263,8 +263,16 @@ test.describe("calendario su telefono", () => {
     expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
     expect(await auditAccessibility(page)).toEqual([]);
 
-    const strip = await dayStrip(page).getByRole("button", { name: /gio 12 novembre/ }).boundingBox();
-    expect(strip?.height ?? 0).toBeGreaterThanOrEqual(44);
+    const days = await dayStrip(page).getByRole("button").all();
+    expect(days).toHaveLength(7);
+    for (const day of days) {
+      const box = await day.boundingBox();
+      expect(box?.width ?? 0).toBeGreaterThanOrEqual(44);
+      expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+    }
+    // The row scrolls inside itself: the page does not
+    const stripBox = await dayStrip(page).boundingBox();
+    expect((stripBox?.x ?? -1) + (stripBox?.width ?? 0)).toBeLessThanOrEqual(320);
     const create = await page.getByRole("button", { name: "Nuovo evento" }).first().boundingBox();
     expect(create?.height ?? 0).toBeGreaterThanOrEqual(44);
 

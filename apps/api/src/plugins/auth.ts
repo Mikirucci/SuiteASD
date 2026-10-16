@@ -3,6 +3,7 @@ import type { FastifyInstance, FastifyRequest, onRequestAsyncHookHandler } from 
 import fp from 'fastify-plugin';
 import type { AppConfig } from '../config/env.js';
 import { forbidden, unauthorized } from '../lib/errors.js';
+import type { EmailTransport } from '../lib/email.js';
 import type { PasswordHasher } from '../lib/password.js';
 import { scopeToTenant, type TenantDb } from '../lib/tenant.js';
 import { verifyAccessToken, type AuthContext } from '../lib/tokens.js';
@@ -15,6 +16,8 @@ declare module 'fastify' {
     // Unscoped client: ONLY for auth flows, scheduler and health. Modules use `tenantOf(request).db`.
     prisma: PrismaClient;
     passwords: PasswordHasher;
+    // Null when no email provider is configured.
+    emailTransport: EmailTransport | null;
     requireAuth: onRequestAsyncHookHandler;
     requirePermission: (permission: Permission) => onRequestAsyncHookHandler;
     requireRole: (...roles: Role[]) => onRequestAsyncHookHandler;

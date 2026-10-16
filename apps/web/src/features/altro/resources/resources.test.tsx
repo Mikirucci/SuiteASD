@@ -1,7 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { json, page, renderWithProviders, stubApi } from "@/features/quote/test-support";
+import { json, page, renderWithProviders, stubApi } from "@/test/stub-api";
 import { ResourceView } from "../crud/resource-view";
 import type { ResourceConfig } from "../crud/types";
 import { ALLENATORE, AFFITTO, MAGLIA, PANIFICIO, QUOTE_NOVEMBRE, TRASFERTA, TUTA } from "../test-fixtures";

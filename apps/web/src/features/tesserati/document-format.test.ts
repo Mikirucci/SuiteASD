@@ -1,14 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { validateDocumentFile } from "./document-file";
 import {
   describeExpiry,
   formatDateOnly,
-  formatFileSize,
-  markStateOf,
+  expiringLabel,
+  missingLabel,
   parseDateOnly,
+  summarizeDocuments,
   teamLabel,
 } from "./document-format";
 import { formValuesOf, memberFormSchema, toCreateBody, toUpdateBody, EMPTY_MEMBER_FORM } from "./member-schema";
+import type { DocumentIndicator } from "./types";
 import { describeImportProblem } from "./import-messages";
 import { SARA_CONTI, detailOf } from "./test-support";
 
@@ -31,33 +32,41 @@ describe("dates and labels", () => {
     expect(formatDateOnly("2026-11-27")).toBe("27 novembre 2026");
   });
 
-  it("maps every document status to one of the three marks", () => {
-    expect(markStateOf("OK")).toBe("ok");
-    expect(markStateOf("EXPIRING")).toBe("expiring");
-    expect(markStateOf("EXPIRED")).toBe("missing");
-    expect(markStateOf("MISSING")).toBe("missing");
-  });
-
-  it("formats file sizes and team badges", () => {
-    expect(formatFileSize(512)).toBe("512 B");
-    expect(formatFileSize(245_760)).toBe("240 KB");
-    expect(formatFileSize(2_621_440)).toBe("2,5 MB");
+  it("labels a team by its category, else by its name", () => {
     expect(teamLabel({ name: "Prima squadra", category: "Serie D" })).toBe("Serie D");
     expect(teamLabel({ name: "Under 14", category: null })).toBe("Under 14");
   });
 });
 
-describe("validateDocumentFile", () => {
-  it("accepts PDF and photos up to 5 MB", () => {
-    expect(validateDocumentFile(new File(["x"], "c.pdf", { type: "application/pdf" }))).toBeNull();
-    expect(validateDocumentFile(new File(["x"], "c.jpg", { type: "image/jpeg" }))).toBeNull();
+describe("summarizeDocuments", () => {
+  const indicator = (name: string, status: DocumentIndicator["status"]): DocumentIndicator => ({
+    documentTypeId: name,
+    key: name,
+    name,
+    status,
+    documentId: null,
+    expiresAt: null,
+    daysRemaining: null,
   });
 
-  it("explains why a file is refused", () => {
-    expect(validateDocumentFile(new File(["x"], "c.docx", { type: "application/msword" }))).toMatch(/PDF/);
-    expect(validateDocumentFile(new File([], "c.pdf", { type: "application/pdf" }))).toBe("Il file è vuoto.");
-    const big = new File([new Uint8Array(5 * 1024 * 1024 + 1)], "c.pdf", { type: "application/pdf" });
-    expect(validateDocumentFile(big)).toMatch(/il massimo è 5,0 MB/);
+  it("counts missing and expired documents together, expiring ones apart", () => {
+    const summary = summarizeDocuments([
+      indicator("Certificato medico", "EXPIRED"),
+      indicator("Privacy", "MISSING"),
+      indicator("Iscrizione", "EXPIRING"),
+      indicator("Assicurazione", "OK"),
+    ]);
+    expect(summary).toEqual({ missing: ["Certificato medico", "Privacy"], expiring: ["Iscrizione"] });
+  });
+
+  it("is empty when every document is in order", () => {
+    expect(summarizeDocuments([indicator("Privacy", "OK")])).toEqual({ missing: [], expiring: [] });
+  });
+
+  it("words the counts in Italian", () => {
+    expect(missingLabel(1)).toBe("1 documento mancante");
+    expect(missingLabel(2)).toBe("2 documenti mancanti");
+    expect(expiringLabel(3)).toBe("3 in scadenza");
   });
 });
 

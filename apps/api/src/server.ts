@@ -9,12 +9,13 @@ import { createScheduler } from './jobs/scheduler.js';
 if (existsSync('.env')) process.loadEnvFile('.env');
 
 const config = loadConfig();
-const app = await buildApp({ config });
+const email = createEmailTransport(config);
+const app = await buildApp({ config, email });
 
 let scheduler: ReturnType<typeof createScheduler> | undefined;
 if (config.SCHEDULER_ENABLED) {
   for (const automation of builtInAutomations) registerAutomation(automation);
-  scheduler = createScheduler({ prisma: app.prisma, log: app.log, email: createEmailTransport(config) });
+  scheduler = createScheduler({ prisma: app.prisma, log: app.log, email });
   scheduler.start();
 }
 

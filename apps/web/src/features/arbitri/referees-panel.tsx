@@ -1,13 +1,24 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { Pencil, Plus, Search, Trash2, Users } from "lucide-react";
+import { Paperclip, Pencil, Plus, Search, Trash2, Users } from "lucide-react";
 import { useState } from "react";
-import { Avatar, Button, Chip, ConfirmDialog, DataList, EmptyState, IconButton, Input, useToast } from "@/components/ui";
-import { LoadMore } from "@/features/quote/load-more";
-import { pluralize } from "@/features/quote/format";
-import { useCursorQuery } from "@/features/quote/use-cursor-query";
-import { useDebouncedValue } from "@/features/quote/use-debounced-value";
+import {
+  Avatar,
+  Button,
+  Chip,
+  ConfirmDialog,
+  DataList,
+  EmptyState,
+  IconButton,
+  Input,
+  LoadMore,
+  useToast,
+} from "@/components/ui";
+import { AttachmentsDialog, type AttachmentsTarget } from "@/features/attachments/attachments-dialog";
+import { pluralize } from "@/lib/format";
+import { useCursorQuery } from "@/lib/use-cursor-query";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useApiMutation } from "@/lib/api";
 import { refereeName } from "./format";
 import { describeRefereeError } from "./messages";
@@ -16,11 +27,12 @@ import type { Referee } from "./types";
 
 const PAGE_SIZE = 25;
 
-function RefereeRow({ referee, canWrite, onEdit, onDelete }: {
+function RefereeRow({ referee, canWrite, onEdit, onDelete, onAttachments }: {
   referee: Referee;
   canWrite: boolean;
   onEdit: (referee: Referee) => void;
   onDelete: (referee: Referee) => void;
+  onAttachments: (referee: Referee) => void;
 }) {
   const name = refereeName(referee);
   return (
@@ -49,6 +61,7 @@ function RefereeRow({ referee, canWrite, onEdit, onDelete }: {
         <Chip>{pluralize(referee.assignmentsCount, "designazione", "designazioni")}</Chip>
         {canWrite ? (
           <>
+            <IconButton aria-label={`Allegati di ${name}`} icon={<Paperclip />} onClick={() => onAttachments(referee)} />
             <IconButton aria-label={`Modifica ${name}`} icon={<Pencil />} onClick={() => onEdit(referee)} />
             <IconButton aria-label={`Elimina ${name}`} icon={<Trash2 />} onClick={() => onDelete(referee)} />
           </>
@@ -67,6 +80,7 @@ export function RefereesPanel({ canWrite }: { canWrite: boolean }) {
   const [editor, setEditor] = useState<RefereeDialogState | null>(null);
   const [deleting, setDeleting] = useState<Referee | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [attachments, setAttachments] = useState<AttachmentsTarget | null>(null);
 
   const referees = useCursorQuery<Referee>(["referees", "list", { q }], "/referees", { q: q || undefined, limit: PAGE_SIZE });
 
@@ -129,6 +143,9 @@ export function RefereesPanel({ canWrite }: { canWrite: boolean }) {
             referee={referee}
             canWrite={canWrite}
             onEdit={(target) => setEditor({ mode: "edit", referee: target })}
+            onAttachments={(target) =>
+              setAttachments({ entityType: "REFEREE", entityId: target.id, recordName: refereeName(target) })
+            }
             onDelete={(target) => {
               setDeleteError(null);
               setDeleting(target);
@@ -146,6 +163,7 @@ export function RefereesPanel({ canWrite }: { canWrite: boolean }) {
       {canWrite ? (
         <>
           <RefereeDialog state={editor} onClose={() => setEditor(null)} />
+          <AttachmentsDialog target={attachments} onClose={() => setAttachments(null)} />
           <ConfirmDialog
             open={deleting !== null}
             onOpenChange={(open) => !open && setDeleting(null)}

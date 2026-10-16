@@ -12,12 +12,16 @@ export interface AuthContext {
   userId: string;
   societyId: string;
   roles: readonly Role[];
+  // Set only on the access token issued by consuming a magic link (not carried over by refresh): it lets the user
+  // choose a new password without the current one for as long as that token lives.
+  authMethod?: 'magic_link';
 }
 
 const accessClaimsSchema = z.object({
   sub: z.string().min(1),
   sid: z.string().min(1),
   roles: z.array(roleSchema).min(1),
+  amr: z.literal('magic_link').optional(),
 });
 
 function secretKey(config: AppConfig): Uint8Array {
@@ -25,7 +29,7 @@ function secretKey(config: AppConfig): Uint8Array {
 }
 
 export async function signAccessToken(config: AppConfig, auth: AuthContext): Promise<string> {
-  return new SignJWT({ sid: auth.societyId, roles: [...auth.roles] })
+  return new SignJWT({ sid: auth.societyId, roles: [...auth.roles], ...(auth.authMethod ? { amr: auth.authMethod } : {}) })
     .setProtectedHeader({ alg: 'HS256' })
     .setSubject(auth.userId)
     .setIssuer(ISSUER)
@@ -45,7 +49,8 @@ export async function verifyAccessToken(config: AppConfig, token: string): Promi
     });
     const claims = accessClaimsSchema.safeParse(payload);
     if (!claims.success) return null;
-    return { userId: claims.data.sub, societyId: claims.data.sid, roles: claims.data.roles };
+    const { sub, sid, roles, amr } = claims.data;
+    return { userId: sub, societyId: sid, roles, ...(amr ? { authMethod: amr } : {}) };
   } catch {
     return null;
   }

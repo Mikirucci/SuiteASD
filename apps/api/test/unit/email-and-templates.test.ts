@@ -138,4 +138,46 @@ describe('notification templates (Italian)', () => {
     expect(long.title).toBe('Avviso');
     expect(long.body).toHaveLength(140);
   });
+
+  it('renders the missing-documents reminder for an athlete', () => {
+    expect(renderNotification({ type: 'DOCUMENT_MISSING', memberName: 'Sara Conti', documentNames: ['Certificato medico', 'Privacy'] })).toEqual({
+      title: 'Documenti da caricare',
+      body: 'Per Sara Conti mancano: Certificato medico, Privacy',
+    });
+  });
+
+  it('renders the organisation notifications for administrators', () => {
+    expect(renderNotification({ type: 'ADMIN_PAYMENT_RECEIVED', memberName: 'Sara Conti', description: 'Quota novembre', amountCents: 6000 })).toEqual({
+      title: 'Pagamento ricevuto',
+      body: 'Sara Conti · Quota novembre · € 60',
+    });
+    expect(renderNotification({ type: 'ADMIN_FEE_OVERDUE', count: 1, totalCents: 6000 }).body).toBe('1 quota scaduta per € 60 complessivi');
+    expect(renderNotification({ type: 'ADMIN_FEE_OVERDUE', count: 4, totalCents: 24050 }).body).toBe('4 quote scadute per € 240,50 complessivi');
+    expect(renderNotification({ type: 'ADMIN_DOCUMENT_ALERT', membersToFix: 3, documentsToFix: 4, expiringSoon: 2 })).toEqual({
+      title: 'Documenti da sistemare',
+      body: '3 tesserati con 4 documenti mancanti o scaduti · 2 documenti in scadenza',
+    });
+    expect(renderNotification({ type: 'ADMIN_DOCUMENT_ALERT', membersToFix: 0, documentsToFix: 0, expiringSoon: 1 }).body).toBe('1 documento in scadenza');
+    expect(
+      renderNotification({
+        type: 'ADMIN_DOCUMENT_UPLOADED',
+        memberName: 'Sara Conti',
+        documentName: 'Certificato medico',
+        expiresAt: new Date('2027-11-27T00:00:00.000Z'),
+      }),
+    ).toEqual({ title: 'Documento caricato', body: 'Sara Conti · Certificato medico · scade il 27 novembre' });
+    expect(renderNotification({ type: 'ADMIN_DOCUMENT_UPLOADED', memberName: 'Sara Conti', documentName: 'Privacy', expiresAt: null }).body).toBe(
+      'Sara Conti · Privacy',
+    );
+    expect(renderNotification({ type: 'ADMIN_NEW_ENROLMENT', memberName: 'Sara Conti', teamName: 'U16' })).toEqual({
+      title: 'Nuova iscrizione',
+      body: 'Sara Conti · U16',
+    });
+    expect(renderNotification({ type: 'ADMIN_NEW_ENROLMENT', memberName: 'Sara Conti', teamName: null }).body).toBe('Sara Conti');
+    expect(renderNotification({ type: 'ADMIN_SPONSOR_EXPIRING', sponsorName: 'Ottica Rossi', daysLeft: 15 })).toEqual({
+      title: 'Contratto sponsor in scadenza',
+      body: 'Ottica Rossi — scade tra 15 giorni',
+    });
+    expect(renderNotification({ type: 'ADMIN_SPONSOR_EXPIRING', sponsorName: 'Ottica Rossi', daysLeft: 0 }).body).toContain('scade oggi');
+  });
 });

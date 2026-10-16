@@ -14,7 +14,8 @@ import {
   makeConvocation,
   ANNA,
 } from "./test-fixtures";
-import { calendarRoutes, json, problem, renderWithProviders, stubApi } from "./test-support";
+import { json, problem, renderWithProviders, stubApi } from "@/test/stub-api";
+import { calendarRoutes } from "./test-support";
 
 const auth = vi.hoisted(() => ({ permissions: [] as string[] }));
 vi.mock("@/features/auth/auth-provider", () => ({

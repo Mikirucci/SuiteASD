@@ -2,8 +2,9 @@ import { addDays, daysUntil, formatDateOnly, startOfUtcDay } from '../../modules
 import { createNotification } from '../../modules/notifications/service.js';
 import { resolveRecipients } from '../../modules/notifications/recipients.js';
 import { renderNotification } from '../../modules/notifications/templates.js';
-import { certificateRemindersEntry, parseConfig } from '../catalog.js';
+import { CERTIFICATE_REMINDERS_DEFAULT_HOUR, certificateRemindersEntry, parseConfig } from '../catalog.js';
 import type { AutomationDefinition } from '../registry.js';
+import { dailyCron, localDayRunKey } from '../schedule.js';
 
 // The smallest configured threshold that covers the remaining days: with [0, 7, 15, 30], 20 days left -> 30,
 // 10 -> 15, 3 -> 7, expired or expiring today -> 0. Thresholds are sorted ascending by the config schema.
@@ -18,11 +19,13 @@ export const certificateReminders: AutomationDefinition = {
   key: certificateRemindersEntry.key,
   name: certificateRemindersEntry.name,
   description: certificateRemindersEntry.description,
-  schedule: '0 8 * * *',
+  schedule: dailyCron(CERTIFICATE_REMINDERS_DEFAULT_HOUR),
+  hourOf: (config) => parseConfig(certificateRemindersEntry, config).hour,
+  runKey: localDayRunKey,
   enabledByDefault: true,
   defaultConfig: certificateRemindersEntry.defaultConfig,
   async run({ db, societyId, config, now }) {
-    const { thresholdsDays } = parseConfig(certificateRemindersEntry, config);
+    const { thresholdsDays, channels } = parseConfig(certificateRemindersEntry, config);
     const widest = thresholdsDays.at(-1);
     if (widest === undefined) return { documentsChecked: 0, documentsNotified: 0, notifications: 0 };
 
@@ -68,6 +71,7 @@ export const certificateReminders: AutomationDefinition = {
         body,
         data: { documentId: document.id, memberId: document.memberId, expiresAt: formatDateOnly(expiresAt), daysLeft },
         dedupeKey: `document:${document.id}:${formatDateOnly(expiresAt)}:${threshold}`,
+        channels,
       });
       if (written > 0) documentsNotified += 1;
       notifications += written;

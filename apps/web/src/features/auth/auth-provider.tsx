@@ -2,7 +2,7 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { authApi, api, type LoginBody, type MeResponse, type RegisterBody } from "@/lib/api";
+import { authApi, api, type LoginBody, type MeResponse, type RegisterBody, type SessionResponse } from "@/lib/api";
 
 type AuthState =
   | { status: "loading"; me: null }
@@ -16,6 +16,10 @@ export interface AuthContextValue {
   login(body: LoginBody): Promise<void>;
   register(body: RegisterBody): Promise<void>;
   logout(): Promise<void>;
+  /** Signs in with the session a public flow returned (enrolment with a link). */
+  adoptSession(session: SessionResponse): Promise<void>;
+  /** Reloads the user, the roles and the members they look after (after adding a child, for example). */
+  refresh(): Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -61,6 +65,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setState({ status: "authenticated", me: await authApi.me() });
   }, []);
 
+  const adoptSession = useCallback(
+    async (session: SessionResponse) => {
+      authApi.adoptSession(session);
+      // Whatever was on screen belonged to the previous session
+      queryClient.clear();
+      setState({ status: "authenticated", me: await authApi.me() });
+    },
+    [queryClient],
+  );
+
+  const refresh = useCallback(async () => {
+    setState({ status: "authenticated", me: await authApi.me() });
+  }, []);
+
   const logout = useCallback(async () => {
     await authApi.logout();
     queryClient.clear();
@@ -68,8 +86,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [queryClient]);
 
   const value = useMemo<AuthContextValue>(
-    () => ({ status: state.status, me: state.me, login, register, logout }),
-    [state, login, register, logout],
+    () => ({ status: state.status, me: state.me, login, register, logout, adoptSession, refresh }),
+    [state, login, register, logout, adoptSession, refresh],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

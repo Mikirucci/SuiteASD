@@ -4,7 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { expectNoA11yViolations } from "@/test/a11y";
 import { defaultDueDate } from "./generate-fees-dialog";
 import { PlansPanel } from "./plans-panel";
-import { PLAN, STAFF_PERMISSIONS, TEAMS, json, page, problem, renderWithProviders, stubApi } from "./test-support";
+import { json, page, problem, renderWithProviders, stubApi } from "@/test/stub-api";
+import { PLAN, STAFF_PERMISSIONS, TEAMS } from "./test-support";
 
 const auth = vi.hoisted(() => ({ permissions: [] as string[] }));
 vi.mock("@/features/auth/auth-provider", () => ({

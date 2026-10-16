@@ -1,7 +1,7 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { Layers, Pencil, Plus, Settings2, Trash2, Users } from "lucide-react";
+import { FileUp, Layers, Pencil, Plus, Settings2, Trash2, Users } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,7 @@ import { useAllPages } from "@/lib/use-all-pages";
 import { CompetitionDialog } from "./competition-dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { formatDay } from "./format";
+import { ImportMatchesDialog } from "./import-matches-dialog";
 import { NameDialog } from "./name-dialog";
 import { OwnTeamDialog } from "./own-team-dialog";
 import { SeasonDialog } from "./season-dialog";
@@ -27,6 +28,7 @@ type Editor =
   | { type: "group"; group?: Group }
   | { type: "opponent" }
   | { type: "own-team" }
+  | { type: "import-matches" }
   | { type: "team-name"; team: GroupTeam };
 
 interface DeleteTarget {
@@ -248,6 +250,9 @@ export function ManageView({ scope, kind }: { scope: CompetitionScope; kind?: "T
               <Button variant="secondary" leftIcon={<Plus />} onClick={() => setEditor({ type: "opponent" })}>
                 Squadra avversaria
               </Button>
+              <Button variant="secondary" leftIcon={<FileUp />} onClick={() => setEditor({ type: "import-matches" })}>
+                Importa partite da file
+              </Button>
             </div>
           }
         >
@@ -285,6 +290,9 @@ export function ManageView({ scope, kind }: { scope: CompetitionScope; kind?: "T
         </Section>
       ) : null}
 
+      {editor?.type === "import-matches" && competition && group ? (
+        <ImportMatchesDialog open onOpenChange={close} competitionId={competition.id} groupId={group.id} groupName={group.name} />
+      ) : null}
       {editor?.type === "season" ? <SeasonDialog open onOpenChange={close} season={editor.season} /> : null}
       {editor?.type === "competition" && season ? (
         <CompetitionDialog open onOpenChange={close} seasonId={season.id} competition={editor.competition} fixedKind={kind} />

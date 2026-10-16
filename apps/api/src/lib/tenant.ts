@@ -23,7 +23,8 @@ export class TenantViolationError extends Error {
 }
 
 // Models without a `societyId` column. Any other model must have one (enforced by a test).
-export const GLOBAL_MODELS: readonly string[] = ['Society', 'User'];
+// LoginToken belongs to the global identity (User) and is reachable only from the auth module's unscoped client.
+export const GLOBAL_MODELS: readonly string[] = ['Society', 'User', 'LoginToken'];
 
 export const TENANT_MODELS: ReadonlySet<string> = new Set(
   Prisma.dmmf.datamodel.models

@@ -46,7 +46,7 @@ export function ActionsSection() {
         </Specimen>
       </div>
 
-      <div className="grid gap-8 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
         <Specimen caption="Dimensioni (40, 44, 48 px di altezza)" className="flex flex-wrap items-center gap-3">
           <Button size="sm">Piccolo</Button>
           <Button size="md">Medio</Button>

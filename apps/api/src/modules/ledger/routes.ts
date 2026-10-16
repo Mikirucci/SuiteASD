@@ -18,6 +18,7 @@ export const ledgerRoutes: FastifyPluginAsyncZod = async (app) => {
     tag: 'Ledger',
     noun: 'ledger entry',
     permissions: { read: 'ledger:read', write: 'ledger:write' },
+    attachmentType: 'LEDGER_ENTRY',
     schemas: {
       dto: ledgerEntrySchema,
       createBody: createLedgerEntryBodySchema,

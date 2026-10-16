@@ -76,6 +76,24 @@ const rangeFields = {
 };
 
 export const listEventsQuerySchema = paginationQuerySchema.extend(rangeFields);
+export const importEventsBodySchema = z.object({
+  ics: z.string().min(1).max(500_000).describe('Content of an iCalendar (.ics) file'),
+  type: eventTypeSchema.default('TRAINING').describe('Kind given to every event of the file; only trainings repeat'),
+  teamId: idRef.optional().describe('Team the events belong to'),
+  venueId: idRef.optional().describe('Venue of the events'),
+  dryRun: z.boolean().default(true).describe('Check and report only (default). Send false to import'),
+});
+
+export const importEventsResultSchema = z.object({
+  dryRun: z.boolean(),
+  eventsInFile: z.number().int(),
+  created: z.number().int().describe('Events created, repetitions included'),
+  alreadyPresent: z.number().int().describe('Same title, same start, same team: not created again'),
+  allDaySkipped: z.number().int(),
+  repetitionsNotImported: z.number().int().describe('Events with a repetition we cannot expand: only the first date came in'),
+  errors: z.array(z.object({ event: z.number().int().describe('1-based position of the event in the file'), message: z.string() })),
+});
+
 export const exportEventsQuerySchema = z.object(rangeFields);
 
 export const eventSchema = z.object({
@@ -103,6 +121,8 @@ export const createdEventSchema = eventSchema.extend({
 export type CreateEventBody = z.infer<typeof createEventBodySchema>;
 export type UpdateEventBody = z.infer<typeof updateEventBodySchema>;
 export type CancelEventBody = z.infer<typeof cancelEventBodySchema>;
+export type ImportEventsBody = z.infer<typeof importEventsBodySchema>;
+export type ImportEventsResult = z.infer<typeof importEventsResultSchema>;
 export type ListEventsQuery = z.infer<typeof listEventsQuerySchema>;
 export type ExportEventsQuery = z.infer<typeof exportEventsQuerySchema>;
 export type EventDto = z.infer<typeof eventSchema>;

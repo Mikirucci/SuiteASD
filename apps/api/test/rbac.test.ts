@@ -18,7 +18,7 @@ describe('permission matrix (SPEC section 2)', () => {
   });
 
   it('gives ADMIN every administrative permission and no role more than ADMIN, except athlete/guardian self-service', () => {
-    const selfService: Permission[] = ['convocations:respond', 'evaluations:readOwn'];
+    const selfService: Permission[] = ['children:create', 'convocations:respond', 'documents:uploadOwn', 'evaluations:readOwn', 'members:updateOwn'];
     const nonAdmin = (Object.keys(PERMISSIONS) as Permission[]).filter((permission) => !can(['ADMIN'], permission));
     expect(nonAdmin.sort()).toEqual([...selfService].sort());
   });
@@ -71,8 +71,12 @@ describe('route contract', () => {
     'POST /api/v1/auth/register',
     'POST /api/v1/auth/login',
     'POST /api/v1/auth/refresh',
+    'POST /api/v1/auth/magic-link/request',
+    'POST /api/v1/auth/magic-link/consume',
     'POST /api/v1/auth/logout',
     'POST /api/v1/invitations/accept',
+    'GET /api/v1/join/{code}',
+    'POST /api/v1/join/{code}',
   ]);
 
   interface Operation {

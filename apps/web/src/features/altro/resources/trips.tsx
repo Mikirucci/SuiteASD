@@ -1,7 +1,7 @@
 import { Bus } from "lucide-react";
 import { z } from "zod";
 import { Badge, type BadgeVariant } from "@/components/ui";
-import { formatEuro } from "@/features/quote/format";
+import { formatEuro } from "@/lib/format";
 import type { ResourceConfig } from "../crud/types";
 import {
   amountToInput,
@@ -46,6 +46,7 @@ export const tripsConfig: ResourceConfig<Trip> = {
   key: "trips",
   path: "/trips",
   writePermission: "trips:write",
+  attachmentType: "TRIP",
   icon: Bus,
   fieldAliases: { costCents: "cost" },
   copy: {

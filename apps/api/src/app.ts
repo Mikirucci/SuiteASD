@@ -7,6 +7,7 @@ import {
   type ZodTypeProvider,
 } from 'fastify-type-provider-zod';
 import type { AppConfig } from './config/env.js';
+import { createEmailTransport, type EmailTransport } from './lib/email.js';
 import { createPasswordHasher, type PasswordHasher } from './lib/password.js';
 import { moduleRoutes } from './modules/index.js';
 import { authPlugin } from './plugins/auth.js';
@@ -18,6 +19,8 @@ export interface BuildAppOptions {
   config: AppConfig;
   // Injected in tests; otherwise a client is created from config.DATABASE_URL and closed with the app.
   prisma?: PrismaClient;
+  // Email provider (null = none configured, emails are skipped). Defaults to the one described by the config.
+  email?: EmailTransport | null;
 }
 
 function loggerOptions(config: AppConfig) {
@@ -30,7 +33,7 @@ function loggerOptions(config: AppConfig) {
   };
 }
 
-export async function buildApp({ config, prisma }: BuildAppOptions): Promise<FastifyInstance> {
+export async function buildApp({ config, prisma, email }: BuildAppOptions): Promise<FastifyInstance> {
   const app = Fastify({
     logger: loggerOptions(config),
     trustProxy: config.TRUST_PROXY,
@@ -45,6 +48,7 @@ export async function buildApp({ config, prisma }: BuildAppOptions): Promise<Fas
   app.decorate('config', config);
   app.decorate('prisma', client);
   app.decorate('passwords', passwords);
+  app.decorate('emailTransport', email === undefined ? createEmailTransport(config) : email);
   if (!prisma) app.addHook('onClose', async () => client.$disconnect());
 
   await app.register(errorsPlugin);

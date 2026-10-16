@@ -9,6 +9,7 @@ export const tripRoutes: FastifyPluginAsyncZod = async (app) => {
     tag: 'Trips',
     noun: 'trip',
     permissions: { read: 'trips:read', write: 'trips:write' },
+    attachmentType: 'TRIP',
     schemas: {
       dto: tripSchema,
       createBody: createTripBodySchema,

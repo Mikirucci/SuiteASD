@@ -4,7 +4,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { toDayKey } from "@/lib/dates";
 import { expectNoA11yViolations } from "@/test/a11y";
 import { PayFeeDialog } from "./pay-fee-dialog";
-import { PAID_FEE, PENDING_FEE, json, problem, renderWithProviders, stubApi } from "./test-support";
+import { json, problem, renderWithProviders, stubApi } from "@/test/stub-api";
+import { PAID_FEE, PENDING_FEE } from "./test-support";
 
 afterEach(() => {
   vi.unstubAllGlobals();

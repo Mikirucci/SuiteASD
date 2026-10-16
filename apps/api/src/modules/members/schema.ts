@@ -68,14 +68,44 @@ export const updateMemberBodySchema = z
   .partial()
   .refine((body) => Object.keys(body).length > 0, { message: 'At least one field is required' });
 
+// What an athlete or a guardian may change on their own member: contact details and the kit size. Identity data,
+// teams, role on the court and status stay with the secretary.
+export const updateOwnContactBodySchema = z
+  .object({
+    email: memberFieldsSchema.shape.email.nullable(),
+    phone: memberFieldsSchema.shape.phone.nullable(),
+    address: memberFieldsSchema.shape.address.nullable(),
+    city: memberFieldsSchema.shape.city.nullable(),
+    postalCode: memberFieldsSchema.shape.postalCode.nullable(),
+    kitSize: memberFieldsSchema.shape.kitSize.nullable(),
+  })
+  .partial()
+  .refine((body) => Object.keys(body).length > 0, { message: 'At least one field is required' });
+
+// A guardian adds a child: the child becomes a member with no team (the secretary assigns it) and a guardian link.
+export const createChildBodySchema = z.object({
+  firstName: memberFieldsSchema.shape.firstName,
+  lastName: memberFieldsSchema.shape.lastName,
+  birthDate: dateOnly,
+  birthPlace: memberFieldsSchema.shape.birthPlace,
+  gender: memberGenderSchema.optional(),
+  fiscalCode: fiscalCodeSchema.optional(),
+  fieldRole: memberFieldsSchema.shape.fieldRole,
+  relation: guardianRelationSchema.default('ALTRO'),
+});
+
 export const listMembersQuerySchema = z.object({
   q: z.string().trim().min(1).max(80).optional().describe('Words matched against name, fiscal code and email'),
   teamId: idRef.optional(),
+  noTeam: z.stringbool().optional().describe("true: only members who belong to no team yet (ignored when teamId is set)"),
   documentStatus: overallDocumentStatusSchema.optional(),
   status: memberStatusSchema.optional(),
+  gender: memberGenderSchema.optional(),
+  fieldRole: z.string().trim().min(1).max(40).optional().describe("Role on the court, case-insensitive match"),
+  birthYear: z.coerce.number().int().min(1900).max(2100).optional().describe("Year of birth"),
 });
 
-export const exportMembersQuerySchema = listMembersQuerySchema.omit({ documentStatus: true });
+export const exportMembersQuerySchema = listMembersQuerySchema;
 
 const teamRefSchema = z.object({
   id: z.string(),
@@ -158,6 +188,8 @@ export const importMembersResultSchema = z.object({
 
 export type CreateMemberBody = z.infer<typeof createMemberBodySchema>;
 export type UpdateMemberBody = z.infer<typeof updateMemberBodySchema>;
+export type UpdateOwnContactBody = z.infer<typeof updateOwnContactBodySchema>;
+export type CreateChildBody = z.infer<typeof createChildBodySchema>;
 export type ListMembersQuery = z.infer<typeof listMembersQuerySchema>;
 export type ExportMembersQuery = z.infer<typeof exportMembersQuerySchema>;
 export type MemberListItem = z.infer<typeof memberListItemSchema>;

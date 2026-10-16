@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { describeError } from "@/lib/api";
 import { useSaveDocument } from "./api";
-import { DOCUMENT_ACCEPT, validateDocumentFile } from "./document-file";
+import { UPLOAD_ACCEPT, validateUploadFile } from "@/lib/upload-file";
 import { applyServerErrors } from "./server-errors";
 import type { CreateDocumentBody, DocumentType, MemberDocument, UpdateDocumentBody } from "./types";
 
@@ -95,7 +95,7 @@ function DocumentForm({ memberId, types, document, presetTypeId, onClose, onBusy
 
   function onFileChange(event: ChangeEvent<HTMLInputElement>) {
     const chosen = event.target.files?.[0] ?? null;
-    const problem = chosen ? validateDocumentFile(chosen) : null;
+    const problem = chosen ? validateUploadFile(chosen) : null;
     setFileError(problem);
     setFile(chosen && !problem ? chosen : null);
   }
@@ -190,7 +190,7 @@ function DocumentForm({ memberId, types, document, presetTypeId, onClose, onBusy
         <input
           id="document-file"
           type="file"
-          accept={DOCUMENT_ACCEPT}
+          accept={UPLOAD_ACCEPT}
           onChange={onFileChange}
           aria-describedby="document-file-hint"
           aria-invalid={fileError ? true : undefined}

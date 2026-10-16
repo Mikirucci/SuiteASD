@@ -47,6 +47,42 @@ describe('notifications (SPEC 07)', () => {
       expect(rows.find((row) => row.channel === 'IN_APP')?.sentAt).not.toBeNull();
     });
 
+    it('never notifies a user whose roles do not take part in the type', async () => {
+      const admin = await createActor(ctx, societyId, 'ADMIN');
+      const secretary = await createActor(ctx, societyId, 'SEGRETERIA');
+      const parent = await createActor(ctx, societyId, 'GENITORE');
+      const everybody = [admin.user.id, secretary.user.id, parent.user.id];
+
+      expect(await notify(everybody, { type: 'CONVOCATION' })).toBe(2);
+      expect((await ctx.prisma.notification.findMany({ where: { type: 'CONVOCATION', userId: { in: everybody } } })).map((row) => row.userId)).toEqual([
+        parent.user.id,
+        parent.user.id,
+      ]);
+
+      expect(await notify(everybody, { type: 'ADMIN_PAYMENT_RECEIVED' })).toBe(4);
+      const org = await ctx.prisma.notification.findMany({ where: { type: 'ADMIN_PAYMENT_RECEIVED', userId: { in: everybody } } });
+      expect(new Set(org.map((row) => row.userId))).toEqual(new Set([admin.user.id, secretary.user.id]));
+    });
+
+    it('hides notifications of the other audience from the center and the unread count', async () => {
+      const admin = await createActor(ctx, societyId, 'ADMIN');
+      // Written directly, as an older version of the app could have done.
+      await ctx.prisma.notification.createMany({
+        data: ['CONVOCATION', 'ADMIN_NEW_ENROLMENT'].map((type) => ({
+          societyId,
+          userId: admin.user.id,
+          type,
+          channel: 'IN_APP',
+          title: type,
+          body: type,
+          status: 'SENT',
+        })),
+      });
+      const list = (await get(admin, '/notifications')).json();
+      expect(list.data.map((row: { type: string }) => row.type)).toEqual(['ADMIN_NEW_ENROLMENT']);
+      expect((await get(admin, '/notifications/unread-count')).json().count).toBe(1);
+    });
+
     it('does nothing without recipients', async () => {
       expect(await notify([])).toBe(0);
     });
@@ -201,11 +237,43 @@ describe('notifications (SPEC 07)', () => {
   });
 
   describe('preferences', () => {
-    it('lists every type and channel enabled by default', async () => {
+    it('lists every personal type and channel enabled by default', async () => {
       const user = await createActor(ctx, societyId, 'GENITORE');
       const body = (await get(user, '/notifications/preferences')).json();
-      expect(body.preferences).toHaveLength(12);
+      expect(body.preferences).toHaveLength(14);
       expect(body.preferences.every((item: { enabled: boolean }) => item.enabled)).toBe(true);
+      expect(body.preferences.some((item: { type: string }) => item.type.startsWith('ADMIN_'))).toBe(false);
+    });
+
+    it('lists only the organisation types to the administration, and refuses the others', async () => {
+      for (const role of ['ADMIN', 'SEGRETERIA'] as const) {
+        const user = await createActor(ctx, societyId, role);
+        const types = new Set(
+          (await get(user, '/notifications/preferences')).json().preferences.map((item: { type: string }) => item.type),
+        );
+        expect([...types].sort()).toEqual([
+          'ADMIN_DOCUMENT_ALERT',
+          'ADMIN_DOCUMENT_UPLOADED',
+          'ADMIN_FEE_OVERDUE',
+          'ADMIN_NEW_ENROLMENT',
+          'ADMIN_PAYMENT_RECEIVED',
+          'ADMIN_SPONSOR_EXPIRING',
+        ]);
+        const refused = await send('PUT', user, '/notifications/preferences', {
+          preferences: [{ type: 'CONVOCATION', channel: 'EMAIL', enabled: false }],
+        });
+        expect(refused.statusCode).toBe(422);
+      }
+      const athleteRefused = await send('PUT', athlete, '/notifications/preferences', {
+        preferences: [{ type: 'ADMIN_PAYMENT_RECEIVED', channel: 'EMAIL', enabled: false }],
+      });
+      expect(athleteRefused.statusCode).toBe(422);
+    });
+
+    it('offers both audiences to somebody who is administrator and athlete at once', async () => {
+      const both = await createActor(ctx, societyId, 'ADMIN', 'ATLETA');
+      const response = await get(both, '/notifications/preferences');
+      expect(response.json().preferences).toHaveLength(26);
     });
 
     it('switches a channel off for a type and back on, and then stops creating that channel', async () => {

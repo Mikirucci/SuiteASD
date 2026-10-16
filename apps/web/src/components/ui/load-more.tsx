@@ -1,6 +1,7 @@
-import { Alert, Button } from "@/components/ui";
 import { describeError } from "@/lib/api";
-import type { CursorQueryResult } from "./use-cursor-query";
+import type { CursorQueryResult } from "@/lib/use-cursor-query";
+import { Alert } from "./alert";
+import { Button } from "./button";
 
 export interface LoadMoreProps {
   list: Pick<CursorQueryResult<unknown>, "items" | "hasNextPage" | "isFetchingNextPage" | "fetchNextPage" | "nextPageError">;

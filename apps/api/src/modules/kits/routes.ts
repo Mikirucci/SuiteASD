@@ -9,6 +9,7 @@ export const kitRoutes: FastifyPluginAsyncZod = async (app) => {
     tag: 'Kits',
     noun: 'kit',
     permissions: { read: 'kits:read', write: 'kits:write' },
+    attachmentType: 'KIT',
     schemas: {
       dto: kitSchema,
       createBody: createKitBodySchema,

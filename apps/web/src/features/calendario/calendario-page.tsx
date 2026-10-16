@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, ClipboardCheck, Download, Plus } from "lucide-react";
+import { CalendarDays, ClipboardCheck, Download, FileUp, Plus } from "lucide-react";
 import { useState } from "react";
 import {
   Alert,
@@ -15,13 +15,14 @@ import {
 } from "@/components/ui";
 import { useApiMutation } from "@/lib/api";
 import { isSameDay, startOfDay } from "@/lib/dates";
-import { saveFile } from "@/features/quote/save-file";
+import { saveFile } from "@/lib/save-file";
 import { useCalendarTeams, useMatchContexts, useWeekEvents } from "./api";
 import { CancelEventDialog } from "./cancel-event-dialog";
 import { ConvocateDialog } from "./convocate-dialog";
 import { EventCard } from "./event-card";
 import { EventDetailDialog, type EventAction } from "./event-detail-dialog";
 import { EventFormDialog, type EventFormState } from "./event-form-dialog";
+import { ImportEventsDialog } from "./import-events-dialog";
 import { describeCalendarError, formatDayTitle, pluralize, toDateInput } from "./format";
 import { PendingConvocations } from "./pending-convocations";
 import { RescheduleDialog } from "./reschedule-dialog";
@@ -41,6 +42,7 @@ export function CalendarioPage() {
   const [day, setDay] = useState(() => startOfDay(new Date()));
   const [teamId, setTeamId] = useState("");
   const [panel, setPanel] = useState<Panel>(null);
+  const [importing, setImporting] = useState(false);
 
   const teams = useCalendarTeams();
   const week = useWeekEvents(day, teamId);
@@ -131,6 +133,11 @@ export function CalendarioPage() {
               Esporta in iCal
             </Button>
             {access.canWriteEvents ? (
+              <Button variant="secondary" leftIcon={<FileUp />} onClick={() => setImporting(true)}>
+                Importa da file
+              </Button>
+            ) : null}
+            {access.canWriteEvents ? (
               <Button leftIcon={<Plus />} onClick={openForm}>
                 Nuovo evento
               </Button>
@@ -204,6 +211,7 @@ export function CalendarioPage() {
         onClose={closePanel}
         onSaved={handleFormSaved}
       />
+      {access.canWriteEvents ? <ImportEventsDialog open={importing} onOpenChange={setImporting} teams={teams.data ?? []} /> : null}
       <RescheduleDialog event={panel?.name === "reschedule" ? panel.event : null} onClose={closePanel} onSaved={showSaved} />
       <CancelEventDialog event={panel?.name === "cancel" ? panel.event : null} onClose={closePanel} onCancelled={showSaved} />
       <ConvocateDialog

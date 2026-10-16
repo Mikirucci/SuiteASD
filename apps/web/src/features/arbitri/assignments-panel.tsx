@@ -3,11 +3,22 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Check, ClipboardList, Clock, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { Button, Chip, ConfirmDialog, DataList, EmptyState, IconButton, PillFilter, Select, useToast, type PillOption } from "@/components/ui";
+import {
+  Button,
+  Chip,
+  ConfirmDialog,
+  DataList,
+  EmptyState,
+  IconButton,
+  LoadMore,
+  PillFilter,
+  type PillOption,
+  Select,
+  useToast,
+} from "@/components/ui";
 import { formatMatchDate } from "@/features/classifiche/format";
-import { formatDateTime, formatEuro } from "@/features/quote/format";
-import { LoadMore } from "@/features/quote/load-more";
-import { useCursorQuery } from "@/features/quote/use-cursor-query";
+import { formatDateTime, formatEuro } from "@/lib/format";
+import { useCursorQuery } from "@/lib/use-cursor-query";
 import { useApiMutation } from "@/lib/api";
 import { AssignmentDialog } from "./assignment-dialog";
 import { FeeDialog } from "./fee-dialog";

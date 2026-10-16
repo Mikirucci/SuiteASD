@@ -249,6 +249,27 @@ export type UpdateGroupTeamBody = z.infer<typeof updateGroupTeamBodySchema>;
 export type GroupTeamDto = z.infer<typeof groupTeamSchema>;
 export type CreateMatchBody = z.infer<typeof createMatchBodySchema>;
 export type UpdateMatchBody = z.infer<typeof updateMatchBodySchema>;
+export const importMatchesBodySchema = z.object({
+  csv: z.string().min(1).max(200_000).describe('CSV text with a header row (";" or "," separated): giornata, data, ora, casa, ospite, risultato'),
+  dryRun: z.boolean().default(true).describe('Check and report only (default). Send false to apply'),
+});
+
+export const importMatchesResultSchema = z.object({
+  dryRun: z.boolean(),
+  totalRows: z.number().int(),
+  validRows: z.number().int(),
+  invalidRows: z.number().int(),
+  teamsCreated: z.number().int().describe('Participants added to the group'),
+  matchesCreated: z.number().int(),
+  matchesUpdated: z.number().int().describe('Matches already in the group, found again by teams and round or day'),
+  resultsSet: z.number().int(),
+  eventsCreated: z.number().int().describe('Calendar events created for the matches of our own teams'),
+  ignoredColumns: z.array(z.string()),
+  errors: z.array(z.object({ row: z.number().int(), field: z.string().nullable(), message: z.string() })),
+});
+
+export type ImportMatchesBody = z.infer<typeof importMatchesBodySchema>;
+export type ImportMatchesResult = z.infer<typeof importMatchesResultSchema>;
 export type MatchResultBody = z.infer<typeof matchResultBodySchema>;
 export type ListMatchesQuery = z.infer<typeof listMatchesQuerySchema>;
 export type MatchDto = z.infer<typeof matchSchema>;

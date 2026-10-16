@@ -9,6 +9,7 @@ export const staffRoutes: FastifyPluginAsyncZod = async (app) => {
     tag: 'Staff',
     noun: 'staff member',
     permissions: { read: 'staff:read', write: 'staff:write' },
+    attachmentType: 'STAFF_MEMBER',
     schemas: {
       dto: staffSchema,
       createBody: createStaffBodySchema,

@@ -49,20 +49,28 @@ describe('automations dashboard (SPEC 08)', () => {
     });
   });
 
+  // The dashboard percentage is active / total over the whole catalog.
+  const TOTAL = AUTOMATION_CATALOG.length;
+  const percentOf = (active: number): number => Math.round((active / TOTAL) * 100);
+
   describe('dashboard', () => {
-    it('lists the six activities of the SPEC, all on, with 100% active', async () => {
+    it('lists the activities of the catalog, all on, with 100% active', async () => {
       const admin = await freshAdmin('Dashboard ASD');
       const body = (await call('GET', admin, '/automations')).json();
       expect(body.data.map((item: { name: string }) => item.name)).toEqual([
         'Ricordare le quote',
         'Controllare i certificati',
+        'Sollecitare i documenti mancanti',
         'Inviare le convocazioni',
         'Aggiornare le classifiche',
         'Emettere le ricevute',
         'Avvisare atleti e genitori',
+        "Avvisare l'amministrazione",
+        "Riepilogo per l'amministrazione",
+        'Avvisare i contratti sponsor in scadenza',
       ]);
       expect(body.data.map((item: { key: string }) => item.key)).toEqual(AUTOMATION_CATALOG.map((entry) => entry.key));
-      expect(body.summary).toEqual({ active: 6, total: 6, percentage: 100 });
+      expect(body.summary).toEqual({ active: TOTAL, total: TOTAL, percentage: 100 });
       const byKey = Object.fromEntries(body.data.map((item: { key: string }) => [item.key, item]));
       expect(byKey['fee-reminders']).toMatchObject({
         kind: 'SCHEDULED',
@@ -73,9 +81,10 @@ describe('automations dashboard (SPEC 08)', () => {
         state: 'WAITING',
         lastRun: null,
         lastRunAt: null,
-        config: { beforeDueDays: [1, 7], afterDueDays: [3, 10] },
+        config: { beforeDueDays: [1, 7], afterDueDays: [3, 10], hour: 9, channels: ['IN_APP', 'EMAIL'] },
       });
-      expect(byKey['certificate-reminders'].config).toEqual({ thresholdsDays: [0, 7, 15, 30] });
+      expect(byKey['certificate-reminders']).toMatchObject({ schedule: '0 8 * * *' });
+      expect(byKey['certificate-reminders'].config).toEqual({ thresholdsDays: [0, 7, 15, 30], hour: 8, channels: ['IN_APP', 'EMAIL'] });
       expect(byKey.standings).toMatchObject({ kind: 'EVENT', schedule: null, toggleable: false, runnable: false, state: 'COMPLETED' });
       expect(byKey.receipts).toMatchObject({ kind: 'EVENT', toggleable: true, runnable: false, state: 'COMPLETED' });
       expect(byKey['notifications-dispatch']).toMatchObject({ schedule: '*/10 * * * *', config: { maxAttempts: 3, batchSize: 100 } });
@@ -86,12 +95,12 @@ describe('automations dashboard (SPEC 08)', () => {
       const off = await call('PATCH', admin, '/automations/fee-reminders', { enabled: false });
       expect(off.statusCode).toBe(200);
       expect(off.json()).toMatchObject({ key: 'fee-reminders', enabled: false, state: 'DISABLED' });
-      expect((await call('GET', admin, '/automations')).json().summary).toEqual({ active: 5, total: 6, percentage: 83 });
+      expect((await call('GET', admin, '/automations')).json().summary).toEqual({ active: TOTAL - 1, total: TOTAL, percentage: percentOf(TOTAL - 1) });
       await call('PATCH', admin, '/automations/certificate-reminders', { enabled: false });
       await call('PATCH', admin, '/automations/receipts', { enabled: false });
-      expect((await call('GET', admin, '/automations')).json().summary).toEqual({ active: 3, total: 6, percentage: 50 });
+      expect((await call('GET', admin, '/automations')).json().summary).toEqual({ active: TOTAL - 3, total: TOTAL, percentage: percentOf(TOTAL - 3) });
       await call('PATCH', admin, '/automations/fee-reminders', { enabled: true });
-      expect((await call('GET', admin, '/automations')).json().summary.active).toBe(4);
+      expect((await call('GET', admin, '/automations')).json().summary.active).toBe(TOTAL - 2);
     });
 
     it('keeps the societies apart', async () => {
@@ -99,7 +108,7 @@ describe('automations dashboard (SPEC 08)', () => {
       const second = await freshAdmin('Seconda ASD');
       await call('PATCH', first, '/automations/fee-reminders', { enabled: false, config: { afterDueDays: [5] } });
       const other = (await call('GET', second, '/automations')).json();
-      expect(other.summary.active).toBe(6);
+      expect(other.summary.active).toBe(TOTAL);
       expect(other.data[0].config.afterDueDays).toEqual([3, 10]);
     });
   });
@@ -117,16 +126,22 @@ describe('automations dashboard (SPEC 08)', () => {
       const admin = await freshAdmin('Config ASD');
       const merged = await call('PATCH', admin, '/automations/fee-reminders', { config: { afterDueDays: [10, 5, 5] } });
       expect(merged.statusCode).toBe(200);
-      expect(merged.json().config).toEqual({ beforeDueDays: [1, 7], afterDueDays: [5, 10] });
+      expect(merged.json().config).toEqual({ beforeDueDays: [1, 7], afterDueDays: [5, 10], hour: 9, channels: ['IN_APP', 'EMAIL'] });
       const again = await call('PATCH', admin, '/automations/fee-reminders', { config: { beforeDueDays: [3] } });
-      expect(again.json().config).toEqual({ beforeDueDays: [3], afterDueDays: [5, 10] });
+      expect(again.json().config).toEqual({ beforeDueDays: [3], afterDueDays: [5, 10], hour: 9, channels: ['IN_APP', 'EMAIL'] });
 
       const certificates = await call('PATCH', admin, '/automations/certificate-reminders', { config: { thresholdsDays: [60, 30, 0] } });
-      expect(certificates.json().config).toEqual({ thresholdsDays: [0, 30, 60] });
+      expect(certificates.json().config).toEqual({ thresholdsDays: [0, 30, 60], hour: 8, channels: ['IN_APP', 'EMAIL'] });
       const dispatch = await call('PATCH', admin, '/automations/notifications-dispatch', { config: { maxAttempts: 5 } });
       expect(dispatch.json().config).toEqual({ maxAttempts: 5, batchSize: 100 });
       const convocations = await call('PATCH', admin, '/automations/convocation-dispatch', { config: { daysBefore: 5, remindNonRespondents: false } });
-      expect(convocations.json().config).toEqual({ daysBefore: 5, remindNonRespondents: false, reminderDaysBefore: 1 });
+      expect(convocations.json().config).toEqual({
+        daysBefore: 5,
+        remindNonRespondents: false,
+        reminderDaysBefore: 1,
+        hour: 9,
+        channels: ['IN_APP', 'EMAIL'],
+      });
     });
 
     it('rejects invalid settings with field errors and leaves the stored ones untouched', async () => {
@@ -137,6 +152,13 @@ describe('automations dashboard (SPEC 08)', () => {
         ['fee-reminders', { beforeDueDays: [0] }, 'config.beforeDueDays.0'],
         ['notifications-dispatch', { maxAttempts: 0 }, 'config.maxAttempts'],
         ['convocation-dispatch', { daysBefore: 'tre' }, 'config.daysBefore'],
+        ['fee-reminders', { hour: 24 }, 'config.hour'],
+        ['certificate-reminders', { hour: -1 }, 'config.hour'],
+        ['convocation-dispatch', { hour: 8.5 }, 'config.hour'],
+        ['fee-reminders', { channels: [] }, 'config.channels'],
+        ['certificate-reminders', { channels: ['SMS'] }, 'config.channels.0'],
+        ['convocation-dispatch', { channels: 'EMAIL' }, 'config.channels'],
+        ['notifications-dispatch', { hour: 8 }, 'config'],
         ['fee-reminders', { unknownSetting: 1 }, 'config'],
         ['receipts', { anything: true }, 'config'],
       ] as const) {
@@ -148,6 +170,8 @@ describe('automations dashboard (SPEC 08)', () => {
       const dashboard = (await call('GET', admin, '/automations')).json();
       expect(dashboard.data.find((item: { key: string }) => item.key === 'certificate-reminders').config).toEqual({
         thresholdsDays: [0, 7, 15, 30],
+        hour: 8,
+        channels: ['IN_APP', 'EMAIL'],
       });
     });
 

@@ -88,6 +88,10 @@ export async function mockApi(page: Page): Promise<MockApiState> {
       case "POST /auth/refresh":
         await respond(route, 200, { ...SESSION, accessToken: "access-token-2", refreshToken: "refresh-token-2" });
         return;
+      case "GET /notifications/unread-count":
+        // The navigation badge asks for it on every page; modules that care override it with routeApi
+        await respond(route, 200, { count: 0 });
+        return;
       case "POST /auth/logout":
         await respond(route, 204);
         return;

@@ -29,6 +29,7 @@ import {
   getReceiptFile,
   issueReceipt,
   listFees,
+  alertPaymentReceived,
   payFee,
 } from './service.js';
 
@@ -149,8 +150,10 @@ export const feeRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     async (request, reply) => {
-      const outcome = await payFee(tenantOf(request), request.params.id, request.body, request.headers['idempotency-key']);
+      const ctx = tenantOf(request);
+      const outcome = await payFee(ctx, request.params.id, request.body, request.headers['idempotency-key']);
       if (outcome.replayed) void reply.header('idempotent-replayed', 'true');
+      else await alertPaymentReceived(ctx, outcome.body, request.log);
       return reply.status(200).send(outcome.body);
     },
   );

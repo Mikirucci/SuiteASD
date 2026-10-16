@@ -20,7 +20,7 @@ import { formatDateOnly, fullNameOf, guardianRelationLabel, teamLabel } from "./
 import { MemberDocuments } from "./member-documents";
 import { MemberFormDialog } from "./member-form-dialog";
 import type { MemberDetail } from "./types";
-import { usePermission } from "./use-permission";
+import { usePermission } from "@/hooks/use-permission";
 
 const GENDER_LABEL = { FEMALE: "Femmina", MALE: "Maschio" } as const;
 

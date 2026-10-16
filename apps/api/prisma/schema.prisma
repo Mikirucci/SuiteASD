@@ -38,6 +38,7 @@ model Society {
 
   memberships            Membership[]
   invitations            Invitation[]
+  joinLinks              JoinLink[]
   members                Member[]
   guardianLinks          GuardianLink[]
   teams                  Team[]
@@ -45,6 +46,7 @@ model Society {
   teamStaff              TeamStaff[]
   documentTypes          DocumentType[]
   documents              Document[]
+  attachments            Attachment[]
   feePlans               FeePlan[]
   payments               Payment[]
   receipts               Receipt[]
@@ -93,6 +95,7 @@ model User {
 
   memberships   Membership[]
   refreshTokens RefreshToken[]
+  loginTokens   LoginToken[]
   guardianLinks GuardianLink[] @relation("GuardianUser")
   members       Member[]
   notifications Notification[]
@@ -144,6 +147,29 @@ model Invitation {
   @@index([expiresAt])
 }
 
+// Shareable enrolment link (docs/DECISIONS.md D-22): whoever opens it can register as an athlete, or as the guardian
+// of a child, and lands in `teamId` (when set) with no approval step. The code is a bearer capability: it is stored as
+// is so the administration can copy the link again, and it stops working when revoked, expired or used up.
+model JoinLink {
+  id          String    @id @default(cuid())
+  societyId   String
+  teamId      String?
+  code        String    @unique
+  label       String?
+  expiresAt   DateTime?
+  maxUses     Int?
+  uses        Int       @default(0)
+  revokedAt   DateTime?
+  createdById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  team    Team?   @relation(fields: [teamId], references: [id], onDelete: SetNull)
+
+  @@index([societyId])
+}
+
 // Rotating refresh tokens. Only the SHA-256 of the opaque token is stored.
 // All tokens descending from one login share a `familyId`; reuse of a rotated token revokes the family.
 model RefreshToken {
@@ -164,6 +190,23 @@ model RefreshToken {
   @@index([societyId])
   @@index([userId])
   @@index([familyId])
+  @@index([expiresAt])
+}
+
+// Single-use magic-link login token. Only the SHA-256 of the token is stored. The row is deleted when it is
+// consumed (the atomic delete is the claim) or when the user requests a newer link, so at most one is live.
+// No societyId on purpose: it belongs to the global identity (see GLOBAL_MODELS in src/lib/tenant.ts).
+model LoginToken {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
   @@index([expiresAt])
 }
 
@@ -257,6 +300,7 @@ model Team {
   events      Event[]
   groupTeams  GroupTeam[]
   announcements Announcement[]
+  joinLinks     JoinLink[]
 
   @@unique([societyId, name])
   @@index([societyId])
@@ -346,6 +390,29 @@ model Document {
   @@index([societyId])
   @@index([societyId, expiresAt])
   @@index([memberId, documentTypeId])
+}
+
+// File attached to one record of the administration (docs/DECISIONS.md D-23): a gym's rental contract, a sponsor's
+// agreement, a trip's programme, an invoice of the ledger... The record is named by (entityType, entityId) with no
+// foreign key, so one table serves every entity; the module checks the record exists in the society and removes the
+// attachments with it. entityType: VENUE | SPONSOR | TRIP | KIT | STAFF_MEMBER | REFEREE | LEDGER_ENTRY
+model Attachment {
+  id           String   @id @default(cuid())
+  societyId    String
+  entityType   String
+  entityId     String
+  title        String?
+  fileKey      String
+  fileName     String
+  mimeType     String
+  sizeBytes    Int
+  uploadedById String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+
+  @@index([societyId, entityType, entityId])
 }
 
 // ---------------------------------------------------------------------------

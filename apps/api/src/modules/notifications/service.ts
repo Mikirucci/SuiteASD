@@ -3,7 +3,10 @@ import { isUniqueViolation } from '../../lib/prisma-errors.js';
 import { isAutomationEnabled } from '../../jobs/event-automations.js';
 import {
   NOTIFICATION_TYPES,
+  notificationTypesForRoles,
+  roleSchema,
   type NotificationChannel,
+  type Role,
   type NotificationType,
 } from '../../shared/enums.js';
 
@@ -19,6 +22,8 @@ export interface CreateNotificationInput {
   data?: Prisma.InputJsonValue;
   // Makes the call idempotent: a user who already has a notification with this key (per channel) gets no second one.
   dedupeKey?: string;
+  // Restricts the delivery to these channels (an automation's own setting); the user's preferences still apply on top.
+  channels?: readonly NotificationChannel[];
 }
 
 // The slice of a (tenant or transaction) Prisma client that createNotification needs.
@@ -29,6 +34,12 @@ export interface NotificationWriter {
       where: Prisma.NotificationWhereInput;
       select: { userId: true; channel: true };
     }): PromiseLike<{ userId: string; channel: string }[]>;
+  };
+  membership: {
+    findMany(args: {
+      where: Prisma.MembershipWhereInput;
+      select: { userId: true; role: true };
+    }): PromiseLike<{ userId: string; role: string }[]>;
   };
   notificationPreference: {
     findMany(args: {
@@ -49,11 +60,12 @@ const DISPATCH_AUTOMATION_KEY = 'notifications-dispatch';
 // for the dispatch job), unless the user switched that channel off for this type. Returns the number of rows written
 // (0 when everything was filtered out or already sent under the same `dedupeKey`).
 export async function createNotification(db: NotificationWriter, input: CreateNotificationInput): Promise<number> {
-  const userIds = [...new Set(input.userIds)];
+  const userIds = await recipientsOfType(db, input);
   if (userIds.length === 0) return 0;
 
   const emailEnabled = await isAutomationEnabled(db, DISPATCH_AUTOMATION_KEY);
-  const channels: NotificationChannel[] = emailEnabled ? ['IN_APP', 'EMAIL'] : ['IN_APP'];
+  const allowed: readonly NotificationChannel[] = input.channels ?? ['IN_APP', 'EMAIL'];
+  const channels = allowed.filter((channel) => channel === 'IN_APP' || emailEnabled);
 
   const preferences = await db.notificationPreference.findMany({
     where: { userId: { in: userIds }, type: input.type, enabled: false },
@@ -91,6 +103,22 @@ export async function createNotification(db: NotificationWriter, input: CreateNo
     }
   }
   return 0;
+}
+
+// Drops the users whose roles do not take part in this type (see notificationTypesForRoles): an administrator is
+// never notified of a convocation, an athlete never of an incoming payment.
+async function recipientsOfType(db: NotificationWriter, input: CreateNotificationInput): Promise<string[]> {
+  const userIds = [...new Set(input.userIds)];
+  if (userIds.length === 0) return [];
+  const memberships = await db.membership.findMany({
+    where: { societyId: input.societyId, userId: { in: userIds } },
+    select: { userId: true, role: true },
+  });
+  const rolesOf = new Map<string, Role[]>();
+  for (const { userId, role } of memberships) {
+    rolesOf.set(userId, [...(rolesOf.get(userId) ?? []), roleSchema.parse(role)]);
+  }
+  return userIds.filter((userId) => notificationTypesForRoles(rolesOf.get(userId) ?? []).includes(input.type));
 }
 
 async function withoutExisting(

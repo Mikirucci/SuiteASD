@@ -1,6 +1,7 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { useUnreadCount } from "@/hooks/use-unread-count";
 import { expectNoA11yViolations } from "@/test/a11y";
 import { installFakeApi, pageOf, problem, type FakeRoutes } from "@/test/fake-api";
 import { renderWithQuery } from "@/test/render-with-query";
@@ -22,6 +23,8 @@ function centerBackend(initial: AppNotification[] = ALL_NOTIFICATIONS) {
       return pageOf(state.rows.filter((row) => (!unreadOnly || row.readAt === null) && (!type || row.type === type)));
     },
     [COUNT]: () => ({ body: { count: state.rows.filter((row) => row.readAt === null).length } }),
+    // The type filter is built from the types the API offers to the user
+    "GET /notifications/preferences": () => ({ body: { preferences: preferences() } }),
     "POST /notifications/read-all": () => {
       const updated = state.rows.filter((row) => row.readAt === null).length;
       state.rows = state.rows.map((row) => ({ ...row, readAt: row.readAt ?? READ_AT }));
@@ -40,6 +43,12 @@ function centerBackend(initial: AppNotification[] = ALL_NOTIFICATIONS) {
 afterEach(() => {
   vi.unstubAllGlobals();
 });
+
+/** Stands in for the navigation badge: it reads the same counter through the shared hook. */
+function BadgeProbe() {
+  const { data } = useUnreadCount();
+  return <output aria-label="Badge">{data?.count ?? "-"}</output>;
+}
 
 describe("NotifichePage, centro notifiche", () => {
   it("lists the notifications with their read state and the unread counter", async () => {
@@ -127,6 +136,23 @@ describe("NotifichePage, centro notifiche", () => {
     await waitFor(() => expect(screen.getByText("1 notifica da leggere")).toHaveFocus());
   });
 
+  it("keeps the navigation badge in step when notifications are read", async () => {
+    installFakeApi(centerBackend().routes);
+    renderWithQuery(
+      <>
+        <BadgeProbe />
+        <NotifichePage />
+      </>,
+    );
+    await waitFor(() => expect(screen.getByLabelText("Badge")).toHaveTextContent("2"));
+
+    await userEvent.click(await screen.findByRole("button", { name: "Segna come letta: Quota in scadenza" }));
+    await waitFor(() => expect(screen.getByLabelText("Badge")).toHaveTextContent("1"));
+
+    await userEvent.click(screen.getByRole("button", { name: "Segna tutte come lette" }));
+    await waitFor(() => expect(screen.getByLabelText("Badge")).toHaveTextContent("0"));
+  });
+
   it("marks everything as read", async () => {
     const api = installFakeApi(centerBackend().routes);
     renderWithQuery(<NotifichePage />);
@@ -204,12 +230,30 @@ describe("NotifichePage, preferenze", () => {
 
     expect(await screen.findByRole("heading", { name: "Dove ricevere gli avvisi" })).toBeInTheDocument();
     const list = await screen.findByRole("list", { name: "Preferenze per tipo di avviso" });
-    expect(within(list).getAllByRole("listitem")).toHaveLength(6);
-    expect(within(list).getAllByRole("switch")).toHaveLength(12);
+    expect(within(list).getAllByRole("listitem")).toHaveLength(7);
+    expect(within(list).getAllByRole("switch")).toHaveLength(14);
     expect(screen.getByRole("switch", { name: "Email per Eventi spostati o annullati" })).not.toBeChecked();
     expect(screen.getByRole("switch", { name: "Nell'app per Eventi spostati o annullati" })).toBeChecked();
     expect(screen.getByRole("switch", { name: "Email per Convocazioni" })).toBeChecked();
     await expectNoA11yViolations(container);
+  });
+
+  it("shows the administration only the organisation types, in the filter and in the preferences", async () => {
+    installFakeApi({
+      ...centerBackend([]).routes,
+      "GET /notifications/preferences": () => ({ body: { preferences: preferences([], "organisation") } }),
+    });
+    renderWithQuery(<NotifichePage />);
+    const filter = await screen.findByLabelText("Tipo di notifica");
+    await waitFor(() => expect(within(filter).getAllByRole("option")).toHaveLength(7));
+    expect(within(filter).getByRole("option", { name: "Pagamenti ricevuti" })).toBeInTheDocument();
+    expect(within(filter).queryByRole("option", { name: "Convocazioni" })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("tab", { name: "Preferenze" }));
+    const list = await screen.findByRole("list", { name: "Preferenze per tipo di avviso" });
+    expect(within(list).getAllByRole("listitem")).toHaveLength(6);
+    expect(within(list).getByText("Nuove iscrizioni")).toBeInTheDocument();
+    expect(within(list).queryByText("Convocazioni")).not.toBeInTheDocument();
   });
 
   it("saves a change at once, sending only that pair", async () => {

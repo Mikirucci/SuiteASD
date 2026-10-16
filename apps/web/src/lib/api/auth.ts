@@ -8,6 +8,8 @@ export interface AuthApi {
   /** Revokes the refresh token on the server (best effort) and forgets the session locally. */
   logout(): Promise<void>;
   me(signal?: AbortSignal): Promise<MeResponse>;
+  /** Starts the session a public flow returned (enrolment with a link): the person is signed in. */
+  adoptSession(session: SessionResponse): void;
   hasStoredSession(): boolean;
 }
 
@@ -32,6 +34,7 @@ export function createAuthApi(client: ApiClient, tokens: TokenStore): AuthApi {
       }
     },
     me: (signal) => client.get<MeResponse>("/me", { signal }),
+    adoptSession: (session) => tokens.setTokens({ accessToken: session.accessToken, refreshToken: session.refreshToken }),
     hasStoredSession: () => tokens.getRefreshToken() !== null,
   };
 }

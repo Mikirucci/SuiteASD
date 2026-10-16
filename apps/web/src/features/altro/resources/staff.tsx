@@ -26,6 +26,7 @@ export const staffConfig: ResourceConfig<StaffMember> = {
   key: "staff",
   path: "/staff",
   writePermission: "staff:write",
+  attachmentType: "STAFF_MEMBER",
   icon: UserCog,
   searchLabel: "Cerca per nome o cognome",
   copy: {

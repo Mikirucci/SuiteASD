@@ -13,7 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Timeline, type TimelineItem } from "@/components/ui/timeline";
 import { useDocumentTypes, useTeams } from "@/features/tesserati/api";
 import { parseDateOnly, teamLabel } from "@/features/tesserati/document-format";
-import { usePermission } from "@/features/tesserati/use-permission";
+import { usePermission } from "@/hooks/use-permission";
 import { TIMELINE_MONTHS, useExpirations } from "./api";
 import { ExpirationDetail } from "./expiration-detail";
 import { ExpirationList } from "./expiration-list";

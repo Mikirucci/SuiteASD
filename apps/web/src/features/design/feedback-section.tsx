@@ -38,7 +38,7 @@ export function FeedbackSection() {
       highlight="cosa sta succedendo."
       description="Messaggi in linea, notifiche temporanee, finestre e pannelli che gestiscono il focus da tastiera."
     >
-      <div className="grid gap-8 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
         <Specimen caption="Messaggi in linea" className="flex flex-col gap-3">
           <Alert tone="danger">Email o password non corrette. Riprova.</Alert>
           <Alert tone="success" title="Pagamento registrato">
@@ -65,7 +65,7 @@ export function FeedbackSection() {
         </Specimen>
       </div>
 
-      <div className="grid gap-8 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
         <Specimen caption="Tab (frecce per cambiare, Home e Fine per gli estremi)">
           <Tabs defaultValue="documenti">
             <TabsList aria-label="Scheda tesserato">
@@ -132,7 +132,7 @@ export function FeedbackSection() {
         </Specimen>
       </div>
 
-      <div className="grid gap-8 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
         <Specimen caption="Stato vuoto">
           <EmptyState
             icon={CalendarX}

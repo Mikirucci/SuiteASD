@@ -5,7 +5,7 @@ import { toIso, toIsoOrNull } from '../../lib/schemas.js';
 import type { TenantDb } from '../../lib/tenant.js';
 import type { TenantRequestContext } from '../../plugins/auth.js';
 import { can } from '../../rbac/permissions.js';
-import { convocationStatusSchema, eventStatusSchema, eventTypeSchema } from '../../shared/enums.js';
+import { convocationStatusSchema, eventStatusSchema, eventTypeSchema, type NotificationChannel } from '../../shared/enums.js';
 import { ineligibleMemberIds } from '../documents/service.js';
 import { ownMemberFilter } from '../members/access.js';
 import { createNotification } from '../notifications/service.js';
@@ -25,6 +25,8 @@ import { loadConvocationSummaries, maxConvocationsOf } from './summary.js';
 export interface ConvocationScope {
   db: TenantDb;
   societyId: string;
+  // Channels the automatic dispatch may use (its settings); manual sends from a request leave every channel open.
+  channels?: readonly NotificationChannel[];
 }
 
 export function scopeOf(ctx: TenantRequestContext): ConvocationScope {
@@ -284,6 +286,7 @@ export async function sendConvocations(
         body: `${event.title}: ${formatSlot(event.startsAt, society.timezone)} · conferma presenza`,
         data: { eventId, convocationId: row.id, memberId: row.memberId },
         dedupeKey: `convocation:${row.id}`,
+        channels: scope.channels,
       });
     }
     return { eventId, sent: claimed.count, notified, convocationsSentAt: sentAt.toISOString() };
@@ -318,6 +321,7 @@ export async function remindPendingConvocations(
         body: `${event.title}: ${formatSlot(event.startsAt, society.timezone)} · rispondi alla convocazione`,
         data: { eventId, convocationId: row.id, memberId: row.memberId },
         dedupeKey: `convocation-reminder:${row.id}:${day}`,
+        channels: scope.channels,
       });
       notified += created;
       if (created > 0) reminded += 1;

@@ -21,6 +21,8 @@ const envSchema = z.object({
         .map((origin) => origin.trim())
         .filter((origin) => origin.length > 0),
     ),
+  // Public base URL of the web app: magic-link emails point to `${WEB_BASE_URL}/accesso-link?token=...`.
+  WEB_BASE_URL: z.httpUrl().transform((value) => value.replace(/\/+$/, '')).default('http://localhost:3000'),
   RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(300),
   RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().int().min(1).default(60),
   AUTH_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(10),

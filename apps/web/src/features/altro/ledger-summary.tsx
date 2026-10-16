@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { Alert, Button, Card, ProgressBar, Skeleton } from "@/components/ui";
-import { formatEuro } from "@/features/quote/format";
+import { formatEuro } from "@/lib/format";
 import { describeError, type ApiError } from "@/lib/api";
 import type { LedgerKind, LedgerReport } from "./types";
 

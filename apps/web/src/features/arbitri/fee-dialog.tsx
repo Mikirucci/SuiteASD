@@ -6,7 +6,7 @@ import { Save } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Alert, Button, Dialog, DialogClose, DialogContent, Input, useToast } from "@/components/ui";
-import { centsToInput } from "@/features/quote/format";
+import { centsToInput } from "@/lib/format";
 import { useApiMutation } from "@/lib/api";
 import { describeRefereeError } from "./messages";
 import { feeFormSchema, toFeeBody, type FeeFormValues } from "./schemas";

@@ -4,6 +4,7 @@ import { AUTOMATION_CATALOG, catalogEntryFor, parseConfig, type CatalogEntry } f
 import { builtInAutomations } from '../../jobs/definitions/index.js';
 import { ensureAutomationRow } from '../../jobs/event-automations.js';
 import { runAutomationManually } from '../../jobs/manual-run.js';
+import { dailyCron } from '../../jobs/schedule.js';
 import { STALE_RUN_MS } from '../../jobs/runner.js';
 import { conflict, notFound, unprocessable, type FieldError } from '../../lib/errors.js';
 import { cursorArgs, toPage, type Page } from '../../lib/pagination.js';
@@ -50,19 +51,27 @@ function stateOf(entry: CatalogEntry, enabled: boolean, lastRun: AutomationRun |
   return entry.kind === 'EVENT' || lastRun?.status === 'SUCCESS' ? 'COMPLETED' : 'WAITING';
 }
 
+// "0 9 * * *" style cron; for an automation whose hour the society sets, it follows the stored hour.
+function scheduleOf(key: string, config: Prisma.InputJsonObject): string | null {
+  const definition = definitionFor(key);
+  if (!definition) return null;
+  return definition.hourOf ? dailyCron(definition.hourOf(config)) : definition.schedule;
+}
+
 function toDto(entry: CatalogEntry, row: Automation | null, lastRun: AutomationRun | null, now: Date): AutomationDto {
   const enabled = row?.enabled ?? true;
+  const config = row ? parseConfig(entry, row.config) : entry.defaultConfig;
   return {
     key: entry.key,
     name: entry.name,
     description: entry.description,
     kind: entry.kind,
-    schedule: definitionFor(entry.key)?.schedule ?? null,
+    schedule: scheduleOf(entry.key, config),
     enabled,
     toggleable: entry.toggleable,
     runnable: entry.kind === 'SCHEDULED' && definitionFor(entry.key) !== undefined,
     state: stateOf(entry, enabled, lastRun, now),
-    config: jsonObject(row ? parseConfig(entry, row.config) : entry.defaultConfig),
+    config: jsonObject(config),
     lastRunAt: toIsoOrNull(row?.lastRunAt ?? null),
     lastRun: lastRun ? toRunDto(lastRun, entry.key) : null,
   };

@@ -75,6 +75,21 @@ describe('demo seed: standings, fees and secondary modules (SPEC section 6)', ()
     for (const count of [venues, staff, kits, sponsors, ledger, trips, announcements, referees]) expect(count).toBeGreaterThan(0);
   });
 
+  it('gives the administration its own notifications and an enrolment link, and none of the athletes', async () => {
+    for (const email of ['admin@aquilevolley.it', 'segreteria@aquilevolley.it']) {
+      const list = (await get(email, '/notifications')).json<{ data: { type: string }[] }>().data;
+      expect(list.map((row) => row.type).sort()).toEqual(['ADMIN_DOCUMENT_ALERT', 'ADMIN_FEE_OVERDUE', 'ADMIN_PAYMENT_RECEIVED']);
+      expect((await get(email, '/notifications/unread-count')).json<{ count: number }>().count).toBe(2);
+    }
+    const link = await get('admin@aquilevolley.it', '/join-links');
+    expect(link.json<{ data: { code: string; team: { name: string } | null; status: string }[] }>().data).toMatchObject([
+      { code: 'iscrizione-demo-u16', team: { name: 'U16' }, status: 'ACTIVE' },
+    ]);
+    // The demo link works: anybody can open it
+    const info = await ctx.app.inject({ method: 'GET', url: `${API}/join/iscrizione-demo-u16` });
+    expect(info.json()).toEqual({ society: { name: 'Aquile Volley' }, team: { name: 'U16', category: 'U16' } });
+  });
+
   it('is re-runnable with all steps', async () => {
     await runSeed(ctx.prisma, ctx.app.passwords);
     expect(await ctx.prisma.society.count({ where: { slug: 'aquile-volley' } })).toBe(1);

@@ -2,11 +2,11 @@ import Link from "next/link";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { DataListRow } from "@/components/ui/data-list";
-import { StatusMark } from "@/components/ui/status-mark";
-import { fullNameOf, markStateOf, teamLabel } from "./document-format";
+import { fullNameOf, teamLabel } from "./document-format";
+import { DocumentSummary } from "./document-summary";
 import type { MemberListItem } from "./types";
 
-/** One member: avatar, name, team badges and one status mark per required document. */
+/** One member: avatar, name, team badges and the state of the required documents. */
 export function MemberRow({ member }: { member: MemberListItem }) {
   const name = fullNameOf(member);
   return (
@@ -26,9 +26,11 @@ export function MemberRow({ member }: { member: MemberListItem }) {
             {member.status === "INACTIVE" ? <Badge variant="neutral">Non attivo</Badge> : null}
           </span>
         }
-        trailing={member.documents.map((indicator) => (
-          <StatusMark key={indicator.documentTypeId} state={markStateOf(indicator.status)} label={indicator.name} />
-        ))}
+        trailing={
+          <span className="flex flex-col items-end gap-1 sm:flex-row sm:items-center sm:gap-2">
+            <DocumentSummary indicators={member.documents} />
+          </span>
+        }
       />
     </Link>
   );

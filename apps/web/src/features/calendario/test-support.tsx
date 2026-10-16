@@ -1,4 +1,4 @@
-import { json, page, type stubApi } from "@/features/quote/test-support";
+import { json, page, type stubApi } from "@/test/stub-api";
 import {
   MATCH_CONVOCATIONS_RESPONSE,
   PALAZZETTO,
@@ -7,9 +7,7 @@ import {
   WEEK_EVENTS,
 } from "./test-fixtures";
 
-/** Test helpers of the calendar feature: the network stub and providers come from the quote feature's helpers. */
-export { json, page, problem, renderWithProviders, stubApi } from "@/features/quote/test-support";
-
+/** Route table of the calendar tests (network stub and providers come from @/test/stub-api). */
 export const TEAMS = [
   { id: "t-sd", name: "Serie D", category: "Serie D" },
   { id: "t-u16", name: "U16", category: "U16" },

@@ -2,8 +2,9 @@ import { addDays, startOfUtcDay } from '../../modules/documents/status.js';
 import { resolveRecipients } from '../../modules/notifications/recipients.js';
 import { createNotification } from '../../modules/notifications/service.js';
 import { renderNotification } from '../../modules/notifications/templates.js';
-import { feeRemindersEntry, parseConfig } from '../catalog.js';
+import { FEE_REMINDERS_DEFAULT_HOUR, feeRemindersEntry, parseConfig } from '../catalog.js';
 import type { AutomationDefinition } from '../registry.js';
+import { dailyCron, localDayRunKey } from '../schedule.js';
 
 const DAY_MS = 86_400_000;
 
@@ -25,11 +26,13 @@ export const feeReminders: AutomationDefinition = {
   key: feeRemindersEntry.key,
   name: feeRemindersEntry.name,
   description: feeRemindersEntry.description,
-  schedule: '0 9 * * *',
+  schedule: dailyCron(FEE_REMINDERS_DEFAULT_HOUR),
+  hourOf: (config) => parseConfig(feeRemindersEntry, config).hour,
+  runKey: localDayRunKey,
   enabledByDefault: true,
   defaultConfig: feeRemindersEntry.defaultConfig,
   async run({ db, societyId, config, now }) {
-    const { beforeDueDays, afterDueDays } = parseConfig(feeRemindersEntry, config);
+    const { beforeDueDays, afterDueDays, channels } = parseConfig(feeRemindersEntry, config);
     const steps = reminderSteps(beforeDueDays, afterDueDays);
     const earliest = steps[0];
     if (earliest === undefined) return { feesChecked: 0, remindersSent: 0 };
@@ -61,6 +64,7 @@ export const feeReminders: AutomationDefinition = {
         body,
         data: { paymentId: payment.id, memberId: payment.memberId, amountCents: payment.amountCents },
         dedupeKey: `fee:${payment.id}:${step}`,
+        channels,
       });
       if (written === 0) continue;
       await db.payment.update({

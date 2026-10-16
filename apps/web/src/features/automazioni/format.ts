@@ -59,6 +59,14 @@ const RESULT_LABELS: Record<string, string> = {
   skipped: "Email saltate",
   failed: "Email non riuscite",
   retryLater: "Da riprovare",
+  membersChecked: "Tesserati controllati",
+  membersReminded: "Tesserati sollecitati",
+  overdueFees: "Quote scadute",
+  membersToFix: "Tesserati da sistemare",
+  documentsToFix: "Documenti da sistemare",
+  expiringSoon: "Documenti in scadenza",
+  sponsorsChecked: "Sponsor controllati",
+  sponsorsNotified: "Sponsor segnalati",
 };
 
 /** Counters of a run in Italian ("Quote controllate: 12"); keys the UI does not know are left out. */

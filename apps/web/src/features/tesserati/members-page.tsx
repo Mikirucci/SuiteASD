@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, Search, SearchX, Upload, UserPlus, Users } from "lucide-react";
+import { Download, Link2, Search, SearchX, SlidersHorizontal, Upload, UserPlus, Users } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -8,19 +8,37 @@ import { DataList } from "@/components/ui/data-list";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { PillFilter } from "@/components/ui/pill-filter";
+import { Select } from "@/components/ui/select";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { useToast } from "@/components/ui/toast";
 import { describeError } from "@/lib/api";
 import { useExportMembers, useMembersList, useTeams } from "./api";
 import { teamLabel } from "./document-format";
+import { JoinLinksDialog } from "@/features/iscrizioni/join-links-dialog";
 import { ImportDialog } from "./import-dialog";
 import { MemberFormDialog } from "./member-form-dialog";
 import { MemberRow } from "./member-row";
 import { MembersSummaryBar } from "./members-summary-bar";
-import { usePermission } from "./use-permission";
-import { useDebouncedValue } from "./use-debounced-value";
+import { EMPTY_MEMBERS_FILTERS, type MemberGender, type MembersFilters, type OverallDocumentStatus } from "./types";
+import { usePermission } from "@/hooks/use-permission";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 
 const ALL_TEAMS = "";
+/** Pill value for the members who are in no team yet. */
+const NO_TEAM = "__none__";
+
+const DOCUMENT_OPTIONS = [
+  { value: "MISSING", label: "Con documenti mancanti" },
+  { value: "EXPIRING", label: "Con documenti in scadenza" },
+  { value: "OK", label: "In regola" },
+] as const;
+
+const GENDER_OPTIONS = [
+  { value: "FEMALE", label: "Femmine" },
+  { value: "MALE", label: "Maschi" },
+] as const;
+
+const BIRTH_YEAR = /^\d{4}$/;
 
 /** Module 01: the roster with team filters, search, document indicators and a live summary. */
 export function MembersPage() {
@@ -28,11 +46,31 @@ export function MembersPage() {
   const canWrite = usePermission("members:write");
   const canReadAll = usePermission("members:read");
   const [search, setSearch] = useState("");
-  const [teamId, setTeamId] = useState(ALL_TEAMS);
+  const [teamChoice, setTeamChoice] = useState(ALL_TEAMS);
+  const [documentStatus, setDocumentStatus] = useState<OverallDocumentStatus | "">("");
+  const [gender, setGender] = useState<MemberGender | "">("");
+  const [fieldRole, setFieldRole] = useState("");
+  const [birthYear, setBirthYear] = useState("");
+  const [moreOpen, setMoreOpen] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [linksOpen, setLinksOpen] = useState(false);
   const q = useDebouncedValue(search.trim());
-  const filters = useMemo(() => ({ q, teamId }), [q, teamId]);
+  const role = useDebouncedValue(fieldRole.trim());
+  const filters = useMemo<MembersFilters>(
+    () => ({
+      ...EMPTY_MEMBERS_FILTERS,
+      q,
+      teamId: teamChoice === NO_TEAM ? "" : teamChoice,
+      noTeam: teamChoice === NO_TEAM,
+      documentStatus,
+      gender,
+      fieldRole: role,
+      // A partial year is not a filter yet
+      birthYear: BIRTH_YEAR.test(birthYear) ? birthYear : "",
+    }),
+    [q, teamChoice, documentStatus, gender, role, birthYear],
+  );
 
   const list = useMembersList(filters);
   const teams = useTeams();
@@ -44,14 +82,20 @@ export function MembersPage() {
     () => [
       { value: ALL_TEAMS, label: "Tutte" },
       ...teamList.map((team) => ({ value: team.id, label: teamLabel(team) })),
+      { value: NO_TEAM, label: "Senza squadra" },
     ],
     [teamList],
   );
-  const hasFilters = q !== "" || teamId !== ALL_TEAMS;
+  const extraFilters = [documentStatus, gender, fieldRole.trim(), birthYear].filter((value) => value !== "").length;
+  const hasFilters = q !== "" || teamChoice !== ALL_TEAMS || extraFilters > 0;
 
   function resetFilters() {
     setSearch("");
-    setTeamId(ALL_TEAMS);
+    setTeamChoice(ALL_TEAMS);
+    setDocumentStatus("");
+    setGender("");
+    setFieldRole("");
+    setBirthYear("");
   }
 
   function exportCsv() {
@@ -65,7 +109,7 @@ export function MembersPage() {
     <EmptyState
       icon={SearchX}
       title="Nessun tesserato trovato"
-      description="Prova con un altro nome o scegli un'altra squadra."
+      description="Prova con un altro nome o cambia i filtri."
       action={
         <Button variant="secondary" onClick={resetFilters}>
           Azzera i filtri
@@ -129,6 +173,9 @@ export function MembersPage() {
                 <Button leftIcon={<UserPlus />} onClick={() => setFormOpen(true)}>
                   Nuovo tesserato
                 </Button>
+                <Button variant="secondary" leftIcon={<Link2 />} onClick={() => setLinksOpen(true)}>
+                  Link di iscrizione
+                </Button>
                 <Button variant="secondary" leftIcon={<Upload />} onClick={() => setImportOpen(true)}>
                   Importa CSV
                 </Button>
@@ -139,8 +186,54 @@ export function MembersPage() {
             ) : null}
           </div>
           {teamList.length > 0 ? (
-            <PillFilter label="Filtra per squadra" options={teamOptions} value={teamId} onChange={setTeamId} />
+            <PillFilter label="Filtra per squadra" options={teamOptions} value={teamChoice} onChange={setTeamChoice} />
           ) : null}
+          <div className="flex flex-col gap-3">
+            <div>
+              <Button
+                variant="secondary"
+                leftIcon={<SlidersHorizontal />}
+                aria-expanded={moreOpen}
+                aria-controls="members-more-filters"
+                onClick={() => setMoreOpen((open) => !open)}
+              >
+                {extraFilters > 0 ? `Più filtri (${extraFilters})` : "Più filtri"}
+              </Button>
+            </div>
+            {moreOpen ? (
+              <div id="members-more-filters" className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <Select
+                  label="Stato documenti"
+                  placeholder="Tutti"
+                  options={DOCUMENT_OPTIONS}
+                  value={documentStatus}
+                  onChange={(event) => setDocumentStatus(event.target.value as OverallDocumentStatus | "")}
+                />
+                <Select
+                  label="Genere"
+                  placeholder="Tutti"
+                  options={GENDER_OPTIONS}
+                  value={gender}
+                  onChange={(event) => setGender(event.target.value as MemberGender | "")}
+                />
+                <Input
+                  label="Ruolo in campo"
+                  placeholder="Ad esempio Libero"
+                  maxLength={40}
+                  value={fieldRole}
+                  onChange={(event) => setFieldRole(event.target.value)}
+                />
+                <Input
+                  label="Anno di nascita"
+                  inputMode="numeric"
+                  placeholder="Ad esempio 2009"
+                  maxLength={4}
+                  value={birthYear}
+                  onChange={(event) => setBirthYear(event.target.value.replace(/\D/g, ""))}
+                />
+              </div>
+            ) : null}
+          </div>
         </div>
       ) : null}
 
@@ -174,6 +267,7 @@ export function MembersPage() {
         <>
           <MemberFormDialog open={formOpen} onOpenChange={setFormOpen} teams={teamList} />
           <ImportDialog open={importOpen} onOpenChange={setImportOpen} />
+          <JoinLinksDialog open={linksOpen} onOpenChange={setLinksOpen} teams={teamList} />
         </>
       ) : null}
     </div>

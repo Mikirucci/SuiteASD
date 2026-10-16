@@ -7,7 +7,8 @@ import { useState } from "react";
 import { useForm, type Path } from "react-hook-form";
 import { Alert, Button, Dialog, DialogClose, DialogContent, Input, Select, Switch, useToast } from "@/components/ui";
 import { ApiError, describeError, useApiMutation } from "@/lib/api";
-import { centsToInput, KIND_OPTIONS } from "./format";
+import { centsToInput } from "@/lib/format";
+import { KIND_OPTIONS } from "./format";
 import { planSchema, toPlanBody, type PlanValues } from "./schemas";
 import type { FeePlan, FeePlanBody, TeamOption } from "./types";
 

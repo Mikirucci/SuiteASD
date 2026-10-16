@@ -9,8 +9,11 @@ import {
   ANNA_FERRI,
   ATHLETE_PERMISSIONS,
   GIULIA_ROSSI,
+  PRIVACY_INDICATOR,
   SARA_CONTI,
   TEAMS,
+  indicator,
+  member,
   meWith,
   mockApi,
   page,
@@ -53,7 +56,7 @@ function standardApi() {
 }
 
 describe("MembersPage", () => {
-  it("shows a loading state, then members with team badges and one status mark per document", async () => {
+  it("shows a loading state, then members with team badges and how many documents are missing", async () => {
     standardApi();
     renderScreen(<MembersPage />);
     expect(screen.getByRole("status", { name: "Caricamento dei tesserati" })).toBeInTheDocument();
@@ -64,11 +67,30 @@ describe("MembersPage", () => {
     const sara = within(rows[0] as HTMLElement);
     expect(sara.getByRole("link")).toHaveAttribute("href", "/tesserati/m-sara");
     expect(sara.getByText("U16")).toBeInTheDocument();
-    expect(sara.getAllByRole("img")).toHaveLength(3);
-    expect(sara.getByRole("img", { name: "Certificato medico: In scadenza" })).toBeInTheDocument();
-    expect(
-      within(rows[2] as HTMLElement).getByRole("img", { name: "Certificato medico: Mancante o scaduto" }),
-    ).toBeInTheDocument();
+    expect(sara.getByText("1 in scadenza")).toBeInTheDocument();
+    expect(sara.queryByText("In regola")).not.toBeInTheDocument();
+    expect(within(rows[1] as HTMLElement).getByText("In regola")).toBeInTheDocument();
+    const anna = within(rows[2] as HTMLElement);
+    expect(anna.getByText("1 documento mancante")).toBeInTheDocument();
+    expect(anna.getByText(/Certificato medico/, { selector: ".sr-only" })).toBeInTheDocument();
+  });
+
+  it("counts the missing and the expired documents together, with the names in the title", async () => {
+    const mixed = member({
+      id: "m-mix",
+      firstName: "Marta",
+      lastName: "Neri",
+      documents: [
+        indicator({ key: "MEDICAL_CERTIFICATE", name: "Certificato medico", status: "EXPIRED" }),
+        indicator({ key: "MEMBERSHIP_FORM", name: "Modulo iscrizione", status: "MISSING", documentId: null }),
+        PRIVACY_INDICATOR,
+      ],
+      documentStatus: "MISSING",
+    });
+    mockApi({ "GET /members": () => page([mixed]), "GET /members/summary": () => ({ body: SUMMARY }), "GET /teams": () => page(TEAMS) });
+    renderScreen(<MembersPage />);
+    const chip = await screen.findByText("2 documenti mancanti");
+    expect(chip.closest("[title]")).toHaveAttribute("title", "Mancanti o scaduti: Certificato medico, Modulo iscrizione");
   });
 
   it("shows the live summary bar", async () => {
@@ -87,7 +109,7 @@ describe("MembersPage", () => {
       within(filter)
         .getAllByRole("button")
         .map((button) => button.textContent),
-    ).toEqual(["Tutte", "U16", "Serie D"]);
+    ).toEqual(["Tutte", "U16", "Serie D", "Senza squadra"]);
     expect(within(filter).getByRole("button", { name: "Tutte" })).toHaveAttribute("aria-pressed", "true");
 
     await userEvent.click(within(filter).getByRole("button", { name: "U16" }));
@@ -95,6 +117,67 @@ describe("MembersPage", () => {
       expect(calls.some((call) => call.path === "/members" && call.query.get("teamId") === "t16")).toBe(true),
     );
     expect(within(filter).getByRole("button", { name: "U16" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("lists the members without a team through the last pill", async () => {
+    const { calls } = standardApi();
+    renderScreen(<MembersPage />);
+    const filter = await screen.findByRole("group", { name: "Filtra per squadra" });
+    await userEvent.click(within(filter).getByRole("button", { name: "Senza squadra" }));
+    await waitFor(() =>
+      expect(
+        calls.some((call) => call.path === "/members" && call.query.get("noTeam") === "true" && call.query.get("teamId") === null),
+      ).toBe(true),
+    );
+  });
+
+  it("filters by document state, gender, field role and year of birth from the extra filters", async () => {
+    const { calls } = standardApi();
+    renderScreen(<MembersPage />);
+    await screen.findByRole("list", { name: "Tesserati" });
+    const toggle = screen.getByRole("button", { name: "Più filtri" });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await userEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Stato documenti" }), "MISSING");
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Genere" }), "FEMALE");
+    await userEvent.type(screen.getByRole("textbox", { name: "Ruolo in campo" }), "Libero");
+    await userEvent.type(screen.getByRole("textbox", { name: "Anno di nascita" }), "20a09");
+
+    await waitFor(() => {
+      const last = calls.filter((call) => call.path === "/members").at(-1);
+      expect(last?.query.get("documentStatus")).toBe("MISSING");
+      expect(last?.query.get("gender")).toBe("FEMALE");
+      expect(last?.query.get("fieldRole")).toBe("Libero");
+      expect(last?.query.get("birthYear")).toBe("2009");
+    });
+    expect(screen.getByRole("button", { name: "Più filtri (4)" })).toBeInTheDocument();
+  });
+
+  it("does not filter by a year that is still being typed", async () => {
+    const { calls } = standardApi();
+    renderScreen(<MembersPage />);
+    await screen.findByRole("list", { name: "Tesserati" });
+    await userEvent.click(screen.getByRole("button", { name: "Più filtri" }));
+    await userEvent.type(screen.getByRole("textbox", { name: "Anno di nascita" }), "200");
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect(calls.filter((call) => call.path === "/members").every((call) => call.query.get("birthYear") === null)).toBe(true);
+  });
+
+  it("clears every filter, the extra ones included", async () => {
+    mockApi({
+      "GET /members": (request) => (request.query.get("documentStatus") ? page([]) : page([SARA_CONTI])),
+      "GET /members/summary": () => ({ body: SUMMARY }),
+      "GET /teams": () => page(TEAMS),
+    });
+    renderScreen(<MembersPage />);
+    await screen.findByText("Sara Conti");
+    await userEvent.click(screen.getByRole("button", { name: "Più filtri" }));
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Stato documenti" }), "OK");
+    await userEvent.click(await screen.findByRole("button", { name: "Azzera i filtri" }));
+    expect(await screen.findByText("Sara Conti")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Stato documenti" })).toHaveValue("");
   });
 
   it("searches after a short pause", async () => {
@@ -166,6 +249,21 @@ describe("MembersPage", () => {
     expect(alert).toHaveTextContent("Il servizio non è disponibile al momento");
     await userEvent.click(within(alert).getByRole("button", { name: "Riprova" }));
     expect(await screen.findByText("Sara Conti")).toBeInTheDocument();
+  });
+
+  it("opens the enrolment links from the toolbar, for those who can write", async () => {
+    const { calls } = mockApi({
+      "GET /members": () => page([SARA_CONTI]),
+      "GET /members/summary": () => ({ body: SUMMARY }),
+      "GET /teams": () => page(TEAMS),
+      "GET /join-links": () => page([]),
+    });
+    renderScreen(<MembersPage />);
+    await screen.findByText("Sara Conti");
+    expect(calls.some((call) => call.path === "/join-links")).toBe(false);
+    await userEvent.click(screen.getByRole("button", { name: "Link di iscrizione" }));
+    expect(await screen.findByRole("dialog", { name: "Link di iscrizione" })).toBeInTheDocument();
+    await waitFor(() => expect(calls.some((call) => call.path === "/join-links")).toBe(true));
   });
 
   it("downloads the CSV export with the current filters", async () => {

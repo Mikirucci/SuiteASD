@@ -4,7 +4,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { Alert, AutoChip, Button, Card, Skeleton } from "@/components/ui";
 import { describeError, useApiQuery } from "@/lib/api";
-import { formatEuro, pluralize } from "./format";
+import { formatEuro, pluralize } from "@/lib/format";
 import type { FeesSummary } from "./types";
 import { useQuoteAccess } from "./use-quote-access";
 

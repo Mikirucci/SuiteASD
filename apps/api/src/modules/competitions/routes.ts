@@ -15,6 +15,8 @@ import {
   groupSchema,
   groupTeamParamsSchema,
   groupTeamSchema,
+  importMatchesBodySchema,
+  importMatchesResultSchema,
   listCompetitionsQuerySchema,
   listMatchesQuerySchema,
   matchResultBodySchema,
@@ -28,6 +30,7 @@ import {
   updateMatchBodySchema,
   updateSeasonBodySchema,
 } from './schema.js';
+import { importMatches } from './match-import.js';
 import {
   clearMatchResult,
   createCompetition,
@@ -401,6 +404,26 @@ export const competitionRoutes: FastifyPluginAsyncZod = async (app) => {
       const { limit, cursor, ...filters } = request.query;
       return listMatches(tenantOf(request), request.params.id, request.params.gid, filters, { limit, cursor });
     },
+  );
+
+  app.post(
+    '/competitions/:id/groups/:gid/matches/import',
+    {
+      ...write,
+      schema: {
+        tags: ['Competitions'],
+        summary: 'Import the calendar and the results of a group from CSV text (dry run by default)',
+        description:
+          'One row per match. Columns (Italian or English, any order): giornata, data (gg/mm/aaaa), ora, casa, ospite, and either risultato (3-1) or set casa / set ospite. ' +
+          'Teams are added to the group as they appear (a name equal to one of our teams becomes our team); matches already in the group are updated, not duplicated; ' +
+          'our matches without a result get a calendar event so they can be convocated.',
+        security: bearerSecurity,
+        params: groupParamsSchema,
+        body: importMatchesBodySchema,
+        response: { 200: importMatchesResultSchema, ...problemResponses(401, 403, 404, 422) },
+      },
+    },
+    async (request) => importMatches(tenantOf(request), request.params.id, request.params.gid, request.body),
   );
 
   app.post(

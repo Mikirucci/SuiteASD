@@ -23,6 +23,22 @@ describe("WeekStrip", () => {
     expect(screen.getByRole("button", { name: /^lun 9 novembre, nessun evento/i })).toBeInTheDocument();
   });
 
+  it("keeps every day at least 44px wide and lets the row scroll on narrow screens", () => {
+    render(<WeekStrip weekOf={MATCH_DAY} selected={MATCH_DAY} onSelect={() => undefined} />);
+    const group = screen.getByRole("group", { name: "Giorni della settimana" });
+    expect(group).toHaveClass("overflow-x-auto");
+    for (const day of within(group).getAllByRole("button")) expect(day).toHaveClass("min-w-11");
+  });
+
+  it("scrolls the selected day to the middle of the visible row", () => {
+    const widths = vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(200);
+    const offsets = vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(44);
+    const lefts = vi.spyOn(HTMLElement.prototype, "offsetLeft", "get").mockReturnValue(300);
+    render(<WeekStrip weekOf={MATCH_DAY} selected={MATCH_DAY} onSelect={() => undefined} />);
+    expect(screen.getByRole("group", { name: "Giorni della settimana" }).scrollLeft).toBe(300 - (200 - 44) / 2);
+    for (const spy of [widths, offsets, lefts]) spy.mockRestore();
+  });
+
   it("reports the picked day", async () => {
     const onSelect = vi.fn();
     render(<WeekStrip weekOf={MATCH_DAY} selected={MATCH_DAY} onSelect={onSelect} />);

@@ -14,6 +14,7 @@ export const sponsorRoutes: FastifyPluginAsyncZod = async (app) => {
     tag: 'Sponsors',
     noun: 'sponsor',
     permissions: { read: 'sponsors:read', write: 'sponsors:write' },
+    attachmentType: 'SPONSOR',
     schemas: {
       dto: sponsorSchema,
       createBody: createSponsorBodySchema,

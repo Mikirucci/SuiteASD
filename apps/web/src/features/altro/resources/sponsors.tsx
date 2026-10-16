@@ -1,7 +1,7 @@
 import { Handshake } from "lucide-react";
 import { z } from "zod";
 import { Badge, type BadgeVariant } from "@/components/ui";
-import { formatDay, formatEuro } from "@/features/quote/format";
+import { formatDay, formatEuro } from "@/lib/format";
 import type { ResourceConfig } from "../crud/types";
 import {
   amountToInput,
@@ -48,6 +48,7 @@ export const sponsorsConfig: ResourceConfig<Sponsor> = {
   key: "sponsors",
   path: "/sponsors",
   writePermission: "sponsors:write",
+  attachmentType: "SPONSOR",
   icon: Handshake,
   fieldAliases: { amountCents: "amount" },
   searchLabel: "Cerca per nome dello sponsor",

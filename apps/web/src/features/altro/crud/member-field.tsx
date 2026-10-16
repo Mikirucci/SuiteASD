@@ -4,8 +4,8 @@ import { Search } from "lucide-react";
 import { useState } from "react";
 import type { UseFormReturn } from "react-hook-form";
 import { Input, Select } from "@/components/ui";
-import { useCursorQuery } from "@/features/quote/use-cursor-query";
-import { useDebouncedValue } from "@/features/quote/use-debounced-value";
+import { useCursorQuery } from "@/lib/use-cursor-query";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import type { FieldDef, FormValues } from "./types";
 
 interface MemberRef {

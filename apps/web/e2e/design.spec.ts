@@ -55,6 +55,29 @@ test.describe("/design", () => {
     await expect(toast).toBeHidden();
   });
 
+  test.describe("on a 320px screen", () => {
+    test.use({ viewport: { width: 320, height: 720 } });
+
+    test("the week strip keeps 44px targets and the page does not scroll sideways", async ({ page }) => {
+      await page.goto("/design");
+      const strip = page.getByRole("group", { name: "Giorni della settimana" });
+      await expect(strip).toBeVisible();
+      await page.waitForTimeout(1500);
+
+      const days = await strip.getByRole("button").all();
+      expect(days).toHaveLength(7);
+      for (const day of days) {
+        const box = await day.boundingBox();
+        expect(box?.width ?? 0).toBeGreaterThanOrEqual(44);
+        expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+      }
+      const stripBox = await strip.boundingBox();
+      expect((stripBox?.x ?? -1) + (stripBox?.width ?? 0)).toBeLessThanOrEqual(320);
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      expect(overflow).toBeLessThanOrEqual(0);
+    });
+  });
+
   test("tabs and week strip respond to the keyboard", async ({ page }) => {
     await page.goto("/design");
     await page.getByRole("tab", { name: "Documenti" }).focus();

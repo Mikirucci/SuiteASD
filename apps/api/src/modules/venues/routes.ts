@@ -14,6 +14,7 @@ export const venueRoutes: FastifyPluginAsyncZod = async (app) => {
     tag: 'Venues',
     noun: 'venue',
     permissions: { read: 'venues:read', write: 'venues:write' },
+    attachmentType: 'VENUE',
     schemas: {
       dto: venueSchema,
       createBody: createVenueBodySchema,

@@ -4,11 +4,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { BellOff } from "lucide-react";
 import { useState } from "react";
 import { DataBoundary, EmptyState, Switch, useToast } from "@/components/ui";
-import { describeError, useApiMutation, useApiQuery } from "@/lib/api";
-import { CHANNEL_LABELS, CHANNELS, NOTIFICATION_TYPES, TYPE_INFO } from "./catalog";
+import { describeError, useApiMutation } from "@/lib/api";
+import { CHANNEL_LABELS, CHANNELS, TYPE_INFO } from "./catalog";
+import { offeredTypes, PREFERENCES_KEY, useNotificationPreferences } from "./preferences-query";
 import type { NotificationChannel, NotificationPreference, NotificationType, PreferencesResponse } from "./types";
-
-const PREFERENCES_KEY = ["notifications", "preferences"] as const;
 
 function keyOf(type: NotificationType, channel: NotificationChannel): string {
   return `${type}:${channel}`;
@@ -18,7 +17,7 @@ function keyOf(type: NotificationType, channel: NotificationChannel): string {
 export function PreferencesPanel() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const preferences = useApiQuery<PreferencesResponse>(PREFERENCES_KEY, "/notifications/preferences");
+  const preferences = useNotificationPreferences();
   // Value shown while a change is being saved, so the switch answers at once; dropped when the request settles
   const [pending, setPending] = useState<Record<string, boolean>>({});
 
@@ -75,7 +74,7 @@ export function PreferencesPanel() {
         }
       >
         <ul aria-label="Preferenze per tipo di avviso" className="divide-y divide-line rounded-lg bg-surface shadow-soft">
-          {NOTIFICATION_TYPES.map((type) => {
+          {offeredTypes(preferences.data).map((type) => {
             const info = TYPE_INFO[type];
             return (
               <li key={type} className="flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6">

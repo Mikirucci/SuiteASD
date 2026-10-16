@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { toDayKey } from "@/lib/dates";
-import { parseEuroToCents } from "./format";
+import { parseEuroToCents } from "@/lib/format";
 import type { FeePlanBody, GenerateFeesBody, PayFeeBody } from "./types";
 
 /** Limits mirror apps/api/src/modules/fees/schema.ts so most mistakes are caught before the request. */

@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => ({
   login: vi.fn<(body: unknown) => Promise<unknown>>(),
   register: vi.fn<(body: unknown) => Promise<unknown>>(),
   logout: vi.fn<() => Promise<void>>(),
+  adoptSession: vi.fn<(session: unknown) => void>(),
   expireSession: { current: (): void => undefined },
   replace: vi.fn<(url: string) => void>(),
   pathname: { current: "/tesserati" },
@@ -35,6 +36,7 @@ vi.mock("@/lib/api", () => ({
     login: mocks.login,
     register: mocks.register,
     logout: mocks.logout,
+    adoptSession: mocks.adoptSession,
   },
   api: {
     onSessionExpired: (listener: () => void) => {
@@ -59,7 +61,7 @@ function wrap(children: ReactNode) {
 }
 
 function Probe() {
-  const { status, me, login, logout } = useAuth();
+  const { status, me, login, logout, adoptSession, refresh } = useAuth();
   return (
     <div>
       <p data-testid="status">{status}</p>
@@ -69,6 +71,12 @@ function Probe() {
       </button>
       <button type="button" onClick={() => void logout()}>
         logout
+      </button>
+      <button type="button" onClick={() => void adoptSession({ accessToken: "a", refreshToken: "r" } as never)}>
+        adopt
+      </button>
+      <button type="button" onClick={() => void refresh()}>
+        refresh
       </button>
     </div>
   );
@@ -120,6 +128,28 @@ describe("AuthProvider", () => {
     await act(async () => screen.getByRole("button", { name: "logout" }).click());
     await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("unauthenticated"));
     expect(mocks.logout).toHaveBeenCalledTimes(1);
+  });
+
+  it("signs in with the session of a public flow, as an enrolment with a link", async () => {
+    mocks.hasStoredSession.mockReturnValue(false);
+    mocks.me.mockResolvedValue({ ...ME, roles: ["ATLETA"], member: { id: "m1", firstName: "Sara", lastName: "Conti" } });
+    render(wrap(<Probe />));
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("unauthenticated"));
+
+    await act(async () => screen.getByRole("button", { name: "adopt" }).click());
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("authenticated"));
+    expect(mocks.adoptSession).toHaveBeenCalledWith({ accessToken: "a", refreshToken: "r" });
+  });
+
+  it("reloads the user on request, so a new child shows up", async () => {
+    mocks.hasStoredSession.mockReturnValue(true);
+    mocks.me.mockResolvedValueOnce(ME).mockResolvedValueOnce({ ...ME, user: { ...ME.user, firstName: "Paolo" } });
+    render(wrap(<Probe />));
+    await waitFor(() => expect(screen.getByTestId("name")).toHaveTextContent("Michele"));
+
+    await act(async () => screen.getByRole("button", { name: "refresh" }).click());
+    await waitFor(() => expect(screen.getByTestId("name")).toHaveTextContent("Paolo"));
+    expect(screen.getByTestId("status")).toHaveTextContent("authenticated");
   });
 
   it("drops the session when the API reports it expired", async () => {

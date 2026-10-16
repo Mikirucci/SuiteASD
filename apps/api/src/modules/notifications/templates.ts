@@ -1,4 +1,4 @@
-// Italian texts of the six notification types (SPEC 07). Pure functions: the same input always gives the same text.
+// Italian texts of the notification types (SPEC 07 and docs/DECISIONS.md D-21). Pure functions: the same input always gives the same text.
 
 export interface RenderedNotification {
   title: string;
@@ -11,7 +11,14 @@ export type NotificationTemplate =
   | { type: 'CERTIFICATE_EXPIRING'; memberName: string; documentName: string; daysLeft: number }
   | { type: 'EVENT_CHANGED'; change: 'MOVED' | 'CANCELLED'; eventTitle: string; startsAt: Date }
   | { type: 'EVALUATION_PUBLISHED'; matchLabel: string; rating: number }
-  | { type: 'ANNOUNCEMENT'; title: string; body: string };
+  | { type: 'ANNOUNCEMENT'; title: string; body: string }
+  | { type: 'DOCUMENT_MISSING'; memberName: string; documentNames: readonly string[] }
+  | { type: 'ADMIN_PAYMENT_RECEIVED'; memberName: string; description: string; amountCents: number }
+  | { type: 'ADMIN_FEE_OVERDUE'; count: number; totalCents: number }
+  | { type: 'ADMIN_DOCUMENT_ALERT'; membersToFix: number; documentsToFix: number; expiringSoon: number }
+  | { type: 'ADMIN_DOCUMENT_UPLOADED'; memberName: string; documentName: string; expiresAt: Date | null }
+  | { type: 'ADMIN_NEW_ENROLMENT'; memberName: string; teamName: string | null }
+  | { type: 'ADMIN_SPONSOR_EXPIRING'; sponsorName: string; daysLeft: number };
 
 const TIMEZONE = 'Europe/Rome';
 const DAY_MS = 86_400_000;
@@ -91,5 +98,44 @@ export function renderNotification(template: NotificationTemplate): RenderedNoti
       return { title: 'Pagella pubblicata', body: `${template.matchLabel} · voto ${formatRating(template.rating)}` };
     case 'ANNOUNCEMENT':
       return { title: template.title, body: template.body.slice(0, EXCERPT_LENGTH) };
+    case 'DOCUMENT_MISSING':
+      return {
+        title: 'Documenti da caricare',
+        body: `Per ${template.memberName} mancano: ${template.documentNames.join(', ')}`,
+      };
+    case 'ADMIN_PAYMENT_RECEIVED':
+      return {
+        title: 'Pagamento ricevuto',
+        body: `${template.memberName} · ${template.description} · ${formatEuro(template.amountCents)}`,
+      };
+    case 'ADMIN_FEE_OVERDUE':
+      return {
+        title: 'Quote scadute da incassare',
+        body: `${template.count === 1 ? '1 quota scaduta' : `${template.count} quote scadute`} per ${formatEuro(template.totalCents)} complessivi`,
+      };
+    case 'ADMIN_DOCUMENT_ALERT': {
+      const parts = [
+        template.membersToFix > 0
+          ? `${template.membersToFix === 1 ? '1 tesserato' : `${template.membersToFix} tesserati`} con ${template.documentsToFix === 1 ? '1 documento mancante o scaduto' : `${template.documentsToFix} documenti mancanti o scaduti`}`
+          : null,
+        template.expiringSoon > 0 ? `${template.expiringSoon === 1 ? '1 documento' : `${template.expiringSoon} documenti`} in scadenza` : null,
+      ].filter((part) => part !== null);
+      return { title: 'Documenti da sistemare', body: parts.join(' · ') };
+    }
+    case 'ADMIN_DOCUMENT_UPLOADED':
+      return {
+        title: 'Documento caricato',
+        body: `${template.memberName} · ${template.documentName}${template.expiresAt ? ` · scade il ${dateOnlyFormat.format(template.expiresAt)}` : ''}`,
+      };
+    case 'ADMIN_NEW_ENROLMENT':
+      return {
+        title: 'Nuova iscrizione',
+        body: `${template.memberName}${template.teamName ? ` · ${template.teamName}` : ''}`,
+      };
+    case 'ADMIN_SPONSOR_EXPIRING':
+      return {
+        title: 'Contratto sponsor in scadenza',
+        body: `${template.sponsorName} — ${template.daysLeft <= 0 ? 'scade oggi' : `scade tra ${pluralDays(template.daysLeft)}`}`,
+      };
   }
 }
