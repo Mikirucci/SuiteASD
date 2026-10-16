@@ -10,9 +10,12 @@ import {
   createdEventSchema,
   eventSchema,
   exportEventsQuerySchema,
+  importEventsBodySchema,
+  importEventsResultSchema,
   listEventsQuerySchema,
   updateEventBodySchema,
 } from './schema.js';
+import { importEvents } from './ics-import.js';
 import { cancelEvent, createEvent, deleteEvent, exportCalendar, getEvent, listEvents, updateEvent } from './service.js';
 
 export const eventRoutes: FastifyPluginAsyncZod = async (app) => {
@@ -35,6 +38,25 @@ export const eventRoutes: FastifyPluginAsyncZod = async (app) => {
       const { limit, cursor, ...filters } = request.query;
       return listEvents(tenantOf(request), filters, { limit, cursor });
     },
+  );
+
+  app.post(
+    '/events/import',
+    {
+      onRequest: [app.requirePermission('events:write')],
+      schema: {
+        tags: ['Events'],
+        summary: 'Import an iCalendar (.ics) file into the calendar (dry run by default)',
+        description:
+          'Every event of the file gets the given type, team and venue. Weekly repetitions of trainings are expanded ' +
+          '(at most 100 occurrences); events already in the calendar (same title, start and team) are not created again; ' +
+          'all-day events are skipped.',
+        security: bearerSecurity,
+        body: importEventsBodySchema,
+        response: { 200: importEventsResultSchema, ...problemResponses(401, 403, 422) },
+      },
+    },
+    async (request) => importEvents(tenantOf(request), request.body),
   );
 
   app.get(
