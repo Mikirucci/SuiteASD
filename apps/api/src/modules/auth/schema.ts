@@ -33,6 +33,16 @@ export const acceptInvitationBodySchema = z.object({
   lastName: nameSchema.optional(),
 });
 
+export const invitationTokenParamsSchema = z.object({ token: z.string().min(1).max(256) });
+
+// What the person who opens the link may know: where, as what, and a masked hint of the invited email.
+// Never ids, never the token, never anything about other people.
+export const invitationInfoSchema = z.object({
+  society: z.object({ name: z.string() }),
+  role: roleSchema,
+  maskedEmail: z.string(),
+});
+
 export const magicLinkRequestBodySchema = z.object({ email: emailSchema });
 
 // Always the same body, whether or not the email belongs to an account.
@@ -87,6 +97,7 @@ export const meResponseSchema = z.object({
 export type RegisterBody = z.infer<typeof registerBodySchema>;
 export type LoginBody = z.infer<typeof loginBodySchema>;
 export type AcceptInvitationBody = z.infer<typeof acceptInvitationBodySchema>;
+export type InvitationInfo = z.infer<typeof invitationInfoSchema>;
 export type MagicLinkConsumeBody = z.infer<typeof magicLinkConsumeBodySchema>;
 export type ChangePasswordBody = z.infer<typeof changePasswordBodySchema>;
 export type SessionResponse = z.infer<typeof sessionResponseSchema>;

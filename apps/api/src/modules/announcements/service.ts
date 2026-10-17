@@ -3,6 +3,7 @@ import type { CrudService } from '../../lib/crud-routes.js';
 import { notFound } from '../../lib/errors.js';
 import { cursorArgs, toPage } from '../../lib/pagination.js';
 import { toIso, toIsoOrNull } from '../../lib/schemas.js';
+import type { TenantDb } from '../../lib/tenant.js';
 import type { TenantRequestContext } from '../../plugins/auth.js';
 import { can } from '../../rbac/permissions.js';
 import { resolveRecipients } from '../notifications/recipients.js';
@@ -76,12 +77,13 @@ async function assertTeamExists({ db }: TenantRequestContext, teamId: string | n
   if (!(await db.team.findFirst({ where: { id: teamId }, select: { id: true } }))) throw notFound('Team');
 }
 
-async function notifyPublished(ctx: TenantRequestContext, row: Announcement): Promise<void> {
+// Idempotent per announcement (dedupeKey): calling it again for the same post writes nothing.
+async function notifyPublished(db: TenantDb, societyId: string, row: Announcement, exceptUserId: string): Promise<number> {
   const audience = row.teamId === null ? ({ kind: 'ROLES' } as const) : ({ kind: 'TEAM', teamId: row.teamId } as const);
-  const recipients = (await resolveRecipients(ctx.db, audience)).filter((userId) => userId !== ctx.auth.userId);
+  const recipients = (await resolveRecipients(db, audience)).filter((userId) => userId !== exceptUserId);
   const { title, body } = renderNotification({ type: 'ANNOUNCEMENT', title: row.title, body: row.body });
-  await createNotification(ctx.db, {
-    societyId: ctx.auth.societyId,
+  return createNotification(db, {
+    societyId,
     userIds: recipients,
     type: 'ANNOUNCEMENT',
     title,
@@ -89,6 +91,25 @@ async function notifyPublished(ctx: TenantRequestContext, row: Announcement): Pr
     data: { announcementId: row.id },
     dedupeKey: `announcement:${row.id}`,
   });
+}
+
+// How far back the dispatch job looks for scheduled posts that just went live (it runs every 10 minutes: the margin
+// covers a server that was down for a while).
+const DUE_LOOKBACK_MS = 7 * 86_400_000;
+
+// A post scheduled for later is created without telling anybody; this tells its recipients once its time has come.
+// Posts that were published at once were notified on creation and are skipped by the dedupe key. Returns the number
+// of notification rows written.
+export async function notifyDueAnnouncements(db: TenantDb, societyId: string, now: Date): Promise<number> {
+  const recent = await db.announcement.findMany({
+    where: { publishedAt: { lte: now, gt: new Date(now.getTime() - DUE_LOOKBACK_MS) } },
+    orderBy: [{ publishedAt: 'asc' }, { id: 'asc' }],
+  });
+  let written = 0;
+  for (const row of recent) {
+    if (row.publishedAt !== null && row.createdAt < row.publishedAt) written += await notifyPublished(db, societyId, row, row.authorId);
+  }
+  return written;
 }
 
 function statusFilter(status: AnnouncementStatus, now: Date): Prisma.AnnouncementWhereInput {
@@ -147,7 +168,7 @@ export const announcementService: CrudService<
       },
       include: withTeam,
     });
-    if (statusOf(publishedAt, now) === 'PUBLISHED') await notifyPublished(ctx, row);
+    if (statusOf(publishedAt, now) === 'PUBLISHED') await notifyPublished(ctx.db, ctx.auth.societyId, row, ctx.auth.userId);
     return presentOne(ctx, row, now);
   },
 
@@ -164,7 +185,7 @@ export const announcementService: CrudService<
     });
     // Recipients are notified when the announcement turns from not-yet-visible into published, once.
     if (statusOf(current.publishedAt, now) !== 'PUBLISHED' && statusOf(row.publishedAt, now) === 'PUBLISHED') {
-      await notifyPublished(ctx, row);
+      await notifyPublished(ctx.db, ctx.auth.societyId, row, ctx.auth.userId);
     }
     return presentOne(ctx, row, now);
   },

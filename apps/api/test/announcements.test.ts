@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { notificationsDispatch } from '../src/jobs/definitions/notifications-dispatch.js';
+import { runAutomation } from '../src/jobs/runner.js';
 import { API } from './helpers/app.js';
 import { describeCrudModule } from './helpers/crud-suite.js';
 import { createActor, createMember, createSociety, createTeam } from './helpers/factories.js';
@@ -79,6 +81,31 @@ describeCrudModule(
         const published = await send('PATCH', actors.ADMIN, `/announcements/${draft.id}`, { publishedAt: new Date().toISOString() });
         expect(published.json().status).toBe('PUBLISHED');
         expect(await ctx.prisma.notification.count({ where: { dedupeKey: `announcement:${draft.id}`, channel: 'IN_APP' } })).toBeGreaterThan(0);
+      });
+
+      it('notifies a scheduled post when its time comes, once, through the 10-minute dispatch job', async () => {
+        const { ctx, actors } = get();
+        const day = 86_400_000;
+        const publishAt = new Date(Date.now() + day);
+        const scheduled = (
+          await send('POST', actors.SEGRETERIA, '/announcements', { title: 'Programmata', body: 'Dal lunedi nuovo orario.', publishedAt: publishAt.toISOString() })
+        ).json();
+        const where = { dedupeKey: `announcement:${scheduled.id}`, channel: 'IN_APP' } as const;
+        expect(await ctx.prisma.notification.count({ where })).toBe(0);
+
+        const run = (now: Date) =>
+          runAutomation({ prisma: ctx.prisma, definition: notificationsDispatch, societyId: actors.ADMIN.societyId, now, log: ctx.app.log });
+        await run(new Date(publishAt.getTime() - 15 * 60_000));
+        expect(await ctx.prisma.notification.count({ where })).toBe(0);
+
+        await run(new Date(publishAt.getTime() + 10 * 60_000));
+        const rows = await ctx.prisma.notification.findMany({ where });
+        expect(rows.map((row) => row.userId)).toContain(actors.ATLETA.user.id);
+        expect(rows.map((row) => row.userId)).not.toContain(actors.SEGRETERIA.user.id);
+        expect(rows[0]).toMatchObject({ type: 'ANNOUNCEMENT', title: 'Programmata', status: 'SENT' });
+
+        await run(new Date(publishAt.getTime() + 25 * 60_000));
+        expect(await ctx.prisma.notification.count({ where })).toBe(rows.length);
       });
 
       it('addresses a single team: its athletes and guardians are notified and see it, the others do not', async () => {

@@ -3,7 +3,7 @@ import type { Prisma, PrismaClient } from '@prisma/client';
 import type { FastifyBaseLogger } from 'fastify';
 import type { AppConfig } from '../../config/env.js';
 import type { EmailTransport } from '../../lib/email.js';
-import { AppError, conflict, unauthorized, unprocessable } from '../../lib/errors.js';
+import { AppError, conflict, notFound, unauthorized, unprocessable } from '../../lib/errors.js';
 import type { PasswordHasher } from '../../lib/password.js';
 import { normalizeEmail } from '../../lib/schemas.js';
 import { createDefaultDocumentTypes } from '../../lib/society-defaults.js';
@@ -15,6 +15,7 @@ import { issueSession, type IssueSessionInput } from './session.js';
 import type {
   AcceptInvitationBody,
   ChangePasswordBody,
+  InvitationInfo,
   LoginBody,
   MagicLinkConsumeBody,
   MeResponse,
@@ -33,6 +34,12 @@ export interface AuthDeps {
 }
 
 const MAGIC_LINK_TTL_MINUTES = 15;
+
+// "mario.rossi@example.test" -> "m***@example.test": enough for the person to recognise it, not to harvest it.
+export function maskEmail(email: string): string {
+  const at = email.lastIndexOf('@');
+  return `${email.slice(0, 1)}***${at > 0 ? email.slice(at) : ''}`;
+}
 
 function slugify(name: string): string {
   const base = name
@@ -159,6 +166,25 @@ export function createAuthService({ prisma, config, passwords, email, log }: Aut
   async function logout(refreshToken: string): Promise<void> {
     const record = await prisma.refreshToken.findUnique({ where: { tokenHash: hashToken(refreshToken) } });
     if (record) await revokeFamily(record.familyId);
+  }
+
+  // Public and read-only. An unknown token is 404; a known one that stopped working is 410 with the reason, so the
+  // page can explain it (same convention as the enrolment links). Accepting still answers 422 for all of them.
+  async function describeInvitation(token: string): Promise<InvitationInfo> {
+    const invitation = await prisma.invitation.findUnique({
+      where: { tokenHash: hashToken(token) },
+      include: { society: { select: { name: true } } },
+    });
+    if (!invitation) throw notFound('Invitation');
+    const gone = (code: string): AppError => new AppError(410, code, 'This invitation is no longer valid');
+    if (invitation.revokedAt) throw gone('invitation_revoked');
+    if (invitation.acceptedAt) throw gone('invitation_used');
+    if (invitation.expiresAt.getTime() <= Date.now()) throw gone('invitation_expired');
+    return {
+      society: { name: invitation.society.name },
+      role: roleSchema.parse(invitation.role),
+      maskedEmail: maskEmail(invitation.email),
+    };
   }
 
   async function acceptInvitation(body: AcceptInvitationBody, userAgent?: string): Promise<SessionResponse> {
@@ -397,6 +423,7 @@ export function createAuthService({ prisma, config, passwords, email, log }: Aut
     login,
     refresh,
     logout,
+    describeInvitation,
     acceptInvitation,
     requestMagicLink,
     consumeMagicLink,

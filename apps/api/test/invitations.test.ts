@@ -58,6 +58,71 @@ describe('invitations, users and guardian links', () => {
     });
   });
 
+  describe('opening an invitation (public)', () => {
+    const info = (token: string) => ctx.app.inject({ method: 'GET', url: `${API}/invitations/${token}` });
+
+    it('tells the society, the role and a masked email, and nothing else', async () => {
+      const { token } = (await invite(admin, { email: 'Mario.Rossi@Example.test', role: 'ALLENATORE' })).json();
+      const response = await info(token);
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({
+        society: { name: 'Aquile Volley' },
+        role: 'ALLENATORE',
+        maskedEmail: 'm***@example.test',
+      });
+      expect(response.body).not.toContain(societyId);
+      expect(response.body).not.toContain(token);
+      expect(response.body).not.toContain('mario.rossi');
+    });
+
+    it('does not consume the invitation', async () => {
+      const { token } = (await invite(admin, { email: 'peek@example.test', role: 'STAFF' })).json();
+      expect((await info(token)).statusCode).toBe(200);
+      expect((await info(token)).statusCode).toBe(200);
+      const body = { token, password: TEST_PASSWORD, firstName: 'Pe', lastName: 'Ek' };
+      expect((await accept(body)).statusCode).toBe(200);
+    });
+
+    it('answers 404 to an unknown token', async () => {
+      const response = await info('token-che-non-esiste');
+      expect(response.statusCode).toBe(404);
+      expect(response.json().code).toBe('not_found');
+    });
+
+    it('answers 410 saying why: expired, revoked or already used', async () => {
+      const expired = (await invite(admin, { email: 'late2@example.test', role: 'STAFF' })).json();
+      await ctx.prisma.invitation.update({ where: { id: expired.id }, data: { expiresAt: new Date(Date.now() - 1000) } });
+      const expiredResponse = await info(expired.token);
+      expect(expiredResponse.statusCode).toBe(410);
+      expect(expiredResponse.json().code).toBe('invitation_expired');
+
+      const revoked = (await invite(admin, { email: 'revoked2@example.test', role: 'STAFF' })).json();
+      await ctx.app.inject({ method: 'DELETE', url: `${API}/invitations/${revoked.id}`, headers: admin.headers });
+      const revokedResponse = await info(revoked.token);
+      expect(revokedResponse.statusCode).toBe(410);
+      expect(revokedResponse.json().code).toBe('invitation_revoked');
+
+      const used = (await invite(admin, { email: 'used2@example.test', role: 'STAFF' })).json();
+      await accept({ token: used.token, password: TEST_PASSWORD, firstName: 'U', lastName: 'S' });
+      const usedResponse = await info(used.token);
+      expect(usedResponse.statusCode).toBe(410);
+      expect(usedResponse.json().code).toBe('invitation_used');
+    });
+
+    it('shows each invitation its own society and never another one', async () => {
+      const foreign = (await invite(outsider, { email: 'other@example.test', role: 'SEGRETERIA' })).json();
+      const response = await info(foreign.token);
+      expect(response.json()).toMatchObject({ society: { name: 'Altra ASD' }, role: 'SEGRETERIA' });
+      expect(response.body).not.toContain('Aquile Volley');
+    });
+
+    it('needs no authentication', async () => {
+      const { token } = (await invite(admin, { email: 'anon@example.test', role: 'STAFF' })).json();
+      const response = await ctx.app.inject({ method: 'GET', url: `${API}/invitations/${token}` });
+      expect(response.statusCode).toBe(200);
+    });
+  });
+
   describe('accepting invitations', () => {
     it('creates the account, links the athlete to the member and logs the user in', async () => {
       const member = await createMember(ctx, societyId, { firstName: 'Giulia', lastName: 'Rossi' });

@@ -6,6 +6,8 @@ import { authRateLimit } from '../../plugins/security.js';
 import {
   acceptInvitationBodySchema,
   changePasswordBodySchema,
+  invitationInfoSchema,
+  invitationTokenParamsSchema,
   loginBodySchema,
   logoutBodySchema,
   magicLinkConsumeBodySchema,
@@ -140,6 +142,24 @@ export const authRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     async (request) => service.changePassword(tenantOf(request).auth, request.body, request.headers['user-agent']),
+  );
+
+  app.get(
+    '/invitations/:token',
+    {
+      config: authRateLimit(app),
+      schema: {
+        tags: ['Auth'],
+        summary: 'What an invitation is for: the society and the role (public, read-only)',
+        description:
+          'Returns only the society name, the role and the invited email masked (`m***@example.test`): never ids or the token. ' +
+          'An unknown token answers 404; an invitation that stopped working answers 410 with `invitation_revoked`, ' +
+          '`invitation_used` or `invitation_expired`.',
+        params: invitationTokenParamsSchema,
+        response: { 200: invitationInfoSchema, ...problemResponses(404, 410, 422, 429) },
+      },
+    },
+    async (request) => service.describeInvitation(request.params.token),
   );
 
   app.post(
