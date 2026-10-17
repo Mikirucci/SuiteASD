@@ -37,7 +37,7 @@ apps/web/
         [...slug]/page.tsx  fallback onesto per le rotte non ancora esistenti
       design/page.tsx       vetrina di token e componenti
     components/ui/          libreria componenti (un file per componente) + index.ts
-    config/modules.ts       elenco moduli di navigazione
+    config/modules.ts       moduli mostrati come card nella home (il menu è in features/shell/nav-items.ts)
     features/<area>/        codice di una funzionalità (auth, shell, home, design, ...)
     lib/                    api/ (client HTTP), cn, avatar, dates, env
     test/                   setup Vitest e helper (a11y)
@@ -106,7 +106,7 @@ Chiave query = `[risorsa, ...parametri]`. Dopo una scrittura si invalida la chia
 
 1. Leggere la sezione del modulo in `docs/SPEC.md` e i contratti in `docs/API.md` / OpenAPI (`/docs` sul backend).
 2. Creare `src/app/(app)/<modulo>/page.tsx` (server component, solo `metadata` + il componente di feature). Una rotta più specifica sostituisce da sola il fallback `[...slug]`: non toccare nessun altro file di routing.
-3. Se il modulo non è tra quelli di `src/config/modules.ts`, aggiungere una riga (etichetta, `href`, icona lucide, descrizione, tinta). Per i moduli già elencati non serve.
+3. Se la pagina non è nel menu, aggiungere una voce al gruppo giusto di `ADMIN_ENTRIES` in `src/features/shell/nav-items.ts` (etichetta, `href`, icona lucide, `permission` necessaria): sidebar, menu da telefono e filtro per ruolo la usano da lì. Un gruppo con una sola voce visibile diventa un link diretto; un gruppo senza voci visibili sparisce.
 4. Creare `src/features/<modulo>/` con componenti, tipi delle risposte API e hook (`useApiQuery`/`useApiMutation`).
 5. Pagina con titolo `h1` (`SectionHeading as="h1"` con `index` e parola evidenziata, come nel video), poi contenuto. Ogni schermata ha **loading, vuoto, errore** (usare `DataBoundary`) e funziona da 320px a desktop.
 6. Solo componenti e token esistenti. Se manca un componente generico, aggiungerlo in `components/ui/` con test e con una sezione in `/design`; non copiare markup nelle feature.

@@ -67,6 +67,7 @@ Il seed crea 6 squadre (U12, U14, U16, U18, Serie D, Prima Divisione) e 118 tess
 | `POST /invitations` | `invitations:write` | invito per ruolo (`memberId` opzionale per ATLETA/GENITORE); il token in chiaro è restituito una sola volta |
 | `GET /invitations` | `invitations:read` | inviti pendenti |
 | `DELETE /invitations/:id` | `invitations:write` | revoca invito |
+| `GET /invitations/:token` | pubblico, in sola lettura, con rate limit | a cosa serve l'invito: `{ society: { name }, role, maskedEmail }` (email mascherata `m***@example.test`; mai id né token). Token sconosciuto: 404. Invito non più valido: 410 con `invitation_revoked`, `invitation_used` o `invitation_expired` |
 | `POST /invitations/accept` | pubblico | accetta invito (crea l'account o aggiunge la società a un account esistente) e apre la sessione |
 | `GET /users` | `users:read` | account della società con ruoli (`q`, `role`) |
 | `POST /guardian-links` | `guardianLinks:write` | collega un account GENITORE a un atleta |

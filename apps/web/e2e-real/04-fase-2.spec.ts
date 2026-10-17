@@ -10,11 +10,14 @@ test.describe("iscrizione, area personale e amministrazione sul backend reale", 
     const email = `nuova.atleta.${Date.now()}@example.it`;
 
     await page.goto("/iscrizione/iscrizione-demo-u16");
-    await expect(page.getByRole("heading", { level: 1, name: /Iscriviti in due minuti/ })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: /Ti stai iscrivendo a Aquile Volley/ })).toBeVisible();
+    await expect(page.getByRole("radio", { name: "Mi iscrivo io" })).toBeChecked();
+    await page.getByRole("button", { name: "Continua" }).click();
     await page.getByRole("textbox", { name: "Nome", exact: true }).fill("Greta");
     await page.getByRole("textbox", { name: "Cognome", exact: true }).fill("Bellandi");
     await page.getByLabel("Email").fill(email);
     await page.getByLabel(/^Password/).fill(DEMO_PASSWORD);
+    await page.getByRole("button", { name: "Continua" }).click();
     await page.getByLabel("Data di nascita").fill("2011-03-10");
     await page.getByRole("button", { name: "Completa l'iscrizione" }).click();
     await expect(page).toHaveURL(/\/area-personale$/);

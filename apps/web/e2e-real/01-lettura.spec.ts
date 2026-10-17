@@ -10,9 +10,22 @@ test.describe("società demo, in sola lettura", () => {
   test("la home saluta e porta a tutti i moduli", async ({ page }) => {
     await expect(page.getByRole("heading", { level: 1 })).toContainText("Ciao");
     const sidebar = page.getByRole("navigation", { name: "Sezioni", exact: true });
-    for (const label of ["Tesserati", "Scadenze", "Quote", "Calendario", "Classifiche", "Pagelle", "Notifiche", "Automazioni", "Altro"]) {
-      await expect(sidebar.getByRole("link", { name: label })).toBeVisible();
+    await expect(sidebar.getByRole("link", { name: "Home" })).toBeVisible();
+    const topics = {
+      Persone: ["Tesserati", "Squadre", "Staff", "Accessi e inviti"],
+      "Attività sportiva": ["Calendario", "Presenze", "Classifiche", "Tornei", "Pagelle", "Arbitri", "Statistiche"],
+      Amministrazione: ["Quote", "Scadenze e documenti", "Bilancio", "Sponsor"],
+      Logistica: ["Palestre", "Trasferte", "Divise"],
+      Comunicazione: ["Notifiche", "Bacheca", "Automazioni"],
+    };
+    for (const [topic, labels] of Object.entries(topics)) {
+      const group = sidebar.getByRole("button", { name: topic });
+      if ((await group.getAttribute("aria-expanded")) === "false") await group.click();
+      for (const label of labels) {
+        await expect(sidebar.getByRole("link", { name: label })).toBeVisible();
+      }
     }
+    await expect(sidebar.getByRole("link", { name: "Altro" })).toHaveCount(0);
   });
 
   test("tesserati: ricerca di Sara Conti e scheda con il certificato in scadenza", async ({ page }) => {

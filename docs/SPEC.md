@@ -152,6 +152,15 @@ Principio: **tutto automatico**. Chi ha un dato da consegnare lo carica da sé e
 - **Automazioni** (ora 10): si aggiungono sollecito dei documenti mancanti, avviso immediato all'amministrazione, riepilogo periodico per l'amministrazione, scadenza dei contratti sponsor. Ora di esecuzione e canali (app, email) sono configurabili dalla UI.
 - **Allegati** (PDF, JPG, PNG fino a 5 MB) su palestre, sponsor, trasferte, divise, staff, arbitri e voci di bilancio.
 - **Report per il commercialista** (Altro > Bilancio): PDF del periodo scelto, completo o per singola sezione (bilancio, quote e incassi, sponsor, trasferte, arbitri).
-- **Home dell'amministrazione**: cruscotto con un'anteprima di ogni servizio (tesserati, scadenze, quote, calendario, classifica, notifiche, automazioni).
+- **Home dell'amministrazione**: cruscotto a tre livelli, filtrato per permesso. 1) "Da fare adesso": nuove iscrizioni non lette, documenti mancanti o scaduti, quote scadute, convocazioni senza risposta della prossima partita (oppure "Tutto in ordine"). 2) "I tuoi servizi": Persone, Calendario e partite, Quote e pagamenti, Documenti e scadenze, ciascuno con il numero chiave e i link rapidi alle sottovoci del menu. 3) "Il resto": classifica, notifiche, automazioni e le altre sezioni del menu. Una società senza squadre o senza tesserati vede al posto del cruscotto il percorso "Per iniziare" (crea la squadra, aggiungi i tesserati o genera il link, imposta le quote, pianifica il primo evento), con lo stato dei passi ricavato dai dati.
 - **Calendario e classifiche**: nessuno scraping dei siti federali. Gli eventi si importano da file iCalendar (.ics), le partite e i risultati del girone da CSV; l'inserimento manuale resta.
 - **Pagelle** e **Quote**: invariate (le pagelle sono destinate a essere eliminate in futuro).
+
+## 10. Addendum: riordino UX e collaudo con persone (richieste del 2026-10-17)
+
+- **Menu a gruppi**: Home, Persone (Tesserati, Squadre, Staff, Accessi e inviti), Attività sportiva (Calendario, Presenze, Classifiche, Tornei, Pagelle, Arbitri, Statistiche), Amministrazione (Quote, Scadenze e documenti, Bilancio, Sponsor), Logistica (Palestre, Trasferte, Divise), Comunicazione (Notifiche, Bacheca, Automazioni). Ogni ruolo vede solo le voci che può aprire.
+- **Home dell'amministrazione**: "Da fare adesso", poi "I tuoi servizi", poi "Il resto". Società nuova: percorso "Per iniziare" (crea la squadra, aggiungi i tesserati o il link, imposta le quote, pianifica la prima partita).
+- **Squadre**: l'amministrazione e la segreteria creano, modificano ed eliminano le squadre dalla schermata `/squadre`.
+- **Accessi e inviti**: l'amministrazione e la segreteria invitano collaboratori (amministrazione, segreteria, allenatore, staff) con un link monouso di 7 giorni; l'invitato vede società e ruolo prima di scegliere la password.
+- **Onboarding**: registrazione della società in 2 passi; iscrizione da link in 3 passi.
+- **Convocazioni**: "Convoca atleti" salva in bozza; "Invia convocazioni" le rende visibili ad atleti e genitori (oppure partono da sole N giorni prima).

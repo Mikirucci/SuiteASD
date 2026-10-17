@@ -85,7 +85,7 @@ Un torneo è una `Competition` con `kind = TOURNAMENT`: ha gironi e una classifi
 `POST /fees/:id/pay` richiede `Idempotency-Key`; la ricevuta ha numerazione progressiva per società (`ReceiptSequence`, unico per società). I dati demo partono da n. 0144 (143 ricevute già emesse). Se l'automazione "Emettere le ricevute" è spenta, il pagamento resta registrato senza ricevuta e la si emette a mano.
 
 ### M-4. Notifiche: in-app sempre, email in coda
-Ogni evento scrive nel centro notifiche; l'email è accodata solo se l'utente non l'ha disattivata. La consegna è un job (`notifications-dispatch`) con nuovi tentativi, così un fornitore email fermo non blocca le operazioni. Senza `RESEND_API_KEY` le email risultano `SKIPPED` (utile in sviluppo). WhatsApp/SMS non sono implementati: la SPEC li chiede solo come predisposizione opzionale. Il push web non è implementato lato server (solo la registrazione dei device token).
+Ogni evento scrive nel centro notifiche; l'email è accodata solo se l'utente non l'ha disattivata. La consegna è un job (`notifications-dispatch`) con nuovi tentativi, così un fornitore email fermo non blocca le operazioni. Senza `RESEND_API_KEY` le email risultano `SKIPPED` (utile in sviluppo). WhatsApp/SMS non sono implementati: la SPEC li chiede solo come predisposizione opzionale. Il push web non è implementato lato server (solo la registrazione dei device token). Lo stesso job, prima di recapitare le email, notifica le comunicazioni di bacheca programmate che sono andate online (altrimenti nessuno le riceverebbe: alla creazione nessuno viene avvisato). Il client legge il contatore ogni 30 s e al ritorno sulla finestra; se cambia, ricarica anche le liste.
 
 ### M-5. Automazioni: cosa si configura
 Le impostazioni esposte sono soglie, giorni, ora di esecuzione e canali (validate per chiave con Zod `strict`). Orari e canali per automazione sono stati aggiunti nella Fase 2 (vedi in fondo); le preferenze di notifica per utente restano un livello a parte.
@@ -127,3 +127,23 @@ I siti delle federazioni non hanno un'interfaccia stabile né un permesso d'uso:
 
 ### Aggiornamento di M-5
 Ora di esecuzione e canali (app, email) sono configurabili per ogni automazione pianificata (`config.hour`, `config.channels`), oltre alle soglie. Le automazioni sono 10: alle sei di prima si aggiungono `missing-documents`, `admin-alerts`, `admin-digest`, `sponsor-expiry`.
+
+## Riordino UX e collaudo con persone (richieste del 2026-10-17)
+
+### D-26. Menu per argomento, voci filtrate dai permessi
+La navigazione dell'amministrazione ha cinque gruppi a fisarmonica (Persone, Attività sportiva, Amministrazione, Logistica, Comunicazione) più la Home. Ogni voce dichiara il permesso che serve per aprirla (`features/shell/nav-items.ts`): una voce non permessa sparisce, un gruppo senza voci sparisce, un gruppo con una sola voce visibile diventa un link diretto. L'hub "Altro" è stato tolto (`/altro` reindirizza a `/`); gli URL `/altro/<voce>` restano invariati per non rompere collegamenti e test. Il gruppo della pagina aperta è espanso; il badge delle notifiche compare sulla voce e sul gruppo chiuso.
+
+### D-27. Home a tre livelli e percorso "Per iniziare"
+Livello 1 "Da fare adesso" (iscrizioni da leggere, documenti mancanti o scaduti, quote scadute, convocati senza risposta), livello 2 "I tuoi servizi" (Persone, Calendario, Quote, Documenti con un numero e i link alle sottovoci), livello 3 "Il resto". Per una società senza squadre o senza tesserati il percorso a 4 passi sostituisce il cruscotto; con la società avviata ma passi mancanti diventa una striscia compatta con i soli passi mancanti. Lo stato dei passi è derivato dai dati: nessuna persistenza.
+
+### D-28. Squadre e inviti hanno una schermata
+`/squadre` (permesso `teams:write` per modificare) e `/inviti` (`invitations:write`). L'invito vale per i ruoli di amministrazione; atleti e genitori entrano dal link di iscrizione. Il link d'invito si mostra una sola volta alla creazione (il token è salvato come hash) e l'app non invia email: lo manda chi invita. `GET /invitations/:token` (pubblico, con rate limit) restituisce società, ruolo ed email mascherata, così la pagina `/invito/[token]` dice a chi apre il link per cosa è invitato. Eliminare una squadra non è bloccato dall'API: tesserati, eventi e piani quota perdono il collegamento alla squadra (la conferma lo dice).
+
+### D-29. Onboarding a passi
+Registrazione società in 2 passi (La tua società, Il tuo accesso) con "Cosa succede dopo". Iscrizione da link in 3 passi (Chi si iscrive, Il tuo accesso, Dati dell'atleta), con società e squadra in chiaro in alto e senza il pannello di marketing per dirigenti nelle pagine pubbliche. Contratto API invariato.
+
+### D-30. Notifiche in-app: aggiornamento e programmate
+Il contatore delle non lette si aggiorna ogni 30 secondi e al ritorno sulla finestra; se cambia, ricarica le liste. Le comunicazioni di bacheca programmate generano la notifica entro 10 minuti dalla pubblicazione (job di recapito). Non sono state aggiunte notifiche nuove per l'atleta (quota creata, pagamento registrato, atleta aggiunto a una squadra): non sono eventi della SPEC. Le convocazioni restano in bozza finché chi le gestisce non preme "Invia convocazioni" (o parte l'invio automatico N giorni prima): il pannello lo dice chiaramente.
+
+### D-31. Etichetta delle squadre
+Una squadra si mostra col nome; la categoria si aggiunge tra parentesi solo se non è già nel nome (`teamLabel`). Con due squadre con lo stesso nome e la stessa categoria restano indistinguibili: non è consentito dall'API (nome univoco).

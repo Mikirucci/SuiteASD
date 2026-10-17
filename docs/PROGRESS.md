@@ -3,7 +3,7 @@
 > Leggere questo file all'inizio di ogni conversazione. Va aggiornato a ogni tappa e **obbligatoriamente prima di esaurire i token**.
 > Regole del team: `CLAUDE.md`. Specifica: `docs/SPEC.md`. Decisioni: `docs/DECISIONS.md`. Guide: `docs/API.md`, `docs/FRONTEND.md`.
 
-Ultimo aggiornamento: 2026-10-17. PRODOTTO COMPLETO secondo SPEC, Fase 2 inclusa. Verifica finale eseguita: lint e typecheck puliti; test api 931 + web 722; build ok; E2E mockati 110/110; E2E su backend reale 18/18.
+Ultimo aggiornamento: 2026-10-17 (sera). Prodotto completo secondo SPEC + riordino UX del 17/10 (SPEC §10, decisioni D-26..D-31). Verifica eseguita dopo il riordino: lint e typecheck puliti; test api 938 + web 869; build ok; E2E mockati 129/129; E2E su backend reale 18/18 (il nuovo `05-societa-da-zero` va eseguito: vedi registro). Falle e collaudo a persone: `tasks/findings.md`; piano: `tasks/plan.md`.
 
 ## Obiettivo originale (/goal dell'utente)
 Consegnare SuiteASD finita e testata: backend API-first + web app, lavorando "da team di ingegneria" con agenti specializzati, senza chiedere conferme.
@@ -102,3 +102,6 @@ Principio: tutto automatico. Iscrizione da link generato dall'admin (nessuna app
 - 2026-10-15: aggiunto `vercel.json` (a374352), merge della PR #1 da `prod`.
 - 2026-10-16: magic link + orari/canali automazioni (692c594), badge notifiche e fix 320px (8092c44); poi Fase 2 completa lato codice (notifiche organizzative, iscrizione da link, allegati, report PDF, job nuovi, area personale, home admin, import da file), merge 318aa7e. Sospeso su richiesta dell'utente.
 - 2026-10-17: Fase 2 chiusa e verificata (commit 999ae2a): E2E sistemati e ampliati, PDF e schermate controllati, docs SPEC/DECISIONS/API/FRONTEND aggiornati. Creato il riepilogo per argomento in questo file.
+- 2026-10-17 (sera): su richiesta dell'utente (collaudo manuale da zero: menu confuso, home ammassata, squadre e notifiche, onboarding poco chiaro) riordino UX fatto da team di agenti con perimetri disgiunti: menu a gruppi con voci filtrate dai permessi e hub "Altro" tolto; pagine Squadre, Accessi e inviti, accettazione invito (`/invito/[token]`, con nuovo `GET /invitations/:token` pubblico); registrazione società in 2 passi e iscrizione atleta in 3; home a 3 livelli con percorso "Per iniziare"; notifiche: aggiornamento al focus/30 s e bacheca programmata notificata. Collaudo a persone (Rita presidente, Davide allenatore, Elena genitore di Sara, Luca segreteria) sul backend vero con società creata da zero: percorso completo funzionante, 8 difetti trovati e corretti (F13, F15-F19). Metodo: vedi memoria `feedback-collaudo-con-persone`.
+- Da sapere: `DELETE /teams/:id` non è bloccato se la squadra ha tesserati/eventi (la conferma avvisa); gli inviti non partono per email (li manda chi invita); l'atleta non riceve notifica per quota creata o pagamento registrato (non previsto dalla SPEC).
+- Ambiente Windows: per `npm run build`/`typecheck` (prisma generate) fermare prima i server di sviluppo, anche il processo `tsx watch` che può restare vivo senza risultare sulla porta 4000.
