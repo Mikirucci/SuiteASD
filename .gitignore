@@ -8,3 +8,4 @@ test-results
 playwright-report
 coverage
 apps/api/storage
+apps/api/storage-demo
