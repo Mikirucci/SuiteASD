@@ -173,7 +173,7 @@ test.describe("società nuova, dalla registrazione alle convocazioni, sul backen
     await expect(page.getByRole("heading", { level: 1, name: /Ciao Elena/ })).toBeVisible();
   });
 
-  test("Davide crea la partita, convoca Sara e invia le convocazioni", async ({ page }) => {
+  test("Davide crea la partita: Sara è già fra i senza risposta e può essere avvisata", async ({ page }) => {
     await signIn(page, davide);
     await menuOf(page).getByRole("button", { name: /^Attività sportiva/ }).click();
     await menuOf(page).getByRole("link", { name: "Calendario" }).click();
@@ -192,32 +192,25 @@ test.describe("società nuova, dalla registrazione alle convocazioni, sul backen
 
     await page.getByRole("list", { name: "Eventi del giorno" }).getByRole("button", { name: MATCH }).click();
     const detail = page.getByRole("dialog", { name: MATCH });
-    await detail.getByRole("button", { name: "Convoca atleti" }).click();
 
-    const convocate = page.getByRole("dialog", { name: "Convoca gli atleti" });
-    await convocate.getByRole("checkbox", { name: new RegExp(SARA.fullName) }).check();
-    await convocate.getByRole("button", { name: "Convoca", exact: true }).click();
-    await expect(page.getByText(/convocazione creata/)).toBeVisible();
-
-    // Back on the event: the convocation is a draft until it is sent
-    await expect(detail).toContainText(/Bozza: 1 atleta non vede ancora la convocazione/);
-    await expect(detail).toContainText(SARA.fullName);
-    await detail.getByRole("button", { name: "Invia convocazioni" }).click();
-    await expect(page.getByText(/convocazione inviata/)).toBeVisible();
-    await expect(detail.getByRole("button", { name: "Invia convocazioni" })).toHaveCount(0);
+    // No "convoca" step: the athletes of the team are asked as soon as the event exists
+    await expect(detail.getByRole("list", { name: "Senza risposta" })).toContainText(SARA.fullName);
+    await expect(detail.getByRole("list", { name: "Confermati" })).toHaveCount(0);
+    await detail.getByRole("button", { name: "Avvisa gli atleti" }).click();
+    await expect(page.getByText(/atleta avvisato/)).toBeVisible();
   });
 
-  test("Elena vede la convocazione di Sara, conferma e la trova nelle notifiche", async ({ page }) => {
+  test("Elena vede la partita nella sua home, conferma e trova l'avviso nelle notifiche", async ({ page }) => {
     await signIn(page, elena, "/area-personale");
-    const pending = page.getByRole("region", { name: "Da confermare" });
-    await expect(pending).toContainText(SARA.fullName);
-    await expect(pending).toContainText(MATCH);
-
     const menu = menuOf(page);
     await expect(menu.getByRole("link", { name: /^Notifiche\s+1\s+da leggere$/ })).toBeVisible();
 
-    await pending.getByRole("button", { name: `Confermo la presenza di ${SARA.fullName}` }).click();
+    const later = page.getByRole("region", { name: "Dopo questa settimana" });
+    await later.getByRole("button", { name: MATCH }).click();
+    const answer = page.getByRole("dialog", { name: MATCH });
+    await answer.getByRole("button", { name: `Confermo la presenza di ${SARA.fullName}` }).click();
     await expect(page.getByText("Presenza confermata", { exact: true })).toBeVisible();
+    await page.keyboard.press("Escape");
 
     await menu.getByRole("link", { name: /^Notifiche/ }).click();
     await expect(page).toHaveURL(/\/area-personale\/notifiche$/);
@@ -226,6 +219,24 @@ test.describe("società nuova, dalla registrazione alle convocazioni, sul backen
     await expect(list.getByRole("listitem")).toHaveCount(1);
     await expect(list).toContainText("Convocazione");
     await expect(list).toContainText(MATCH);
+  });
+
+  test("Davide rivede la partita: Sara è fra i confermati", async ({ page }) => {
+    await signIn(page, davide, "/calendario");
+    // The match is ten days away: walk the week strip to its day, as a person would
+    const date = new Date(`${dayAhead(10)}T12:00:00+02:00`);
+    const label = new Intl.DateTimeFormat("it-IT", { weekday: "short", day: "numeric", month: "long", timeZone: "Europe/Rome" })
+      .format(date)
+      .replace(".", "");
+    const day = page.getByRole("button", { name: new RegExp(`^${label}`) });
+    for (let week = 0; week < 3 && !(await day.isVisible()); week += 1) {
+      await page.getByRole("button", { name: "Settimana successiva" }).click();
+    }
+    await day.click();
+    await page.getByRole("list", { name: "Eventi del giorno" }).getByRole("button", { name: MATCH }).click();
+    const detail = page.getByRole("dialog", { name: MATCH });
+    await expect(detail.getByRole("list", { name: "Confermati" })).toContainText(SARA.fullName);
+    await expect(detail.getByRole("list", { name: "Senza risposta" })).toHaveCount(0);
   });
 
   test("Rita vede la nuova iscrizione fra le cose da fare, nelle notifiche e raggiunge il Bilancio dal menu", async ({ page }) => {

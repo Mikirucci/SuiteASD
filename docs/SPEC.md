@@ -163,4 +163,8 @@ Principio: **tutto automatico**. Chi ha un dato da consegnare lo carica da sé e
 - **Squadre**: l'amministrazione e la segreteria creano, modificano ed eliminano le squadre dalla schermata `/squadre`.
 - **Accessi e inviti**: l'amministrazione e la segreteria invitano collaboratori (amministrazione, segreteria, allenatore, staff) con un link monouso di 7 giorni; l'invitato vede società e ruolo prima di scegliere la password.
 - **Onboarding**: registrazione della società in 2 passi; iscrizione da link in 3 passi.
-- **Convocazioni**: "Convoca atleti" salva in bozza; "Invia convocazioni" le rende visibili ad atleti e genitori (oppure partono da sole N giorni prima).
+- **Convocazioni** (D-32): appena un evento di squadra esiste, gli atleti idonei della squadra lo vedono e rispondono (conferma o rifiuto), finché non è iniziato; l'amministrazione vede Confermati, Rifiutati e Senza risposta. "Avvisa gli atleti" (o l'invio automatico N giorni prima) manda la notifica ai non rispondenti.
+- **Home atleta e genitore**: due quadrati (Documenti, Pagamenti), la tabella "Questa settimana" e quella "Dopo questa settimana" con risposta dall'evento.
+- **Documenti** (D-35): scadenza colorata solo nel testo, anteprima del file nella piattaforma, niente pulsante generale se esiste già un documento.
+- **Pagamenti** (D-33, D-34): "Ho pagato" avvisa l'amministrazione, che verifica e registra; la ricevuta si vede in anteprima e arriva per notifica a pagante e amministrazione.
+- **Squadre** (D-36): card con filtri e pagina di dettaglio con rosa, appuntamenti e quote. **Statistiche**: numeri principali in alto, poi blocchi con "Come leggere".

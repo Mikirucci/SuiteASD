@@ -30,7 +30,8 @@ interface MockFee {
   reference: string | null;
   reminderCount: number;
   lastReminderAt: string | null;
-  receipt: { id: string; number: number; code: string; issuedAt: string } | null;
+  claimedAt: string | null;
+  receipt: { id: string; number: number; code: string; issuedAt: string; sentAt: string | null } | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -54,6 +55,7 @@ function fee(id: string, memberName: string, team: [string, string], status: Moc
     reference: null,
     reminderCount: 0,
     lastReminderAt: null,
+    claimedAt: null,
     receipt: null,
     createdAt: "2026-10-01T08:00:00.000Z",
     updatedAt: "2026-10-01T08:00:00.000Z",
@@ -67,7 +69,7 @@ function initialFees(): MockFee[] {
       paidAt: "2026-10-05T10:00:00.000Z",
       method: "CASH",
       payerName: "Paolo Ferri",
-      receipt: { id: "r146", number: 146, code: "0146", issuedAt: "2026-10-05T10:00:00.000Z" },
+      receipt: { id: "r146", number: 146, code: "0146", issuedAt: "2026-10-05T10:00:00.000Z", sentAt: "2026-10-05T10:00:05.000Z" },
     }),
     fee("f2", "Chiara Neri", ["t-u16", "U16"], "PENDING", "2099-11-10"),
     fee("f3", "Marta Bianchi", ["t-u18", "U18"], "OVERDUE", "2026-10-10", { reminderCount: 2, lastReminderAt: "2026-10-20T08:00:00.000Z" }),
@@ -211,7 +213,7 @@ export async function mockQuoteApi(page: Page, role: QuoteRole = "staff"): Promi
         method: body.method,
         payerName: body.payerName ?? target.memberName,
         reference: body.reference ?? null,
-        receipt: { id: `r${number}`, number, code: String(number).padStart(4, "0"), issuedAt: new Date().toISOString() },
+        receipt: { id: `r${number}`, number, code: String(number).padStart(4, "0"), issuedAt: new Date().toISOString(), sentAt: null },
       });
       return respond(route, 200, target);
     }

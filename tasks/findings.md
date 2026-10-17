@@ -40,3 +40,16 @@ Percorso eseguito: Rita registra la società (2 passi) -> crea squadra -> invita
 - OK verificati: menu filtrato per ruolo (allenatore senza Amministrazione), badge notifiche su "Comunicazione" e su "Notifiche" (anche per genitore), notifica convocazione visibile subito dopo l'invio, "dove trovo il bilancio?" risolto (link in "Quote e pagamenti" e menu Amministrazione).
 - Non verificato nel browser: 320-390px (finestra non emulabile col tool), caricamento documento, pagamenti. Coperto da Playwright (E2E mockati + reali).
 - Luca (segreteria, invitato da Rita): il menu è coerente con la matrice (Amministrazione = Quote + Scadenze e documenti; Bilancio e Sponsor solo admin). Nota F21 bassa: per Luca nessuna spiegazione del perché non vede il Bilancio (da valutare se serve un messaggio; non è un difetto di permessi).
+
+## Giro 2 (2026-10-17 notte): collaudo dell'utente e verifica del lead
+- G1 (utente): scheda documenti admin poco chiara e pulsante "Aggiungi documento" sempre presente. Corretto (D-35).
+- G2 (utente): sezione Squadre povera, nessuna scheda di dettaglio, nessun filtro. Corretto (D-36); lo staff di squadra non è ottenibile dall'API.
+- G3 (utente): l'atleta doveva poter rispondere subito all'evento e l'admin vedere i senza risposta. Corretto (D-32).
+- G4 (utente): statistiche storte e senza gerarchia. Ridisegnate (KPI, blocchi con "Come leggere").
+- G5 (utente): home atleta a griglia, documenti con colori e anteprima, "Ho pagato", ricevuta visibile e inviata a entrambi. Fatto (D-33..D-35).
+- G6 (lead, media): con la serie degli allenamenti l'atleta demo aveva 33 convocazioni "Da confermare" in un elenco. Ora le 5 più vicine con rimando al calendario.
+- G7 (lead, bassa): titolo documento ripetuto ("Certificato medico · Certificato medico"). Corretto (`documentHeading`).
+- G8 (lead, metodo): i mock E2E non avevano `claimedAt` e la pagina Quote andava in errore. Mock allineati al contratto.
+- G9 (aperta, bassa): titolo di Pagamenti per l'atleta ("Quote incassate, senza rincorrere") e colonna Quota della rosa stretta.
+- G10 (aperta): confermare oltre i posti non è bloccato (la barra lo dice); se un certificato scade dopo la creazione dell'evento la risposta già presente resta.
+- Metodo: fase rossa del TDD dichiarata solo in parte da FE-A e FE-B (test scritti prima ma non sempre eseguiti rossi). Tutti i cinque agenti hanno letto le skill. Un reset del dev.db è stato bloccato da Prisma senza consenso dell'utente: non eseguito.

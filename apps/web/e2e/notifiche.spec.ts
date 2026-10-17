@@ -143,7 +143,7 @@ test.describe("notifiche", () => {
     await page.getByRole("tab", { name: "Preferenze" }).click();
 
     await expect(page.getByRole("heading", { name: "Dove ricevere gli avvisi" })).toBeVisible();
-    await expect(page.getByRole("switch")).toHaveCount(14);
+    await expect(page.getByRole("switch")).toHaveCount(16);
     const email = page.getByRole("switch", { name: "Email per Convocazioni" });
     await expect(email).toBeChecked();
     await settle(page);
@@ -193,7 +193,7 @@ test.describe("notifiche su telefono", () => {
     expect(markRead?.width ?? 0).toBeGreaterThanOrEqual(44);
 
     await page.getByRole("tab", { name: "Preferenze" }).click();
-    await expect(page.getByRole("switch")).toHaveCount(14);
+    await expect(page.getByRole("switch")).toHaveCount(16);
     await settle(page);
     expect(await overflow()).toBeLessThanOrEqual(0);
     expect(await auditAccessibility(page)).toEqual([]);

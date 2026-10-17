@@ -53,3 +53,32 @@ Persone: Rita (presidente, poco tecnica, PC), Davide (allenatore, telefono 390px
 - Gli agenti NON eseguono `build`, `test:e2e`, né avviano server su 3000/4000 (porta/`.next` condivisi): eseguono solo `lint`, `typecheck` e i test unitari del proprio perimetro (`npx vitest run <percorso>` in `apps/web` o `apps/api`). Il lead esegue build ed E2E in serie.
 - Ognuno modifica solo il proprio perimetro; tocchi trasversali minimi e dichiarati nel report. Nessun commit: li fa il lead.
 - Niente predisposizioni di deploy.
+
+---
+
+# Giro 2 (2026-10-17 sera): collaudo dell'utente su admin e atleta
+
+Richieste dell'utente, in ordine. Admin: (A1) documenti nella scheda tesserato, (A2) squadre, (A3) risposta agli eventi, (A4) statistiche. Atleta: (B1) home a griglia, (B2) documenti, (B3) pagamenti e ricevute. In attesa per scelta dell'utente: home admin, tornei, pagelle, classifiche (NON toccare).
+
+## Decisioni di prodotto (da riportare in DECISIONS D-32..D-36 e SPEC §10)
+- **D-32 Risposta agli eventi (RSVP).** Alla creazione di un evento con squadra, ogni tesserato ATTIVO e idoneo della squadra riceve una `Convocation` PENDING già visibile e rispondibile (anche per ogni occorrenza di una serie e per chi entra in squadra dopo; chi esce perde le risposte PENDING degli eventi futuri). `sentAt` smette di controllare la visibilità: indica solo "notifica inviata" (invio manuale o job N giorni prima, promemoria ai non rispondenti invariati). Si risponde finché l'evento non è iniziato o annullato (date passate escluse, già così). Gli idonei = nessun certificato scaduto; per gli altri resta la convocazione manuale con deroga (admin). Eventi senza squadra: solo convocazione manuale, ora visibile subito. La capienza (12) vale per le aggiunte manuali e per la barra "confermate/posti"; le righe automatiche non la consumano. Admin/allenatore vedono tre gruppi: Confermati, Rifiutati, Senza risposta (PENDING resta tale: in allenamento si chiude con presente/assente nelle Presenze).
+- **D-33 "Ho pagato".** Il pagante (atleta o genitore, solo propria quota) segnala il pagamento: `Payment.claimedAt`. L'amministrazione riceve una notifica (ADMIN_PAYMENT_CLAIMED), vede la quota con "Segnalato dal pagante" e, controllata la banca, la registra (flusso esistente `pay`). Segnalare non cambia lo stato.
+- **D-34 Ricevute.** Dopo la registrazione la ricevuta si può vedere (anteprima PDF in piattaforma + scarica) da admin e pagante; al momento dell'emissione ricevono una notifica "Ricevuta n. X" sia il pagante (atleta e genitori del tesserato) sia l'amministrazione (canali: app + email se consentito). `Receipt.sentAt` valorizzato all'invio.
+- **D-35 Documenti.** Un'unica riga documento condivisa tra scheda admin e area atleta: nome, stato, scadenza colorata solo come testo (rosso scaduto/entro 7 giorni, ambra entro 30, neutro altrimenti), file con "Apri" (anteprima nella piattaforma) e "Scarica". Il pulsante generale "Aggiungi documento"/"Carica un altro documento" sparisce quando esiste già almeno un documento o una riga richiesta (restano i pulsanti sulla riga).
+- **D-36 Squadre.** Card più curata (nome, categoria, genere, numero tesserati, prossimo evento), filtri (ricerca, categoria, genere), pagina di dettaglio `/squadre/[id]` con rosa (tesserati con ruolo, numero, stato documenti e quote), staff, prossimi eventi, quote.
+
+## Contratti API (fissati qui, gli agenti non li cambiano)
+- `FeeDto.claimedAt: string | null` (ISO). `POST /fees/:id/claim-payment` (permesso nuovo `payments:claim`: ATLETA, GENITORE; solo quote proprie/dei figli; 404 se non propria; 409 `fee_already_paid` / `fee_cancelled`; idempotente: se già segnalata restituisce la quota invariata). Risposta 200 `FeeDto`. Notifica admin `ADMIN_PAYMENT_CLAIMED` con dedupe per quota.
+- `GET /fees?claimed=true` filtra le quote PENDING/OVERDUE segnalate.
+- Ricevuta: dopo `pay` (con automazione ricevute attiva) e dopo `POST /fees/:id/receipt`: notifica `RECEIPT_ISSUED` al pagante e all'amministrazione; `FeeDto.receipt` invariato (id, number, code, issuedAt) più `sentAt: string | null`.
+- Convocazioni: nessun cambio di forma. Visibilità atleta senza `sentAt`. `ConvocationSummary` invariato (confirmed/declined/pending/total/capacity).
+
+## Perimetri (disgiunti)
+- API-1 (convocazioni auto): `apps/api/src/modules/{convocations,events,teams,members,attendance}`, `jobs/definitions/convocation-dispatch.ts`, seed, relativi test. Niente schema Prisma.
+- API-2 (pagamenti e ricevute): `apps/api/src/modules/{fees,notifications}`, `shared/enums.ts`, `rbac/permissions.ts`, test. Lo schema Prisma e la migrazione `payment_claim` sono già fatti dal lead.
+- FE-A documenti: `features/tesserati/{member-documents,document-*,}.tsx` nuovi file, `features/personale/{personal-documents,upload-document-dialog}`, `components/ui/file-preview-dialog.tsx` (riutilizzato poi dalle ricevute).
+- FE-B squadre: `features/squadre/*`, `app/(app)/squadre/**`.
+- FE-C statistiche: `features/statistiche/*`.
+- FE-D home atleta e risposte: `features/personale/{personal-home*,test-support}`, `features/calendario/{pending-convocations,convocation-*,convocations-panel,event-detail-dialog,athlete-*}`. Dopo API-1.
+- FE-E pagamenti e ricevute: `features/quote/*`. Dopo API-2 e FE-A (anteprima).
+- Test a persone (lead): E2E reale `06-*` con Rita, Davide, Elena, Marco.
