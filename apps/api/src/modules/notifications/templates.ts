@@ -13,7 +13,9 @@ export type NotificationTemplate =
   | { type: 'EVALUATION_PUBLISHED'; matchLabel: string; rating: number }
   | { type: 'ANNOUNCEMENT'; title: string; body: string }
   | { type: 'DOCUMENT_MISSING'; memberName: string; documentNames: readonly string[] }
+  | { type: 'RECEIPT_ISSUED'; audience: 'PAYER' | 'ADMINISTRATION'; code: string; memberName: string; description: string; amountCents: number }
   | { type: 'ADMIN_PAYMENT_RECEIVED'; memberName: string; description: string; amountCents: number }
+  | { type: 'ADMIN_PAYMENT_CLAIMED'; memberName: string; description: string; amountCents: number }
   | { type: 'ADMIN_FEE_OVERDUE'; count: number; totalCents: number }
   | { type: 'ADMIN_DOCUMENT_ALERT'; membersToFix: number; documentsToFix: number; expiringSoon: number }
   | { type: 'ADMIN_DOCUMENT_UPLOADED'; memberName: string; documentName: string; expiresAt: Date | null }
@@ -102,6 +104,17 @@ export function renderNotification(template: NotificationTemplate): RenderedNoti
       return {
         title: 'Documenti da caricare',
         body: `Per ${template.memberName} mancano: ${template.documentNames.join(', ')}`,
+      };
+    case 'RECEIPT_ISSUED': {
+      const what = `${template.description}, ${formatEuro(template.amountCents)}`;
+      return template.audience === 'PAYER'
+        ? { title: 'Ricevuta emessa', body: `Ricevuta n. ${template.code} emessa: ${what}. La trovi in Pagamenti.` }
+        : { title: 'Ricevuta emessa', body: `Ricevuta n. ${template.code} emessa per ${template.memberName}: ${what}. La trovi in Quote.` };
+    }
+    case 'ADMIN_PAYMENT_CLAIMED':
+      return {
+        title: 'Pagamento segnalato',
+        body: `Per ${template.memberName} è stato segnalato il pagamento di «${template.description}» (${formatEuro(template.amountCents)}): controlla la banca e registra il pagamento`,
       };
     case 'ADMIN_PAYMENT_RECEIVED':
       return {

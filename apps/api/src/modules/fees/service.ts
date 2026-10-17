@@ -13,6 +13,9 @@ import { feeKindSchema, paymentMethodSchema, type PaymentStatus } from '../../sh
 import { formatDateOnly, parseDateOnly, startOfUtcDay } from '../documents/status.js';
 import { ownMemberFilter } from '../members/access.js';
 import { notifyAdministration } from '../notifications/admin-alerts.js';
+import { createNotification } from '../notifications/service.js';
+import { renderNotification } from '../notifications/templates.js';
+import { resolveRecipients } from '../notifications/recipients.js';
 import { formatReceiptCode, renderReceiptPdf } from './receipt-pdf.js';
 import type {
   CreateFeeBody,
@@ -189,12 +192,14 @@ function toFeeDto(row: FeeRow, now: Date): FeeDto {
     reference: row.reference,
     reminderCount: row.reminderCount,
     lastReminderAt: toIsoOrNull(row.lastReminderAt),
+    claimedAt: toIsoOrNull(row.claimedAt),
     receipt: row.receipt
       ? {
           id: row.receipt.id,
           number: row.receipt.number,
           code: formatReceiptCode(row.receipt.number),
           issuedAt: toIso(row.receipt.issuedAt),
+          sentAt: toIsoOrNull(row.receipt.sentAt),
         }
       : null,
     createdAt: toIso(row.createdAt),
@@ -247,7 +252,13 @@ export async function listFees(
 ): Promise<Page<FeeDto>> {
   const today = startOfUtcDay(now);
   const rows = await ctx.db.payment.findMany({
-    where: { AND: [scopeFilter(ctx, filters), filters.status ? statusFilter(filters.status, today) : {}] },
+    where: {
+      AND: [
+        scopeFilter(ctx, filters),
+        filters.status ? statusFilter(filters.status, today) : {},
+        filters.claimed === undefined ? {} : { status: 'PENDING', claimedAt: filters.claimed ? { not: null } : null },
+      ],
+    },
     include: feeInclude,
     orderBy: [{ dueDate: 'asc' }, { id: 'asc' }],
     ...cursorArgs(query),
@@ -260,6 +271,26 @@ export async function getFee(ctx: TenantRequestContext, id: string, now = new Da
   const row = await ctx.db.payment.findFirst({ where: { AND: [{ id }, accessFilter(ctx)] }, include: feeInclude });
   if (!row) throw notFound('Fee');
   return toFeeDto(row, now);
+}
+
+// The payer (athlete, or guardian for a child) reports having paid, so the administration checks the bank and
+// records the payment. Only the first report is a news item: repeating it changes nothing.
+export async function claimPayment(
+  ctx: TenantRequestContext,
+  id: string,
+  now = new Date(),
+): Promise<{ fee: FeeDto; firstClaim: boolean }> {
+  // Always the own-data filter, even for somebody who also holds a staff role: one reports their own payments only.
+  const row = await ctx.db.payment.findFirst({ where: { id, member: ownMemberFilter(ctx) }, include: feeInclude });
+  if (!row) throw notFound('Fee');
+  if (row.status === 'PAID') throw conflict('fee_already_paid', 'The fee is already paid');
+  if (row.status === 'CANCELLED') throw conflict('fee_cancelled', 'The fee is cancelled');
+  if (row.claimedAt) return { fee: toFeeDto(row, now), firstClaim: false };
+
+  // Conditional update: of two concurrent reports only one wins and notifies.
+  const claimed = await ctx.db.payment.updateMany({ where: { id, status: 'PENDING', claimedAt: null }, data: { claimedAt: now } });
+  const updated = await ctx.db.payment.findFirstOrThrow({ where: { id }, include: feeInclude });
+  return { fee: toFeeDto(updated, now), firstClaim: claimed.count > 0 };
 }
 
 export async function createFee(ctx: TenantRequestContext, body: CreateFeeBody, now = new Date()): Promise<FeeDto> {
@@ -419,6 +450,69 @@ export async function alertPaymentReceived(ctx: TenantRequestContext, fee: FeeDt
     });
   } catch (error) {
     log.error({ err: error, feeId: fee.id }, 'could not notify the administration of a payment');
+  }
+}
+
+// Best effort like the payment alert: a notification failure must not undo the report.
+export async function alertPaymentClaimed(ctx: TenantRequestContext, fee: FeeDto, log: FastifyBaseLogger): Promise<void> {
+  try {
+    await notifyAdministration(ctx.db, {
+      societyId: ctx.auth.societyId,
+      template: {
+        type: 'ADMIN_PAYMENT_CLAIMED',
+        memberName: fee.memberName,
+        description: fee.description,
+        amountCents: fee.amountCents,
+      },
+      dedupeKey: `payment-claimed:${fee.id}`,
+      data: { feeId: fee.id, memberId: fee.memberId },
+      exceptUserId: ctx.auth.userId,
+      now: new Date(),
+    });
+  } catch (error) {
+    log.error({ err: error, feeId: fee.id }, 'could not notify the administration of a payment claim');
+  }
+}
+
+// Tells the payer (the member's account and the guardians) and the whole administration, the one who recorded the
+// payment included, that the receipt exists, then stamps Receipt.sentAt. Email carries the text only: the PDF is
+// served by GET /fees/:id/receipt (the email transport has no attachments). Best effort, and idempotent per receipt.
+export async function notifyReceiptIssued(ctx: TenantRequestContext, fee: FeeDto, log: FastifyBaseLogger): Promise<void> {
+  const { receipt } = fee;
+  if (!receipt) return;
+  try {
+    const { db, auth } = ctx;
+    const [payers, administration] = await Promise.all([
+      resolveRecipients(db, { kind: 'MEMBERS', memberIds: [fee.memberId] }),
+      resolveRecipients(db, { kind: 'ROLES', roles: ['ADMIN', 'SEGRETERIA'] }),
+    ]);
+    const audiences = [
+      { audience: 'PAYER', userIds: payers },
+      { audience: 'ADMINISTRATION', userIds: administration },
+    ] as const;
+    let written = 0;
+    for (const { audience, userIds } of audiences) {
+      const { title, body } = renderNotification({
+        type: 'RECEIPT_ISSUED',
+        audience,
+        code: receipt.code,
+        memberName: fee.memberName,
+        description: fee.description,
+        amountCents: fee.amountCents,
+      });
+      written += await createNotification(db, {
+        societyId: auth.societyId,
+        userIds,
+        type: 'RECEIPT_ISSUED',
+        title,
+        body,
+        dedupeKey: `receipt-issued:${receipt.id}`,
+        data: { feeId: fee.id, memberId: fee.memberId },
+      });
+    }
+    if (written > 0) await db.receipt.updateMany({ where: { id: receipt.id, sentAt: null }, data: { sentAt: new Date() } });
+  } catch (error) {
+    log.error({ err: error, feeId: fee.id }, 'could not notify the receipt');
   }
 }
 

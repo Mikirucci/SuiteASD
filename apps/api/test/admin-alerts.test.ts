@@ -266,7 +266,7 @@ describe('self-service documents and the alerts the administration gets', () => 
       const rows = await ctx.prisma.notification.findMany({ where: { societyId: society.id, type: 'ADMIN_PAYMENT_RECEIVED', channel: 'IN_APP' } });
       expect(rows.map((row) => row.userId)).toEqual([owner.user.id]);
       expect(rows[0]).toMatchObject({ title: 'Pagamento ricevuto', body: 'Sara Conti · Quota novembre · € 60' });
-      expect(await ctx.prisma.notification.count({ where: { userId: parent.user.id } })).toBe(0);
+      expect(await ctx.prisma.notification.count({ where: { userId: parent.user.id, type: { not: 'RECEIPT_ISSUED' } } })).toBe(0);
     });
 
     it('does not repeat the alert when the same request is replayed', async () => {
@@ -285,7 +285,7 @@ describe('self-service documents and the alerts the administration gets', () => 
       const owner = await createActor(ctx, society.id, 'ADMIN');
       const fee = await feeIn(society.id, (await createMember(ctx, society.id)).id);
       expect((await pay(owner, fee.id)).statusCode).toBe(200);
-      expect(await ctx.prisma.notification.count({ where: { societyId: society.id } })).toBe(0);
+      expect(await ctx.prisma.notification.count({ where: { societyId: society.id, type: 'ADMIN_PAYMENT_RECEIVED' } })).toBe(0);
     });
   });
 });

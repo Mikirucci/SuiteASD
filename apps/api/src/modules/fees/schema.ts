@@ -86,9 +86,14 @@ export const listFeesQuerySchema = paginationQuerySchema.extend({
   q: z.string().trim().min(1).max(80).optional().describe('Substring of the member first or last name'),
   dueFrom: dateOnlySchema.optional(),
   dueTo: dateOnlySchema.optional(),
+  claimed: z
+    .enum(['true', 'false'])
+    .transform((value) => value === 'true')
+    .optional()
+    .describe('true: unpaid fees the payer reported as paid; false: unpaid fees nobody reported'),
 });
 
-export const feesSummaryQuerySchema = listFeesQuerySchema.omit({ limit: true, cursor: true, status: true });
+export const feesSummaryQuerySchema = listFeesQuerySchema.omit({ limit: true, cursor: true, status: true, claimed: true });
 
 export const payFeeBodySchema = z.object({
   method: paymentMethodSchema,
@@ -103,6 +108,7 @@ export const receiptSchema = z.object({
   number: z.number().int(),
   code: z.string().describe('Zero-padded number, e.g. "0147"'),
   issuedAt: isoDateTimeSchema,
+  sentAt: isoDateTimeSchema.nullable().describe('When the receipt notifications went out; null until then'),
 });
 
 export const feeSchema = z.object({
@@ -123,6 +129,7 @@ export const feeSchema = z.object({
   reference: z.string().nullable(),
   reminderCount: z.number().int(),
   lastReminderAt: isoDateTimeSchema.nullable(),
+  claimedAt: isoDateTimeSchema.nullable().describe('When the payer reported having paid ("Ho pagato"); kept after the payment is recorded'),
   receipt: receiptSchema.nullable(),
   createdAt: isoDateTimeSchema,
   updatedAt: isoDateTimeSchema,

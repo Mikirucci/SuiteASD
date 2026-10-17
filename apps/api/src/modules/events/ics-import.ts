@@ -1,5 +1,6 @@
 import { unprocessable } from '../../lib/errors.js';
 import type { TenantRequestContext } from '../../plugins/auth.js';
+import { addTeamConvocations, type AutoConvocationEvent } from '../convocations/auto.js';
 import { MAX_OCCURRENCES, expandWeekly, toRrule, zonedTimeToUtc, type WeeklyRecurrence } from './recurrence.js';
 import type { ImportEventsBody, ImportEventsResult } from './schema.js';
 
@@ -215,8 +216,9 @@ export async function importEvents(ctx: TenantRequestContext, body: ImportEvents
 
   await db.$transaction(async (tx) => {
     let rootId: string | null = null;
+    const created: AutoConvocationEvent[] = [];
     for (const item of fresh) {
-      const row: { id: string } = await tx.event.create({
+      const row: AutoConvocationEvent = await tx.event.create({
         data: {
           societyId: auth.societyId,
           type: body.type,
@@ -229,11 +231,13 @@ export async function importEvents(ctx: TenantRequestContext, body: ImportEvents
           recurrenceRule: item.recurrenceRule,
           recurrenceParentId: item.recurrenceParent ? null : rootId,
         },
-        select: { id: true },
+        select: { id: true, teamId: true, startsAt: true, status: true },
       });
+      created.push(row);
       // The first occurrence of a series is the parent of the following ones
       if (item.recurrenceParent) rootId = row.id;
     }
+    await addTeamConvocations(tx, auth.societyId, created);
   });
   return result;
 }

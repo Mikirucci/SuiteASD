@@ -29,11 +29,14 @@ export const convocationRoutes: FastifyPluginAsyncZod = async (app) => {
   app.get(
     '/convocations',
     {
-      // Athletes and guardians only get the convocations sent to them or their children (filtered in the service).
+      // Athletes and guardians only get their own convocations and their children's (filtered in the service).
       onRequest: [app.requirePermission('convocations:readOwn')],
       schema: {
         tags: ['Convocations'],
         summary: 'List convocations (cursor pagination, ordered by event date)',
+        description:
+          'A team event convocates its eligible athletes as soon as it is created: athletes and guardians see their own ' +
+          'convocation at once and can answer it, whether or not it was ever notified (`sentAt`).',
         security: bearerSecurity,
         querystring: listConvocationsQuerySchema,
         response: { 200: pageSchema(convocationSchema), ...problemResponses(400, 401, 403, 422) },
@@ -65,8 +68,11 @@ export const convocationRoutes: FastifyPluginAsyncZod = async (app) => {
         tags: ['Convocations'],
         summary: 'Convocate athletes of the event team (capacity, eligibility, ADMIN override)',
         description:
-          'Athletes already convocated are skipped. An athlete with an expired medical certificate is rejected with 422 ' +
-          '`member_not_eligible` unless an ADMIN sends `override.reason`. More athletes than the event slots: 409 `capacity_exceeded`.',
+          'Manual addition, e.g. an athlete with an expired certificate (the automatic convocation skips them). Athletes ' +
+          'already convocated are skipped. An athlete with an expired medical certificate is rejected with 422 ' +
+          '`member_not_eligible` unless an ADMIN sends `override.reason`. Capacity: on a team event the confirmed athletes ' +
+          'plus the new ones cannot exceed the event slots, on an event without a team the rows that are not declined ' +
+          'plus the new ones cannot; otherwise 409 `capacity_exceeded`.',
         security: bearerSecurity,
         params: eventIdParamsSchema,
         body: createConvocationsBodySchema,
@@ -95,7 +101,7 @@ export const convocationRoutes: FastifyPluginAsyncZod = async (app) => {
       onRequest: [app.requirePermission('convocations:write')],
       schema: {
         tags: ['Convocations'],
-        summary: 'Send the convocations not sent yet (idempotent: nobody is notified twice)',
+        summary: 'Notify the convocations not notified yet (idempotent: nobody is notified twice; athletes who already answered are not asked again)',
         security: bearerSecurity,
         params: eventIdParamsSchema,
         response: { 200: sendConvocationsResultSchema, ...problemResponses(401, 403, 404, 409) },

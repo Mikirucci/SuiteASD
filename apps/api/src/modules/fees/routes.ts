@@ -21,6 +21,8 @@ import {
   updateFeePlanBodySchema,
 } from './schema.js';
 import {
+  alertPaymentClaimed,
+  claimPayment,
   createFee,
   feePlanService,
   feesSummary,
@@ -30,6 +32,7 @@ import {
   issueReceipt,
   listFees,
   alertPaymentReceived,
+  notifyReceiptIssued,
   payFee,
 } from './service.js';
 
@@ -153,8 +156,34 @@ export const feeRoutes: FastifyPluginAsyncZod = async (app) => {
       const ctx = tenantOf(request);
       const outcome = await payFee(ctx, request.params.id, request.body, request.headers['idempotency-key']);
       if (outcome.replayed) void reply.header('idempotent-replayed', 'true');
-      else await alertPaymentReceived(ctx, outcome.body, request.log);
+      else {
+        await alertPaymentReceived(ctx, outcome.body, request.log);
+        await notifyReceiptIssued(ctx, outcome.body, request.log);
+      }
       return reply.status(200).send(outcome.body);
+    },
+  );
+
+  app.post(
+    '/fees/:id/claim-payment',
+    {
+      onRequest: [app.requirePermission('payments:claim')],
+      schema: {
+        tags: ['Fees'],
+        summary: 'Report that a fee of the user or of their children has been paid ("Ho pagato")',
+        description:
+          'Sets `claimedAt` and notifies the administration, who checks the bank and records the payment. ' +
+          'Idempotent: repeating it answers 200 with the fee unchanged and notifies nobody. The status does not change.',
+        security: bearerSecurity,
+        params: idParamsSchema,
+        response: { 200: feeSchema, ...problemResponses(401, 403, 404, 409) },
+      },
+    },
+    async (request) => {
+      const ctx = tenantOf(request);
+      const { fee, firstClaim } = await claimPayment(ctx, request.params.id);
+      if (firstClaim) await alertPaymentClaimed(ctx, fee, request.log);
+      return fee;
     },
   );
 
@@ -164,13 +193,17 @@ export const feeRoutes: FastifyPluginAsyncZod = async (app) => {
       onRequest: [app.requirePermission('payments:write')],
       schema: {
         tags: ['Fees'],
-        summary: 'Issue the receipt of a paid fee by hand (when the receipts automation was off)',
+        summary: 'Issue the receipt of a paid fee by hand (when the receipts automation was off) and notify it',
         security: bearerSecurity,
         params: idParamsSchema,
         response: { 201: feeSchema, ...problemResponses(401, 403, 404, 409) },
       },
     },
-    async (request, reply) => reply.status(201).send(await issueReceipt(tenantOf(request), request.params.id)),
+    async (request, reply) => {
+      const ctx = tenantOf(request);
+      await notifyReceiptIssued(ctx, await issueReceipt(ctx, request.params.id), request.log);
+      return reply.status(201).send(await getFee(ctx, request.params.id));
+    },
   );
 
   app.get(
@@ -179,7 +212,7 @@ export const feeRoutes: FastifyPluginAsyncZod = async (app) => {
       onRequest: [app.requirePermission('payments:readOwn')],
       schema: {
         tags: ['Fees'],
-        summary: 'Download the receipt PDF of a paid fee',
+        summary: 'Download the receipt PDF of a paid fee (staff, or the payer: athlete / guardian of the member)',
         security: bearerSecurity,
         params: idParamsSchema,
         response: { 200: binaryResponseSchema, ...problemResponses(401, 403, 404) },

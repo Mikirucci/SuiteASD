@@ -2,6 +2,7 @@ import { Prisma } from '@prisma/client';
 import { CsvParseError, parseCsv } from '../../lib/csv.js';
 import { unprocessable } from '../../lib/errors.js';
 import type { TenantRequestContext } from '../../plugins/auth.js';
+import { addTeamConvocations } from '../convocations/auto.js';
 import { zonedTimeToUtc } from '../events/recurrence.js';
 import { normalizeHeader } from '../members/csv-columns.js';
 import { validateMatchResult } from './match-result.js';
@@ -291,9 +292,10 @@ export async function importMatches(
             startsAt: row.playedAt,
             teamId: home?.teamId ?? away?.teamId ?? null,
           },
-          select: { id: true },
+          select: { id: true, teamId: true, startsAt: true, status: true },
         });
         eventId = event.id;
+        await addTeamConvocations(tx, auth.societyId, [event]);
       }
       const resultData =
         row.homeSets !== null && row.awaySets !== null

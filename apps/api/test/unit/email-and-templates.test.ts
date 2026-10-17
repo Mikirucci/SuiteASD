@@ -139,6 +139,24 @@ describe('notification templates (Italian)', () => {
     expect(long.body).toHaveLength(140);
   });
 
+  it('renders the receipt for the payer and for the administration', () => {
+    const receipt = { type: 'RECEIPT_ISSUED', code: '0147', memberName: 'Giulia Rossi', description: 'Quota novembre', amountCents: 6050 } as const;
+    expect(renderNotification({ ...receipt, audience: 'PAYER' })).toEqual({
+      title: 'Ricevuta emessa',
+      body: 'Ricevuta n. 0147 emessa: Quota novembre, € 60,50. La trovi in Pagamenti.',
+    });
+    expect(renderNotification({ ...receipt, audience: 'ADMINISTRATION' }).body).toBe(
+      'Ricevuta n. 0147 emessa per Giulia Rossi: Quota novembre, € 60,50. La trovi in Quote.',
+    );
+  });
+
+  it('renders the payment claim for the administration', () => {
+    expect(renderNotification({ type: 'ADMIN_PAYMENT_CLAIMED', memberName: 'Giulia Rossi', description: 'Quota novembre', amountCents: 6000 })).toEqual({
+      title: 'Pagamento segnalato',
+      body: 'Per Giulia Rossi è stato segnalato il pagamento di «Quota novembre» (€ 60): controlla la banca e registra il pagamento',
+    });
+  });
+
   it('renders the missing-documents reminder for an athlete', () => {
     expect(renderNotification({ type: 'DOCUMENT_MISSING', memberName: 'Sara Conti', documentNames: ['Certificato medico', 'Privacy'] })).toEqual({
       title: 'Documenti da caricare',

@@ -4,6 +4,7 @@ import { cursorArgs, toPage, type Page, type PaginationQuery } from '../../lib/p
 import { toIso, toIsoOrNull } from '../../lib/schemas.js';
 import type { TenantRequestContext } from '../../plugins/auth.js';
 import { eventStatusSchema, eventTypeSchema, type EventType } from '../../shared/enums.js';
+import { addTeamConvocations, realignEventTeam } from '../convocations/auto.js';
 import { loadConvocationSummaries } from '../convocations/summary.js';
 import { createNotification } from '../notifications/service.js';
 import { buildIcalendar } from './ical.js';
@@ -120,9 +121,10 @@ export async function createEvent(ctx: TenantRequestContext, body: CreateEventBo
   const endsAtFor = (start: Date) => (durationMs === null ? null : new Date(start.getTime() + durationMs));
 
   if (!body.recurrence) {
-    const row = await db.event.create({
-      data: { ...base, startsAt, endsAt: endsAtFor(startsAt) },
-      include: eventInclude,
+    const row = await db.$transaction(async (tx) => {
+      const created = await tx.event.create({ data: { ...base, startsAt, endsAt: endsAtFor(startsAt) }, include: eventInclude });
+      await addTeamConvocations(tx, auth.societyId, [created]);
+      return created;
     });
     return { ...(await toDto(ctx, row)), occurrencesCreated: 1 };
   }
@@ -145,6 +147,12 @@ export async function createEvent(ctx: TenantRequestContext, body: CreateEventBo
         recurrenceParentId: first.id,
       })),
     });
+    // Every occurrence is convocated like a single event (D-32).
+    const occurrences = await tx.event.findMany({
+      where: { OR: [{ id: first.id }, { recurrenceParentId: first.id }] },
+      select: { id: true, teamId: true, startsAt: true, status: true },
+    });
+    await addTeamConvocations(tx, auth.societyId, occurrences);
     return first;
   });
   return { ...(await toDto(ctx, root)), occurrencesCreated: starts.length };
@@ -225,6 +233,7 @@ export async function updateEvent(ctx: TenantRequestContext, id: string, body: U
     },
     include: eventInclude,
   });
+  if (row.teamId !== current.teamId) await realignEventTeam(ctx.db, ctx.auth.societyId, row, current.teamId);
   if (moved) await notifyChange(ctx, row, 'moved');
   return toDto(ctx, row);
 }

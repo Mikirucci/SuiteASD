@@ -480,6 +480,8 @@ model Payment {
   payerEmail   String?
   reference    String?
   recordedById String?
+  // Set when the payer says "ho pagato" (SPEC 03 / D-33); the administration checks the bank and registers the payment.
+  claimedAt    DateTime?
   reminderCount Int      @default(0)
   lastReminderAt DateTime?
   createdAt    DateTime  @default(now())

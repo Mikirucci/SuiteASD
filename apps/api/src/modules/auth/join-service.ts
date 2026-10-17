@@ -15,6 +15,7 @@ import {
   type JoinLinkDto,
 } from '../enrolment/schema.js';
 import { joinLinkStatus } from '../enrolment/service.js';
+import { syncMemberConvocations } from '../convocations/auto.js';
 import { notifyAdministration } from '../notifications/admin-alerts.js';
 import type { SessionResponse } from './schema.js';
 import { issueSession } from './session.js';
@@ -97,6 +98,16 @@ export function createJoinService({ prisma, config, passwords, log }: JoinDeps) 
       });
     } catch (error) {
       log.error({ err: error, societyId: input.societyId, memberId: input.memberId }, 'could not notify the administration of an enrolment');
+    }
+  }
+
+  // The new member can answer the upcoming events of the team at once. Like the alert, a failure here must not undo
+  // an enrolment that went through: the secretary can still convocate by hand.
+  async function convocateNewMember(societyId: string, memberId: string): Promise<void> {
+    try {
+      await syncMemberConvocations(scopeToTenant(prisma, societyId), societyId, memberId);
+    } catch (error) {
+      log.error({ err: error, societyId, memberId }, 'could not convocate a new member to the upcoming events of the team');
     }
   }
 
@@ -199,6 +210,7 @@ export function createJoinService({ prisma, config, passwords, log }: JoinDeps) 
         return { session, memberId: member.id };
       });
 
+      await convocateNewMember(societyId, result.memberId);
       await alertAdministration({
         societyId,
         memberId: result.memberId,
