@@ -1,7 +1,7 @@
 "use client";
 
 import { BellRing, Send, UserPlus } from "lucide-react";
-import { Alert, AutoChip, Button, DataBoundary, useToast } from "@/components/ui";
+import { Alert, Button, DataBoundary, useToast } from "@/components/ui";
 import { useApiMutation } from "@/lib/api";
 import { useEventConvocations, useInvalidateCalendar } from "./api";
 import { ConvocationAnswer } from "./convocation-answer";
@@ -119,7 +119,8 @@ interface PanelBodyProps {
 function PanelBody({ data, event, access, open, removingId, onRemove, onConvocate, onSend, onRemind, sending, reminding }: PanelBodyProps) {
   const rows = data.data;
   const sentAt = rows.flatMap((row) => (row.sentAt ? [row.sentAt] : [])).sort().at(-1);
-  const hasUnsent = rows.some((row) => row.sentAt === null);
+  const unsentCount = rows.filter((row) => row.sentAt === null).length;
+  const hasUnsent = unsentCount > 0;
   const hasPendingSent = rows.some((row) => row.sentAt !== null && row.status === "PENDING");
   const freeSlots = Math.max(0, data.summary.capacity - rows.filter((row) => row.status !== "DECLINED").length);
   const canManage = access.canConvocate && open;
@@ -130,15 +131,15 @@ function PanelBody({ data, event, access, open, removingId, onRemove, onConvocat
       <div className="flex flex-col gap-2">
         <ConvocationProgress summary={data.summary} label={event.title} />
         {countsText(data.summary) ? <p className="text-sm text-fg-muted">{countsText(data.summary)}</p> : null}
-        {sentAt ? (
-          <p className="flex flex-wrap items-center gap-2 text-sm text-fg-muted">
-            <AutoChip>Inviate in automatico</AutoChip>
-            il {formatShortDateTime(sentAt)}
-          </p>
-        ) : staffView && rows.length > 0 ? (
-          <p className="text-sm text-fg-muted">Non ancora inviate: partono in automatico qualche giorno prima della gara.</p>
-        ) : null}
+        {sentAt ? <p className="text-sm text-fg-muted">Inviate il {formatShortDateTime(sentAt)}</p> : null}
       </div>
+      {staffView && unsentCount > 0 ? (
+        <Alert title={`Bozza: ${pluralize(unsentCount, "atleta non vede", "atleti non vedono")} ancora la convocazione`}>
+          {canManage
+            ? "Salvate, ma non ancora inviate. Premi «Invia convocazioni» per avvisarli ora; altrimenti partono in automatico qualche giorno prima della gara."
+            : "Salvate, ma non ancora inviate: partono in automatico qualche giorno prima della gara."}
+        </Alert>
+      ) : null}
 
       {staffView ? (
         rows.length > 0 ? (
@@ -161,14 +162,14 @@ function PanelBody({ data, event, access, open, removingId, onRemove, onConvocat
       ) : null}
       {canManage ? (
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-          {event.team ? (
-            <Button variant="secondary" leftIcon={<UserPlus />} onClick={onConvocate}>
-              Convoca atleti
-            </Button>
-          ) : null}
           {hasUnsent ? (
             <Button leftIcon={<Send />} loading={sending} onClick={onSend}>
               Invia convocazioni
+            </Button>
+          ) : null}
+          {event.team ? (
+            <Button variant="secondary" leftIcon={<UserPlus />} onClick={onConvocate}>
+              Convoca atleti
             </Button>
           ) : null}
           {hasPendingSent ? (

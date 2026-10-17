@@ -3,7 +3,6 @@ import {
   CalendarClock,
   CalendarDays,
   ClipboardList,
-  LayoutGrid,
   Trophy,
   Users,
   Wallet,
@@ -23,8 +22,8 @@ export interface AppModule {
 }
 
 /**
- * Navigation modules, in sidebar order. Adding a module = adding its route folder under
- * `src/app/(app)/<href>` and, only if it is new, an entry here (see docs/FRONTEND.md).
+ * Modules shown as cards on the home page. The menu lives in `features/shell/nav-items.ts`; adding a module there
+ * does not require an entry here (see docs/FRONTEND.md).
  */
 export const MODULES: readonly AppModule[] = [
   { id: "tesserati", label: "Tesserati", href: "/tesserati", icon: Users, description: "Anagrafiche, documenti e squadre", tone: "blue" },
@@ -35,8 +34,4 @@ export const MODULES: readonly AppModule[] = [
   { id: "pagelle", label: "Pagelle", href: "/pagelle", icon: ClipboardList, description: "Voti e statistiche di gara", tone: "rose" },
   { id: "notifiche", label: "Notifiche", href: "/notifiche", icon: Bell, description: "Avvisi ad atleti e genitori", tone: "cyan" },
   { id: "automazioni", label: "Automazioni", href: "/automazioni", icon: Zap, description: "Attività gestite dall'app", tone: "indigo" },
-  { id: "altro", label: "Altro", href: "/altro", icon: LayoutGrid, description: "Palestre, divise, sponsor e molto altro", tone: "lime" },
 ];
-
-/** Modules reachable from the bottom bar on small screens; the rest lives in the menu. */
-export const PRIMARY_MOBILE_MODULE_IDS: readonly string[] = ["tesserati", "calendario", "quote", "notifiche"];

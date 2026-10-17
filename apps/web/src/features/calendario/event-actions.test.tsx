@@ -44,7 +44,7 @@ async function openTraining() {
 }
 
 describe("event detail and squad", () => {
-  it("shows the squad: avatars with the answers, the confirmed count and the automatic sending badge", async () => {
+  it("shows the squad: avatars with the answers, the confirmed count and a neutral sending date", async () => {
     stubApi(calendarRoutes());
     renderWithProviders(<CalendarioPage />);
     const dialog = await openMatch();
@@ -54,7 +54,10 @@ describe("event detail and squad", () => {
     expect(within(dialog).getByText("Via dello Sport 1, Roma")).toBeInTheDocument();
     expect(await within(dialog).findByText("5/12 confermate")).toBeInTheDocument();
     expect(within(dialog).getByText("2 in attesa · 1 rinuncia")).toBeInTheDocument();
-    expect(within(dialog).getByText("Inviate in automatico")).toBeInTheDocument();
+    // The API does not say who sent them, so the label must not claim they went out automatically
+    expect(within(dialog).getByText(/^Inviate il /)).toBeInTheDocument();
+    expect(within(dialog).queryByText(/in automatico/)).not.toBeInTheDocument();
+    expect(within(dialog).queryByText(/^Bozza/)).not.toBeInTheDocument();
 
     const squad = within(dialog).getByRole("list", { name: "Convocati" });
     const people = within(squad).getAllByRole("listitem").filter((item) => item.getAttribute("aria-hidden") !== "true");
@@ -119,11 +122,57 @@ describe("event detail and squad", () => {
     );
     renderWithProviders(<CalendarioPage />);
     const dialog = await openMatch();
-    expect(await within(dialog).findByText(/Non ancora inviate/)).toBeInTheDocument();
+    expect(await within(dialog).findByText("Bozza: 1 atleta non vede ancora la convocazione")).toBeInTheDocument();
+    expect(within(dialog).getByText(/Premi «Invia convocazioni» per avvisarli ora/)).toBeInTheDocument();
+    expect(within(dialog).queryByText(/^Inviate il /)).not.toBeInTheDocument();
     expect(within(dialog).queryByRole("button", { name: "Sollecita chi non ha risposto" })).not.toBeInTheDocument();
     await userEvent.click(within(dialog).getByRole("button", { name: "Invia convocazioni" }));
     expect(await screen.findByText("1 convocazione inviata")).toBeInTheDocument();
     expect(api.count("POST /events/ev-match/convocations/send")).toBe(1);
+  });
+
+  it("puts sending first, as the main action, while some convocations are still drafts", async () => {
+    const unsent = [makeConvocation(ANNA, "PENDING", { sentAt: null })];
+    stubApi(
+      calendarRoutes({
+        "GET /events/ev-match/convocations": () =>
+          json(200, { data: unsent, summary: { confirmed: 0, declined: 0, pending: 1, total: 1, capacity: 12 } }),
+      }),
+    );
+    renderWithProviders(<CalendarioPage />);
+    const dialog = await openMatch();
+    const send = await within(dialog).findByRole("button", { name: "Invia convocazioni" });
+    const convocate = within(dialog).getByRole("button", { name: "Convoca atleti" });
+    expect(send.compareDocumentPosition(convocate) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("tells the secretariat that drafts are not visible yet, without offering to send them", async () => {
+    auth.permissions = SECRETARY_PERMISSIONS;
+    const unsent = [makeConvocation(ANNA, "PENDING", { sentAt: null })];
+    stubApi(
+      calendarRoutes({
+        "GET /events/ev-match/convocations": () =>
+          json(200, { data: unsent, summary: { confirmed: 0, declined: 0, pending: 1, total: 1, capacity: 12 } }),
+      }),
+    );
+    renderWithProviders(<CalendarioPage />);
+    const dialog = await openMatch();
+    expect(await within(dialog).findByText("Bozza: 1 atleta non vede ancora la convocazione")).toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: "Invia convocazioni" })).not.toBeInTheDocument();
+  });
+
+  it("shows both the sending date and the drafts when athletes were added after the first sending", async () => {
+    const mixed = [makeConvocation(ANNA, "PENDING", { sentAt: null }), ...MATCH_CONVOCATIONS_RESPONSE.data.slice(0, 1)];
+    stubApi(
+      calendarRoutes({
+        "GET /events/ev-match/convocations": () =>
+          json(200, { data: mixed, summary: { confirmed: 1, declined: 0, pending: 1, total: 2, capacity: 12 } }),
+      }),
+    );
+    renderWithProviders(<CalendarioPage />);
+    const dialog = await openMatch();
+    expect(await within(dialog).findByText("Bozza: 1 atleta non vede ancora la convocazione")).toBeInTheDocument();
+    expect(within(dialog).getByText(/^Inviate il /)).toBeInTheDocument();
   });
 
   it("reminds who has not answered, and says when nobody needs a reminder", async () => {

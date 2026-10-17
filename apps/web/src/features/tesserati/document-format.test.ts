@@ -32,9 +32,13 @@ describe("dates and labels", () => {
     expect(formatDateOnly("2026-11-27")).toBe("27 novembre 2026");
   });
 
-  it("labels a team by its category, else by its name", () => {
-    expect(teamLabel({ name: "Prima squadra", category: "Serie D" })).toBe("Serie D");
+  it("labels a team by its name, adding the category only when the name does not already say it", () => {
+    expect(teamLabel({ name: "Rosa Under 16", category: "U16" })).toBe("Rosa Under 16 (U16)");
+    expect(teamLabel({ name: "Prima squadra", category: "Serie D" })).toBe("Prima squadra (Serie D)");
     expect(teamLabel({ name: "Under 14", category: null })).toBe("Under 14");
+    expect(teamLabel({ name: "U16", category: "U16" })).toBe("U16");
+    expect(teamLabel({ name: "Serie D femminile", category: "serie d" })).toBe("Serie D femminile");
+    expect(teamLabel({ name: "Under 14", category: "  " })).toBe("Under 14");
   });
 });
 

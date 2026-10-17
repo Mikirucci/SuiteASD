@@ -52,6 +52,20 @@ export function AuthFrame({ children }: { children: ReactNode }) {
   );
 }
 
+/** Single-column frame for pages opened by people outside the administration (e.g. the enrolment link): no pitch for managers. */
+export function PublicFrame({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex min-h-dvh flex-col items-center gap-6 px-4 py-8 sm:px-8 sm:py-12">
+      <Logo size={40} />
+      <main id="main" className="w-full max-w-xl">
+        <Card padding="lg" className="rounded-xl">
+          {children}
+        </Card>
+      </main>
+    </div>
+  );
+}
+
 export function AuthHeading({ title, description }: { title: string; description: string }) {
   return (
     <div className="mb-6">

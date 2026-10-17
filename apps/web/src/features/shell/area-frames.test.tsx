@@ -28,7 +28,7 @@ vi.mock("@/features/auth/auth-provider", () => ({
   useAuth: () => ({
     status: mocks.signedIn.current ? "authenticated" : "loading",
     me: mocks.signedIn.current
-      ? { user: { firstName: "Sara", lastName: "Conti" }, society: { name: "Aquile Volley" }, roles: mocks.roles.current as Role[] }
+      ? { user: { firstName: "Sara", lastName: "Conti" }, society: { name: "Aquile Volley" }, roles: mocks.roles.current as Role[], permissions: ["members:read"] }
       : null,
     logout: vi.fn(),
   }),

@@ -50,7 +50,7 @@ function ConvocateForm({ event, teamId, canOverride, onDone }: ConvocateFormProp
         await invalidate();
         toast({
           title: pluralize(memberIds.length, "convocazione creata", "convocazioni create"),
-          description: "Ora inviale: partono comunque in automatico prima della gara.",
+          description: "Sono in bozza: premi «Invia convocazioni» perché atleti e genitori le vedano.",
           tone: "success",
         });
         onDone();

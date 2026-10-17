@@ -89,28 +89,38 @@ async function openAs(page: Page, url: string, me: Parameters<typeof routeApi>[1
   return api;
 }
 
-test.describe("altro, hub", () => {
-  test("shows the 12 sections and each one leads to its page, without accessibility violations", async ({ page }) => {
+test.describe("altro, navigazione per argomento", () => {
+  test("the old hub sends back to the home and each topic of the menu leads to its page, without accessibility violations", async ({ page }) => {
     await openAs(page, "/altro", ADMIN, () => undefined);
+    await expect(page).toHaveURL(/\/$/);
+    await expect(page.getByRole("heading", { level: 1, name: /Ciao Michele/ })).toBeVisible();
 
-    await expect(page.getByRole("heading", { level: 1, name: /Tutto quello che serve, in un posto solo/ })).toBeVisible();
-    const grid = page.getByRole("list", { name: "Sezioni" });
-    await expect(grid.getByRole("link")).toHaveCount(12);
-    await expect(grid.getByRole("link", { name: /Presenze/ })).toHaveAttribute("href", "/calendario/presenze");
-    await expect(grid.getByRole("link", { name: /Documenti/ })).toHaveAttribute("href", "/scadenze");
+    const sidebar = page.getByRole("navigation", { name: "Sezioni", exact: true });
+    await expect(sidebar.getByRole("link", { name: "Altro" })).toHaveCount(0);
+    const amministrazione = sidebar.getByRole("button", { name: "Amministrazione" });
+    await expect(amministrazione).toHaveAttribute("aria-expanded", "false");
+    await amministrazione.click();
+    await expect(amministrazione).toHaveAttribute("aria-expanded", "true");
+    await expect(sidebar.getByRole("link", { name: "Scadenze e documenti" })).toHaveAttribute("href", "/scadenze");
     await settle(page);
     expect(await auditAccessibility(page)).toEqual([]);
 
-    await grid.getByRole("link", { name: /Bilancio/ }).click();
+    await sidebar.getByRole("link", { name: "Bilancio" }).click();
     await expect(page).toHaveURL(/\/altro\/bilancio$/);
+    await expect(sidebar.getByRole("link", { name: "Bilancio" })).toHaveAttribute("aria-current", "page");
+    await expect(sidebar.getByRole("button", { name: "Amministrazione" })).toHaveAttribute("aria-expanded", "true");
   });
 
   test("shows only the sections the role can read", async ({ page }) => {
-    await openAs(page, "/altro", READER, () => undefined);
-    const grid = page.getByRole("list", { name: "Sezioni" });
-    await expect(grid.getByRole("link")).toHaveCount(4);
-    await expect(grid.getByRole("link", { name: /Sponsor/ })).toHaveCount(0);
-    await expect(grid.getByRole("link", { name: /Bilancio/ })).toHaveCount(0);
+    await openAs(page, "/", READER, () => undefined);
+    const sidebar = page.getByRole("navigation", { name: "Sezioni", exact: true });
+    // Staff is the only item of its topic and Logistica holds the three readable ones
+    await expect(sidebar.getByRole("button")).toHaveText(["Logistica"]);
+    await expect(sidebar.getByRole("link", { name: "Staff" })).toHaveAttribute("href", "/altro/staff");
+    await sidebar.getByRole("button", { name: "Logistica" }).click();
+    await expect(sidebar.getByRole("link")).toHaveText(["Home", "Staff", "Palestre", "Trasferte", "Divise"]);
+    await expect(sidebar.getByRole("link", { name: "Sponsor" })).toHaveCount(0);
+    await expect(sidebar.getByRole("link", { name: "Bilancio" })).toHaveCount(0);
   });
 });
 
@@ -279,9 +289,20 @@ test.describe("altro su telefono", () => {
     expect(await auditAccessibility(page)).toEqual([]);
   }
 
-  test("the hub fits a 320px screen", async ({ page }) => {
-    await openAs(page, "/altro", ADMIN, () => undefined);
-    await expect(page.getByRole("list", { name: "Sezioni" }).getByRole("link")).toHaveCount(12);
+  test("the menu fits a 320px screen, with the topics of the role and touch targets of at least 44px", async ({ page }) => {
+    await openAs(page, "/", ADMIN, () => undefined);
+    await page.getByRole("navigation", { name: "Navigazione principale" }).getByRole("button", { name: "Menu" }).click();
+    const drawer = page.getByRole("dialog", { name: "Menu" });
+    // Comunicazione is not listed: this role only reads the board, so the topic is a direct link
+    for (const topic of ["Persone", "Attività sportiva", "Amministrazione", "Logistica"]) {
+      const button = drawer.getByRole("button", { name: topic });
+      await expect(button).toBeVisible();
+      expect((await button.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
+    }
+    await drawer.getByRole("button", { name: "Logistica" }).click();
+    const palestre = drawer.getByRole("link", { name: "Palestre" });
+    await expect(palestre).toBeVisible();
+    expect((await palestre.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
     await expectFits(page);
   });
 

@@ -10,6 +10,7 @@ import { Dialog, DialogClose, DialogContent } from "@/components/ui/dialog";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { describeError, useApiMutation } from "@/lib/api";
+import { teamLabel } from "@/features/tesserati/document-format";
 import { useAllPages } from "@/lib/use-all-pages";
 import { ownTeamFormSchema, type OwnTeamFormValues } from "./schemas";
 import type { GroupTeam, OwnTeam } from "./types";
@@ -40,7 +41,7 @@ export function OwnTeamDialog({ open, onOpenChange, competitionId, groupId, pres
   const taken = new Set(present.map((team) => team.teamId));
   const options = (teams.data ?? [])
     .filter((team) => !taken.has(team.id))
-    .map((team) => ({ value: team.id, label: team.category ? `${team.name} (${team.category})` : team.name }));
+    .map((team) => ({ value: team.id, label: teamLabel(team) }));
 
   const mutation = useApiMutation(
     (values: OwnTeamFormValues, client) =>

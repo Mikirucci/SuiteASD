@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { useUnreadCount } from "@/hooks/use-unread-count";
+import { UNREAD_REFETCH_MS, useUnreadCount } from "@/hooks/use-unread-count";
 import { expectNoA11yViolations } from "@/test/a11y";
 import { installFakeApi, pageOf, problem, type FakeRoutes } from "@/test/fake-api";
 import { renderWithQuery } from "@/test/render-with-query";
@@ -41,6 +41,7 @@ function centerBackend(initial: AppNotification[] = ALL_NOTIFICATIONS) {
 }
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
@@ -134,6 +135,23 @@ describe("NotifichePage, centro notifiche", () => {
     expect(screen.queryByRole("button", { name: "Segna come letta: Quota in scadenza" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Segna come letta: Convocazione" })).toBeInTheDocument();
     await waitFor(() => expect(screen.getByText("1 notifica da leggere")).toHaveFocus());
+  });
+
+  it("shows a notification that arrives while the page is open, without reloading", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const backend = centerBackend([EVALUATION_READ]);
+    installFakeApi(backend.routes);
+    renderWithQuery(<NotifichePage />);
+    await screen.findByText("Pagella pubblicata");
+    expect(screen.getByText("Sei in pari: nessuna notifica da leggere.")).toBeInTheDocument();
+
+    backend.state.rows = [CONVOCATION, EVALUATION_READ];
+    await vi.advanceTimersByTimeAsync(UNREAD_REFETCH_MS);
+
+    expect(await screen.findByText("1 notifica da leggere")).toBeInTheDocument();
+    const list = screen.getByRole("list", { name: "Notifiche" });
+    await waitFor(() => expect(within(list).getAllByRole("listitem")).toHaveLength(2));
+    expect(within(list).getByText("Convocazione")).toBeInTheDocument();
   });
 
   it("keeps the navigation badge in step when notifications are read", async () => {

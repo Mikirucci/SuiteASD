@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: "Registra la società" };
 export default function RegisterPage() {
   return (
     <>
-      <AuthHeading title="Registra la tua società" description="Crea l'account amministratore: ci vuole un minuto." />
+      <AuthHeading title="Registra la tua società" description="Due passi: prima la società, poi il tuo accesso come amministratore." />
       <RegisterForm />
     </>
   );

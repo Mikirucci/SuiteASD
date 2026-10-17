@@ -82,7 +82,7 @@ test.describe("calendario, allenatore", () => {
     await expect(squad.getByRole("listitem").filter({ hasText: "Giulia Rossi" })).toContainText("Confermata");
     await expect(squad.getByRole("listitem").filter({ hasText: "Anna Ferri" })).toContainText("In attesa");
     await expect(squad.getByRole("listitem").filter({ hasText: "Chiara Neri" })).toContainText("Esame all'università");
-    await expect(dialog.getByText("Inviate in automatico")).toBeVisible();
+    await expect(dialog.getByText(/^Inviate il /)).toBeVisible();
     await expect(dialog.getByText("5 posti liberi")).toBeVisible();
     await settle(page);
     expect(await auditAccessibility(page)).toEqual([]);

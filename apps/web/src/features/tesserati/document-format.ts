@@ -44,9 +44,14 @@ export function guardianRelationLabel(relation: string): string {
   return ROLE_LABEL[relation] ?? "Familiare";
 }
 
-/** Badge text of a team: the category (U16, Serie D) when set, else the name. */
+/**
+ * How a team is shown in selects, filters, chips and sentences: always its name, with the
+ * category appended ("Rosa Under 16 (U16)") only when the name does not already contain it.
+ */
 export function teamLabel(team: { name: string; category: string | null }): string {
-  return team.category ?? team.name;
+  const category = team.category?.trim();
+  if (!category || team.name.toLowerCase().includes(category.toLowerCase())) return team.name;
+  return `${team.name} (${category})`;
 }
 
 export interface DocumentSummary {

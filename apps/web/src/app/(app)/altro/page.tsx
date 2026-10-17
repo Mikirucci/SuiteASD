@@ -1,8 +1,6 @@
-import type { Metadata } from "next";
-import { AltroPage } from "@/features/altro/altro-page";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = { title: "Altro" };
-
+/** The "Altro" hub is gone: its sections live in the menu groups. The pages below /altro keep their URLs. */
 export default function AltroRoute() {
-  return <AltroPage />;
+  redirect("/");
 }
