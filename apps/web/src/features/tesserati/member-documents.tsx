@@ -1,25 +1,18 @@
 "use client";
 
-import { Download, FilePlus2, FileText, FileUp, Pencil, Trash2 } from "lucide-react";
+import { FilePlus2, FileText, FileUp, Pencil, Trash2 } from "lucide-react";
 import { useMemo, useRef, useState, type ChangeEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { DataBoundary } from "@/components/ui/data-boundary";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
 import { describeError } from "@/lib/api";
-import {
-  useDeleteDocument,
-  useDocumentTypes,
-  useDownloadDocument,
-  useMemberDocuments,
-  useUploadDocumentFile,
-} from "./api";
+import { useDeleteDocument, useDocumentTypes, useMemberDocuments, useUploadDocumentFile } from "./api";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { DocumentFormDialog } from "./document-form-dialog";
 import { UPLOAD_ACCEPT, validateUploadFile } from "@/lib/upload-file";
-import { formatFileSize } from "@/lib/format";
-import { describeExpiry, formatDateOnly } from "./document-format";
-import { DocumentStatusChip } from "./document-status-chip";
+import { documentHeading, formatDateOnly } from "./document-format";
+import { DocumentItem } from "./document-item";
 import type { DocumentIndicator, MemberDocument } from "./types";
 
 interface DocumentRowProps {
@@ -29,13 +22,17 @@ interface DocumentRowProps {
   onDelete: (document: MemberDocument) => void;
 }
 
+function noExpiryNote(document: MemberDocument): string {
+  if (document.documentType.requiresExpiry) return "Senza data di scadenza";
+  return document.issuedAt ? `Rilasciato il ${formatDateOnly(document.issuedAt)}` : "Nessuna scadenza";
+}
+
 function DocumentRow({ document, canWrite, onEdit, onDelete }: DocumentRowProps) {
   const { toast } = useToast();
   const inputRef = useRef<HTMLInputElement>(null);
   const upload = useUploadDocumentFile();
-  const download = useDownloadDocument();
   const name = document.documentType.name;
-  const heading = document.title ? `${name} · ${document.title}` : name;
+  const heading = documentHeading(name, document.title);
 
   function onFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -56,48 +53,17 @@ function DocumentRow({ document, canWrite, onEdit, onDelete }: DocumentRowProps)
     );
   }
 
-  function onDownload() {
-    download.mutate(document, {
-      onError: (error) => toast({ title: "Download non riuscito", description: describeError(error), tone: "danger" }),
-    });
-  }
-
   return (
-    <li className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0">
-      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
-        <div className="min-w-0">
-          <p className="text-sm font-bold text-fg">{heading}</p>
-          <p className="mt-0.5 text-sm text-fg-muted">
-            {document.expiresAt
-              ? `Scade il ${formatDateOnly(document.expiresAt)}${document.daysRemaining === null ? "" : ` · ${describeExpiry(document.daysRemaining)}`}`
-              : document.documentType.requiresExpiry
-                ? "Senza data di scadenza"
-                : document.issuedAt
-                  ? `Rilasciato il ${formatDateOnly(document.issuedAt)}`
-                  : "Nessuna scadenza"}
-          </p>
-          <p className="mt-0.5 text-xs text-fg-muted">
-            {document.hasFile && document.fileName
-              ? `${document.fileName}${document.sizeBytes ? ` · ${formatFileSize(document.sizeBytes)}` : ""}`
-              : "Nessun file allegato"}
-          </p>
-        </div>
-        <DocumentStatusChip status={document.status} />
-      </div>
-      <div className="flex flex-wrap gap-2">
-        {document.downloadUrl ? (
-          <Button
-            variant="secondary"
-            size="sm"
-            leftIcon={<Download />}
-            loading={download.isPending}
-            aria-label={`Scarica ${name}`}
-            onClick={onDownload}
-          >
-            Scarica
-          </Button>
-        ) : null}
-        {canWrite ? (
+    <DocumentItem
+      heading={heading}
+      typeName={name}
+      status={document.status}
+      expiresAt={document.expiresAt}
+      daysRemaining={document.daysRemaining}
+      note={noExpiryNote(document)}
+      document={document}
+      actions={
+        canWrite ? (
           <>
             <input
               ref={inputRef}
@@ -109,7 +75,7 @@ function DocumentRow({ document, canWrite, onEdit, onDelete }: DocumentRowProps)
               className="sr-only"
             />
             <Button
-              variant="secondary"
+              variant="ghost"
               size="sm"
               leftIcon={<FileUp />}
               loading={upload.isPending}
@@ -137,9 +103,9 @@ function DocumentRow({ document, canWrite, onEdit, onDelete }: DocumentRowProps)
               Elimina
             </Button>
           </>
-        ) : null}
-      </div>
-    </li>
+        ) : null
+      }
+    />
   );
 }
 
@@ -153,14 +119,15 @@ function MissingRow({
   onAdd: (typeId: string) => void;
 }) {
   return (
-    <li className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-4 first:pt-0 last:pb-0">
-      <div className="min-w-0">
-        <p className="text-sm font-bold text-fg">{indicator.name}</p>
-        <p className="mt-0.5 text-sm text-fg-muted">Non ancora consegnato</p>
-      </div>
-      <div className="flex items-center gap-2">
-        <DocumentStatusChip status="MISSING" />
-        {canWrite ? (
+    <DocumentItem
+      heading={indicator.name}
+      typeName={indicator.name}
+      status="MISSING"
+      expiresAt={null}
+      daysRemaining={null}
+      note="Non ancora consegnato"
+      actions={
+        canWrite ? (
           <Button
             variant="secondary"
             size="sm"
@@ -170,9 +137,9 @@ function MissingRow({
           >
             Aggiungi
           </Button>
-        ) : null}
-      </div>
-    </li>
+        ) : null
+      }
+    />
   );
 }
 
@@ -183,7 +150,10 @@ export interface MemberDocumentsProps {
   canWrite: boolean;
 }
 
-/** Documents of one member: status, expiry, file upload/download, add, edit and delete. */
+/**
+ * Documents of one member: status, expiry, file preview/download/upload, edit and delete. The general "add" button
+ * exists only in the empty state: once there are rows (even missing ones) each row carries its own actions.
+ */
 export function MemberDocuments({ memberId, indicators, canWrite }: MemberDocumentsProps) {
   const { toast } = useToast();
   const documents = useMemberDocuments(memberId);
@@ -223,14 +193,7 @@ export function MemberDocuments({ memberId, indicators, canWrite }: MemberDocume
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-base font-bold tracking-title text-fg">Documenti</h2>
-        {canWrite ? (
-          <Button variant="secondary" size="sm" leftIcon={<FilePlus2 />} onClick={() => openForm()}>
-            Aggiungi documento
-          </Button>
-        ) : null}
-      </div>
+      <h2 className="text-base font-bold tracking-title text-fg">Documenti</h2>
       <DataBoundary
         isLoading={documents.isPending}
         error={documents.error}
@@ -240,10 +203,18 @@ export function MemberDocuments({ memberId, indicators, canWrite }: MemberDocume
         loadingLabel="Caricamento dei documenti"
         empty={
           <EmptyState
+            className="shadow-none"
             icon={FileText}
             title="Nessun documento"
             description={
               canWrite ? "Aggiungi il certificato medico e i moduli firmati." : "Non ci sono documenti da mostrare."
+            }
+            action={
+              canWrite ? (
+                <Button variant="secondary" leftIcon={<FilePlus2 />} onClick={() => openForm()}>
+                  Aggiungi documento
+                </Button>
+              ) : undefined
             }
           />
         }

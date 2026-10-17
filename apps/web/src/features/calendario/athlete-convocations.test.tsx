@@ -56,6 +56,24 @@ describe("convocations of an athlete or a guardian", () => {
     expect(within(section).queryByText("Giulia Rossi")).not.toBeInTheDocument();
   });
 
+  it("shows only the nearest convocations when many are waiting (a training series asks for dozens)", async () => {
+    const many = Array.from({ length: 12 }, (_, index) =>
+      makeConvocation(GIULIA, "PENDING", {
+        id: `cv-train-${index}`,
+        event: { ...GIULIA_PENDING.event, id: `ev-${index}`, title: `Allenamento ${index + 1}` },
+      }),
+    );
+    stubApi(calendarRoutes({ "GET /convocations": () => json(200, page(many)) }));
+    renderWithProviders(<CalendarioPage />);
+
+    const section = await screen.findByRole("region", { name: "Da confermare" });
+    expect(await within(section).findByText("12 convocazioni aspettano la tua risposta.")).toBeInTheDocument();
+    expect(within(section).getAllByRole("listitem")).toHaveLength(5);
+    expect(within(section).getByText(/Allenamento 1 ·/)).toBeInTheDocument();
+    expect(within(section).queryByText(/Allenamento 6 ·/)).not.toBeInTheDocument();
+    expect(within(section).getByText("Le altre 7 sono nel calendario: rispondi quando si avvicinano.")).toBeInTheDocument();
+  });
+
   it("declines with an optional reason", async () => {
     const api = stubApi(
       calendarRoutes({

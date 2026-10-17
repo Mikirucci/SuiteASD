@@ -6,18 +6,23 @@ import { usePendingConvocations } from "./api";
 import { ConvocationAnswer } from "./convocation-answer";
 import { pluralize } from "./format";
 
+// A weekly training series asks for dozens of answers: only the nearest ones are shown here, the rest is in the calendar.
+const SHOWN = 5;
+
 /** Athletes and guardians: the convocations waiting for an answer, with the two buttons to answer right there. */
 export function PendingConvocations() {
   const pending = usePendingConvocations(true);
-  const items = pending.data ?? [];
+  const all = pending.data ?? [];
+  const items = all.slice(0, SHOWN);
+  const hidden = all.length - items.length;
   return (
     <section aria-labelledby="pending-convocations">
       <CardHeader
         as="h2"
         title={<span id="pending-convocations">Da confermare</span>}
         description={
-          items.length > 0
-            ? `${pluralize(items.length, "convocazione aspetta", "convocazioni aspettano")} la tua risposta.`
+          all.length > 0
+            ? `${pluralize(all.length, "convocazione aspetta", "convocazioni aspettano")} la tua risposta.`
             : undefined
         }
       />
@@ -27,7 +32,7 @@ export function PendingConvocations() {
         onRetry={() => void pending.refetch()}
         loadingLabel="Caricamento delle convocazioni"
         skeletonRows={1}
-        isEmpty={items.length === 0}
+        isEmpty={all.length === 0}
         empty={
           <p className="flex items-center gap-2 rounded-lg bg-surface p-4 text-sm text-fg-muted shadow-soft">
             <BellRing aria-hidden="true" className="size-4 shrink-0" />
@@ -42,6 +47,9 @@ export function PendingConvocations() {
             </li>
           ))}
         </ul>
+        {hidden > 0 ? (
+          <p className="mt-3 text-sm text-fg-muted">Le altre {hidden} sono nel calendario: rispondi quando si avvicinano.</p>
+        ) : null}
       </DataBoundary>
     </section>
   );

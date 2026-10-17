@@ -2,10 +2,13 @@ import { describe, expect, it } from "vitest";
 import { ApiError } from "@/lib/api";
 import {
   combineLocal,
+  closedReason,
   confirmedText,
   describeCalendarError,
   formatDayTitle,
   formatPercent,
+  formatWeekdayTime,
+  freeSlotsOf,
   formatWhen,
   isOpen,
   matchEyebrow,
@@ -57,6 +60,32 @@ describe("event lines", () => {
 
   it("writes the confirmed count as in the product video", () => {
     expect(confirmedText({ confirmed: 5, capacity: 12 })).toBe("5/12 confermate");
+  });
+
+  it("does not write a fraction above one when more athletes confirmed than there are slots", () => {
+    expect(confirmedText({ confirmed: 14, capacity: 12 })).toBe("14 confermati · posti 12");
+    expect(confirmedText({ confirmed: 12, capacity: 12 })).toBe("12/12 confermate");
+  });
+
+  it("tells why an event takes no more answers", () => {
+    const now = new Date(2026, 10, 12, 10, 0);
+    expect(closedReason({ status: "SCHEDULED", startsAt: at(11, 12, 19) }, now)).toBeNull();
+    expect(closedReason({ status: "POSTPONED", startsAt: at(11, 12, 19) }, now)).toBeNull();
+    expect(closedReason({ status: "SCHEDULED", startsAt: at(11, 12, 8) }, now)).toBe("started");
+    expect(closedReason({ status: "CANCELLED", startsAt: at(11, 12, 19) }, now)).toBe("cancelled");
+    expect(closedReason({ status: "CANCELLED", startsAt: at(11, 12, 8) }, now)).toBe("cancelled");
+  });
+
+  it("counts the free slots like the server: confirmed athletes of a team event, every row not declined otherwise", () => {
+    const rows = [{ status: "CONFIRMED" as const }, { status: "CONFIRMED" as const }, { status: "PENDING" as const }, { status: "DECLINED" as const }];
+    expect(freeSlotsOf(true, rows, 12)).toBe(10);
+    expect(freeSlotsOf(false, rows, 12)).toBe(9);
+    expect(freeSlotsOf(true, rows, 1)).toBe(0);
+  });
+
+  it("writes the day and the time of an appointment on one line", () => {
+    expect(formatWeekdayTime(at(11, 12, 19, 0))).toBe("Gio 12 nov · 19:00");
+    expect(formatWeekdayTime(at(11, 14, 8, 5))).toBe("Sab 14 nov · 08:05");
   });
 
   it("formats percentages with at most one decimal, and a dash when nothing is recorded", () => {

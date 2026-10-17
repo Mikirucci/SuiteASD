@@ -4,9 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { tokens } from "@/lib/api";
 import { expectNoA11yViolations } from "@/test/a11y";
 import { QuotePage } from "./quote-page";
-import { json, page, problem, renderWithProviders, stubApi } from "@/test/stub-api";
+import { json, page, problem, renderWithProviders, stubApi, type RecordedCall } from "@/test/stub-api";
 import {
   ATHLETE_PERMISSIONS,
+  CLAIMED_FEE,
   OVERDUE_FEE,
   PAID_FEE,
   PENDING_FEE,
@@ -24,7 +25,7 @@ const ALL_FEES = [PAID_FEE, PENDING_FEE, OVERDUE_FEE];
 
 function staffRoutes() {
   return {
-    "GET /fees": () => json(200, page(ALL_FEES)),
+    "GET /fees": (call: RecordedCall) => json(200, page(ALL_FEES.filter((fee) => call.query.get("claimed") !== "true" || fee.claimedAt))),
     "GET /fees/summary": () => json(200, SUMMARY),
     "GET /teams": () => json(200, page(TEAMS)),
   };
@@ -76,7 +77,9 @@ describe("QuotePage for the secretariat", () => {
     let attempts = 0;
     stubApi({
       ...staffRoutes(),
-      "GET /fees": () => (++attempts === 1 ? problem(500, "internal") : json(200, page(ALL_FEES))),
+      // The banner of reported fees reads the same endpoint: only the list itself must fail the first time
+      "GET /fees": (call: RecordedCall) =>
+        call.query.get("claimed") === "true" ? json(200, page([])) : ++attempts === 1 ? problem(500, "internal") : json(200, page(ALL_FEES)),
     });
     renderWithProviders(<QuotePage />);
     expect(await screen.findByText("Il servizio non è disponibile al momento. Riprova tra poco.")).toBeInTheDocument();
@@ -198,7 +201,7 @@ describe("QuotePage for an athlete or a guardian", () => {
     expect(screen.queryByText("Incassato")).not.toBeInTheDocument();
     expect(api.calls.map((call) => call.path)).toEqual(["/fees"]);
 
-    await userEvent.click(screen.getByRole("button", { name: /Chiara Neri/ }));
+    await userEvent.click(screen.getByRole("button", { name: /^Chiara Neri/ }));
     const dialog = await screen.findByRole("dialog", { name: "Chiara Neri" });
     expect(within(dialog).queryByRole("button", { name: "Registra pagamento" })).not.toBeInTheDocument();
     await userEvent.keyboard("{Escape}");
@@ -212,5 +215,155 @@ describe("QuotePage for an athlete or a guardian", () => {
     renderWithProviders(<QuotePage />);
     expect(await screen.findByRole("heading", { name: "Nessuna quota da mostrare" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Vai ai piani quota" })).not.toBeInTheDocument();
+  });
+});
+
+const CLAIMED_ROUTES = () => ({
+  ...staffRoutes(),
+  "GET /fees": (call: RecordedCall) =>
+    json(
+      200,
+      page([PAID_FEE, CLAIMED_FEE, OVERDUE_FEE].filter((fee) => call.query.get("claimed") !== "true" || fee.claimedAt)),
+    ),
+});
+
+describe("QuotePage for the secretariat: payments reported by the payer", () => {
+  it("highlights a reported fee in the row and offers 'Registra pagamento' there as the main action", async () => {
+    stubApi(CLAIMED_ROUTES());
+    renderWithProviders(<QuotePage />);
+
+    expect(await screen.findByText("Segnalato dal pagante il 8 nov 2026")).toBeInTheDocument();
+    const row = screen.getByText("Segnalato dal pagante il 8 nov 2026").closest("li") as HTMLElement;
+    expect(within(row).getByText("In attesa")).toBeInTheDocument();
+
+    await userEvent.click(within(row).getByRole("button", { name: "Registra pagamento: Sara Conti, Quota novembre" }));
+    expect(await screen.findByRole("dialog", { name: "Registra pagamento" })).toHaveAccessibleDescription(/Sara Conti/);
+  });
+
+  it("keeps the quick action off the fees nobody reported", async () => {
+    stubApi(CLAIMED_ROUTES());
+    renderWithProviders(<QuotePage />);
+    await screen.findByText("Marta Bianchi");
+    expect(screen.getAllByRole("button", { name: /^Registra pagamento:/ })).toHaveLength(1);
+  });
+
+  it("filters the reported fees through the API, without sending a status", async () => {
+    const api = stubApi(CLAIMED_ROUTES());
+    renderWithProviders(<QuotePage />);
+    await screen.findByText("Marta Bianchi");
+
+    await userEvent.click(screen.getByRole("button", { name: "Segnalate", pressed: false }));
+    await waitFor(() => expect(screen.queryByText("Marta Bianchi")).not.toBeInTheDocument());
+    expect(screen.getByText("Sara Conti")).toBeInTheDocument();
+    const last = api.calls.filter((call) => call.path === "/fees" && call.query.get("limit") === "25").at(-1);
+    expect(last?.query.get("claimed")).toBe("true");
+    expect(last?.query.get("status")).toBeNull();
+  });
+
+  it("announces how many fees were reported and jumps to them", async () => {
+    stubApi(CLAIMED_ROUTES());
+    renderWithProviders(<QuotePage />);
+
+    expect(await screen.findByText("1 quota segnalata dal pagante.")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Mostra le segnalate" }));
+    expect(await screen.findByRole("button", { name: "Segnalate", pressed: true })).toBeInTheDocument();
+    expect(screen.queryByText(/segnalat[ae] dal pagante[.]/)).not.toBeInTheDocument();
+  });
+
+  it("shows no banner when nobody reported a payment", async () => {
+    stubApi(staffRoutes());
+    renderWithProviders(<QuotePage />);
+    await screen.findByText("Anna Ferri");
+    expect(screen.queryByText(/segnalat[ae] dal pagante[.]/)).not.toBeInTheDocument();
+  });
+
+  it("explains the empty reported list instead of showing a generic empty state", async () => {
+    stubApi(staffRoutes());
+    renderWithProviders(<QuotePage />);
+    await screen.findByText("Anna Ferri");
+    await userEvent.click(screen.getByRole("button", { name: "Segnalate" }));
+    expect(await screen.findByRole("heading", { name: "Nessuna quota segnalata" })).toBeInTheDocument();
+  });
+
+  it("has no accessibility violations with a reported fee", async () => {
+    stubApi(CLAIMED_ROUTES());
+    const { container } = renderWithProviders(<QuotePage />);
+    await screen.findByText("Segnalato dal pagante il 8 nov 2026");
+    await expectNoA11yViolations(container);
+  });
+});
+
+describe("QuotePage: receipts on the paid rows", () => {
+  const receiptRoute = () => new Response("%PDF-1.4", { status: 200, headers: { "content-type": "application/pdf" } });
+
+  beforeEach(() => {
+    URL.createObjectURL = () => "blob:ricevuta";
+    URL.revokeObjectURL = vi.fn();
+  });
+
+  it("previews the receipt of a paid fee from the list, for the secretariat", async () => {
+    tokens.setTokens({ accessToken: "access-1", refreshToken: "refresh-1" });
+    const api = stubApi({ ...staffRoutes(), "GET /fees/f-paid/receipt": receiptRoute });
+    renderWithProviders(<QuotePage />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Vedi ricevuta n. 0147" }));
+    const preview = await screen.findByRole("dialog", { name: "Ricevuta n. 0147" });
+    expect(await within(preview).findByTitle("Anteprima di Ricevuta n. 0147")).toBeInTheDocument();
+    expect(api.calls.find((call) => call.path === "/fees/f-paid/receipt")?.headers.Authorization).toBe("Bearer access-1");
+  });
+
+  it("offers the same receipt to the payer, and none on an unpaid fee", async () => {
+    auth.permissions = ATHLETE_PERMISSIONS;
+    auth.roles = ["ATLETA"];
+    stubApi({ "GET /fees": () => json(200, page([PAID_FEE, PENDING_FEE])) });
+    renderWithProviders(<QuotePage />);
+    expect(await screen.findByRole("button", { name: "Vedi ricevuta n. 0147" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Scarica ricevuta n. 0147" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /ricevuta n\./ })).toHaveLength(2);
+  });
+
+  it("downloads the receipt from the row", async () => {
+    tokens.setTokens({ accessToken: "access-1", refreshToken: "refresh-1" });
+    stubApi({ ...staffRoutes(), "GET /fees/f-paid/receipt": receiptRoute });
+    const saved: string[] = [];
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) {
+      saved.push(this.download);
+    });
+    renderWithProviders(<QuotePage />);
+    await userEvent.click(await screen.findByRole("button", { name: "Scarica ricevuta n. 0147" }));
+    await waitFor(() => expect(saved).toEqual(["ricevuta-0147.pdf"]));
+    click.mockRestore();
+  });
+});
+
+describe("QuotePage for the secretariat: result of registering a payment", () => {
+  const PAID_NOW = {
+    ...OVERDUE_FEE,
+    status: "PAID" as const,
+    paidAt: "2026-11-12T10:00:00.000Z",
+    method: "BANK_TRANSFER" as const,
+    receipt: { id: "r148", number: 148, code: "0148", issuedAt: "2026-11-12T10:00:00.000Z", sentAt: null },
+  };
+
+  it("shows the receipt number, who it went to, and the receipt actions after the payment", async () => {
+    const api = stubApi({
+      ...staffRoutes(),
+      "POST /fees/f-overdue/pay": () => json(200, PAID_NOW),
+      "GET /fees/f-overdue": () =>
+        json(200, { ...PAID_NOW, receipt: { ...PAID_NOW.receipt, sentAt: "2026-11-12T10:00:03.000Z" } }),
+    });
+    renderWithProviders(<QuotePage />);
+
+    await userEvent.click(await screen.findByRole("button", { name: /^Marta Bianchi/ }));
+    await userEvent.click(within(await screen.findByRole("dialog", { name: "Marta Bianchi" })).getByRole("button", { name: "Registra pagamento" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Conferma pagamento" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Marta Bianchi" });
+    expect(
+      await within(dialog).findByText("Pagamento registrato. Ricevuta n. 0148 emessa e inviata a Marta Bianchi e all'amministrazione."),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Vedi ricevuta" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Scarica ricevuta" })).toBeInTheDocument();
+    expect(api.count("GET /fees/f-overdue")).toBe(1);
   });
 });

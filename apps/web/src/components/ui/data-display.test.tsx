@@ -123,6 +123,27 @@ describe("DataTable", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Non hai i permessi");
   });
 
+  it("opens a row on click when onRowClick is given, from any cell and from the button inside it with the keyboard", async () => {
+    const onRowClick = vi.fn();
+    const withButton: DataTableColumn<Row>[] = [
+      { key: "name", header: "Tesserata", cell: (row) => <button type="button">{row.name}</button> },
+      { key: "team", header: "Squadra", cell: (row) => row.team },
+    ];
+    render(<DataTable rows={ROWS} columns={withButton} getKey={(row) => row.id} label="Tesserate" empty={EMPTY} onRowClick={onRowClick} />);
+
+    await userEvent.click(screen.getByText("U16"));
+    expect(onRowClick).toHaveBeenLastCalledWith(ROWS[1]);
+    screen.getByRole("button", { name: "Anna Ferri" }).focus();
+    await userEvent.keyboard("{Enter}");
+    expect(onRowClick).toHaveBeenLastCalledWith(ROWS[0]);
+    expect(onRowClick).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not make the rows clickable without onRowClick", () => {
+    render(<DataTable rows={ROWS} columns={columns} getKey={(row) => row.id} label="Tesserate" empty={EMPTY} />);
+    expect(screen.getAllByRole("row")[1]).not.toHaveClass("cursor-pointer");
+  });
+
   it("has no detectable accessibility violations", async () => {
     const { container } = render(<DataTable rows={ROWS} columns={columns} getKey={(row) => row.id} label="Tesserate" empty={EMPTY} />);
     await expectNoA11yViolations(container);

@@ -10,17 +10,18 @@ export interface ConvocationProgressProps {
   className?: string;
 }
 
-/** The "5/12 confermate" bar: confirmed athletes over the slots of the event. */
+/** The "5/12 confermate" bar: confirmed athletes over the slots of the event (full when more confirmed than slots). */
 export function ConvocationProgress({ summary, label, className }: ConvocationProgressProps) {
+  const over = summary.confirmed > summary.capacity;
   return (
     <div className={cn("flex items-center gap-3", className)}>
       <ProgressBar
         className="flex-1"
         tone="success"
-        value={summary.confirmed}
+        value={Math.min(summary.confirmed, summary.capacity)}
         max={summary.capacity}
         label={`Presenze confermate: ${label}`}
-        valueText={`${summary.confirmed} su ${summary.capacity} confermate`}
+        valueText={over ? `${summary.confirmed} confermati, posti ${summary.capacity}` : `${summary.confirmed} su ${summary.capacity} confermate`}
       />
       <span className="shrink-0 text-sm font-bold tabular-nums text-fg">{confirmedText(summary)}</span>
     </div>

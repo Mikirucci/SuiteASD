@@ -26,6 +26,37 @@ export function describeExpiry(daysRemaining: number): string {
   return `Scaduto da ${-daysRemaining} giorni`;
 }
 
+/** How loudly an expiry reads: red up to a week (or already expired), amber up to a month, plain otherwise. */
+export type ExpiryTone = "danger" | "warning" | "neutral";
+
+const DANGER_WITHIN_DAYS = 7;
+const WARNING_WITHIN_DAYS = 30;
+
+export function expiryTone(daysRemaining: number | null): ExpiryTone {
+  if (daysRemaining === null) return "neutral";
+  if (daysRemaining <= DANGER_WITHIN_DAYS) return "danger";
+  if (daysRemaining <= WARNING_WITHIN_DAYS) return "warning";
+  return "neutral";
+}
+
+/** Title of a document row: the type, plus the free title unless it only says the same ("Certificato medico · Certificato medico"). */
+export function documentHeading(typeName: string, title: string | null): string {
+  const free = title?.trim();
+  if (!free) return typeName;
+  return free.toLowerCase().includes(typeName.toLowerCase()) ? free : `${typeName} · ${free}`;
+}
+
+/** "Scade il 18 ottobre 2026 · scade domani", "Scaduto il 10 ottobre 2026 · da 7 giorni". */
+export function describeExpiryLine(expiresAt: string, daysRemaining: number | null): string {
+  const date = formatDateOnly(expiresAt);
+  if (daysRemaining === null) return `Scade il ${date}`;
+  if (daysRemaining >= 0) {
+    const how = describeExpiry(daysRemaining);
+    return `Scade il ${date} · ${how.charAt(0).toLowerCase()}${how.slice(1)}`;
+  }
+  return `Scaduto il ${date} · ${daysRemaining === -1 ? "ieri" : `da ${-daysRemaining} giorni`}`;
+}
+
 export const DOCUMENT_STATUS_LABEL: Record<DocumentStatus, string> = {
   OK: "In regola",
   EXPIRING: "In scadenza",

@@ -4,8 +4,10 @@ import {
   ClipboardList,
   FileUp,
   FileWarning,
+  HandCoins,
   Handshake,
   Megaphone,
+  Receipt,
   UserPlus,
   Wallet,
   type LucideIcon,
@@ -25,11 +27,13 @@ export interface NotificationTypeInfo {
 export const NOTIFICATION_TYPES: readonly NotificationType[] = [
   "CONVOCATION",
   "FEE_DUE",
+  "RECEIPT_ISSUED",
   "CERTIFICATE_EXPIRING",
   "DOCUMENT_MISSING",
   "EVENT_CHANGED",
   "EVALUATION_PUBLISHED",
   "ANNOUNCEMENT",
+  "ADMIN_PAYMENT_CLAIMED",
   "ADMIN_PAYMENT_RECEIVED",
   "ADMIN_FEE_OVERDUE",
   "ADMIN_DOCUMENT_ALERT",
@@ -48,6 +52,11 @@ export const TYPE_INFO: Record<NotificationType, NotificationTypeInfo> = {
     label: "Quote in scadenza",
     description: "Promemoria sulle quote da pagare o già scadute.",
     icon: Wallet,
+  },
+  RECEIPT_ISSUED: {
+    label: "Ricevute",
+    description: "Quando viene emessa la ricevuta di un pagamento.",
+    icon: Receipt,
   },
   CERTIFICATE_EXPIRING: {
     label: "Certificati e documenti",
@@ -73,6 +82,11 @@ export const TYPE_INFO: Record<NotificationType, NotificationTypeInfo> = {
     label: "Comunicazioni della bacheca",
     description: "Gli annunci che la società pubblica per la squadra.",
     icon: Megaphone,
+  },
+  ADMIN_PAYMENT_CLAIMED: {
+    label: "Pagamenti segnalati",
+    description: "Quando un atleta o un genitore segnala di aver pagato una quota, da controllare sul conto.",
+    icon: HandCoins,
   },
   ADMIN_PAYMENT_RECEIVED: {
     label: "Pagamenti ricevuti",

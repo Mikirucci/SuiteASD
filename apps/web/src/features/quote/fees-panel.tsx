@@ -1,6 +1,6 @@
 "use client";
 
-import { Search, Wallet } from "lucide-react";
+import { BellRing, Search, Wallet } from "lucide-react";
 import { useState } from "react";
 import {
   Button,
@@ -13,39 +13,59 @@ import {
   Select,
   useToast,
 } from "@/components/ui";
+import { ClaimedBanner } from "./claimed-banner";
+import { ClaimPaymentDialog } from "./claim-payment-dialog";
 import { FeeDetailDialog } from "./fee-detail-dialog";
 import { FeeRow } from "./fee-row";
 import { FeesSummaryBar } from "./fees-summary";
 import { PayFeeDialog } from "./pay-fee-dialog";
 import type { Fee, TeamOption } from "./types";
+import { usePermission } from "@/hooks/use-permission";
 import { useCursorQuery } from "@/lib/use-cursor-query";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useQuoteAccess } from "./use-quote-access";
 
 const PAGE_SIZE = 25;
 
-const STATUS_OPTIONS: readonly PillOption[] = [
-  { value: "all", label: "Tutte" },
+/** Not an API status: the reported fees are asked with `claimed=true`. Only the secretariat sees this filter. */
+const CLAIMED_FILTER = "claimed";
+
+const ALL_OPTION: PillOption = { value: "all", label: "Tutte" };
+
+const STATUS_ONLY_OPTIONS: readonly PillOption[] = [
   { value: "PENDING", label: "In attesa" },
   { value: "OVERDUE", label: "Scaduto" },
   { value: "PAID", label: "Pagato" },
 ];
 
+const PAYER_OPTIONS: readonly PillOption[] = [ALL_OPTION, ...STATUS_ONLY_OPTIONS];
+const STAFF_OPTIONS: readonly PillOption[] = [ALL_OPTION, { value: CLAIMED_FILTER, label: "Segnalate" }, ...STATUS_ONLY_OPTIONS];
+
 export function FeesPanel({ onOpenPlans }: { onOpenPlans?: () => void }) {
   const { canSeeAll, canWrite, isGuardian } = useQuoteAccess();
   const { toast } = useToast();
+  // The server refuses the report for the secretariat; a user with both kinds of roles sees every fee, so no button
+  const canClaim = usePermission("payments:claim") && !canSeeAll;
   const [status, setStatus] = useState("all");
   const [teamId, setTeamId] = useState("");
   const [search, setSearch] = useState("");
   const q = useDebouncedValue(search.trim());
   const [detail, setDetail] = useState<Fee | null>(null);
+  const [detailJustPaid, setDetailJustPaid] = useState(false);
   const [paying, setPaying] = useState<Fee | null>(null);
+  const [claiming, setClaiming] = useState<Fee | null>(null);
 
   const teams = useCursorQuery<TeamOption>(["quote-teams"], "/teams", { limit: 100 }, { enabled: canSeeAll });
   const fees = useCursorQuery<Fee>(
     ["fees", { status, teamId, q }],
     "/fees",
-    { status: status === "all" ? undefined : status, teamId, q, limit: PAGE_SIZE },
+    {
+      status: status === "all" || status === CLAIMED_FILTER ? undefined : status,
+      claimed: status === CLAIMED_FILTER ? true : undefined,
+      teamId,
+      q,
+      limit: PAGE_SIZE,
+    },
   );
 
   const hasFilters = status !== "all" || teamId !== "" || search.trim() !== "";
@@ -60,7 +80,23 @@ export function FeesPanel({ onOpenPlans }: { onOpenPlans?: () => void }) {
     ...(teams.items ?? []).map((team) => ({ value: team.id, label: team.name })),
   ];
 
-  const empty = hasFilters ? (
+  const openDetail = (fee: Fee, justPaid = false) => {
+    setDetailJustPaid(justPaid);
+    setDetail(fee);
+  };
+
+  const empty = status === CLAIMED_FILTER && teamId === "" && search.trim() === "" ? (
+    <EmptyState
+      icon={BellRing}
+      title="Nessuna quota segnalata"
+      description="Quando un atleta o un genitore segnala di aver pagato, la quota compare qui in attesa del tuo controllo."
+      action={
+        <Button variant="secondary" onClick={resetFilters}>
+          Mostra tutte le quote
+        </Button>
+      }
+    />
+  ) : hasFilters ? (
     <EmptyState
       icon={Search}
       title="Nessuna quota con questi filtri"
@@ -97,9 +133,10 @@ export function FeesPanel({ onOpenPlans }: { onOpenPlans?: () => void }) {
   return (
     <div className="flex flex-col gap-6">
       {canSeeAll ? <FeesSummaryBar teamId={teamId} /> : null}
+      {canSeeAll && status !== CLAIMED_FILTER ? <ClaimedBanner teamId={teamId} onShow={() => setStatus(CLAIMED_FILTER)} /> : null}
 
       <div className="flex flex-col gap-3">
-        <PillFilter label="Filtra per stato" options={STATUS_OPTIONS} value={status} onChange={setStatus} />
+        <PillFilter label="Filtra per stato" options={canSeeAll ? STAFF_OPTIONS : PAYER_OPTIONS} value={status} onChange={setStatus} />
         {canSeeAll ? (
           <div className="grid gap-3 sm:grid-cols-2">
             <Select
@@ -127,7 +164,16 @@ export function FeesPanel({ onOpenPlans }: { onOpenPlans?: () => void }) {
           label="Quote"
           items={fees.items}
           getKey={(fee) => fee.id}
-          renderItem={(fee) => <FeeRow fee={fee} onOpen={setDetail} />}
+          renderItem={(fee) => (
+            <FeeRow
+              fee={fee}
+              onOpen={openDetail}
+              viewer={canSeeAll ? "secretariat" : "payer"}
+              nameMember={isGuardian}
+              onClaim={canClaim ? setClaiming : undefined}
+              onPay={canWrite ? setPaying : undefined}
+            />
+          )}
           isLoading={fees.isLoading}
           error={fees.error}
           onRetry={fees.refetch}
@@ -139,6 +185,8 @@ export function FeesPanel({ onOpenPlans }: { onOpenPlans?: () => void }) {
 
       <FeeDetailDialog
         fee={detail}
+        viewer={canSeeAll ? "secretariat" : "payer"}
+        justPaid={detailJustPaid}
         onClose={() => setDetail(null)}
         onPay={
           canWrite
@@ -149,12 +197,13 @@ export function FeesPanel({ onOpenPlans }: { onOpenPlans?: () => void }) {
             : undefined
         }
       />
+      <ClaimPaymentDialog fee={claiming} onClose={() => setClaiming(null)} />
       <PayFeeDialog
         fee={paying}
         onClose={() => setPaying(null)}
         onPaid={(paid) => {
           setPaying(null);
-          setDetail(paid);
+          openDetail(paid, true);
           toast({
             title: "Pagamento registrato",
             description: paid.receipt ? `Ricevuta n. ${paid.receipt.code} emessa per ${paid.memberName}.` : paid.memberName,

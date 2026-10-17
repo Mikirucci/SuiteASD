@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Alert, Button, Checkbox, Chip, DataBoundary, Dialog, DialogClose, DialogContent, EmptyState, Textarea, useToast } from "@/components/ui";
 import { useApiMutation } from "@/lib/api";
 import { useEventConvocations, useInvalidateCalendar, useTeamRoster } from "./api";
-import { describeCalendarError, pluralize } from "./format";
+import { describeCalendarError, freeSlotsOf, pluralize } from "./format";
 import type { CalendarEvent, EventConvocations, RosterMember } from "./types";
 
 const MAX_REASON = 300;
@@ -28,8 +28,7 @@ function ConvocateForm({ event, teamId, canOverride, onDone }: ConvocateFormProp
   const convocations = useEventConvocations(event.id);
   const rows = convocations.data?.data ?? [];
   const takenMemberIds = new Set(rows.map((row) => row.member.id));
-  // Declined athletes free their slot, as on the server
-  const freeSlots = Math.max(0, (convocations.data?.summary.capacity ?? event.convocations.capacity) - rows.filter((row) => row.status !== "DECLINED").length);
+  const freeSlots = freeSlotsOf(true, rows, convocations.data?.summary.capacity ?? event.convocations.capacity);
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [reason, setReason] = useState("");
 
@@ -50,7 +49,7 @@ function ConvocateForm({ event, teamId, canOverride, onDone }: ConvocateFormProp
         await invalidate();
         toast({
           title: pluralize(memberIds.length, "convocazione creata", "convocazioni create"),
-          description: "Sono in bozza: premi «Invia convocazioni» perché atleti e genitori le vedano.",
+          description: "Gli atleti la vedono subito e possono rispondere. Per mandare la notifica premi «Avvisa gli atleti».",
           tone: "success",
         });
         onDone();
@@ -87,6 +86,9 @@ function ConvocateForm({ event, teamId, canOverride, onDone }: ConvocateFormProp
           />
         }
       >
+        <p className="text-sm text-fg-muted">
+          Gli atleti idonei della squadra sono già convocati in automatico. Qui aggiungi chi manca, ad esempio con una deroga.
+        </p>
         <fieldset className="flex flex-col gap-1">
           <legend className="mb-2 text-sm font-semibold text-fg">Scegli chi convocare</legend>
           {athletes.map((member) => {

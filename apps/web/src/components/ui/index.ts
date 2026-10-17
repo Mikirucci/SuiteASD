@@ -15,6 +15,7 @@ export { Dialog, DialogClose, DialogContent, DialogTrigger, type DialogContentPr
 export { Drawer, DrawerClose, DrawerContent, DrawerTrigger, type DrawerContentProps, type DrawerSide } from "./drawer";
 export { EmptyState, type EmptyStateProps } from "./empty-state";
 export { ErrorState, type ErrorStateProps } from "./error-state";
+export { FilePreviewDialog, type FilePreviewDialogProps } from "./file-preview-dialog";
 export { Input, type InputProps } from "./input";
 export { LoadMore, type LoadMoreProps } from "./load-more";
 export { AppIcon, Logo, type AppIconProps, type LogoProps } from "./logo";

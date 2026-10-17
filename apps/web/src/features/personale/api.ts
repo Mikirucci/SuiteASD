@@ -2,6 +2,9 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useApiMutation, useApiQuery } from "@/lib/api";
+import { toDayKey } from "@/lib/dates";
+import { useAllPages } from "@/lib/use-all-pages";
+import type { CalendarEvent, Convocation } from "@/features/calendario/types";
 import type { Fee } from "@/features/quote/types";
 import type { CursorPage, MemberDetail, MemberDocument } from "@/features/tesserati/types";
 
@@ -38,6 +41,19 @@ export function useUploadMemberDocument(memberId: string) {
 /** Fees that still have to be paid (pending or overdue) for a member: the API lists only the user's own. */
 export function useFeesToPay(memberId: string) {
   return useApiQuery<CursorPage<Fee>>(["fees", "to-pay", memberId], "/fees", { query: { memberId, limit: 50 } });
+}
+
+/** Events from the start of today to the end of the window the home looks at (every status: a cancelled one is still worth a line). */
+export function useHomeEvents(range: { from: Date; to: Date }) {
+  return useAllPages<CalendarEvent>(["events", "personal-home", toDayKey(range.from)], "/events", {
+    from: range.from.toISOString(),
+    to: range.to.toISOString(),
+  });
+}
+
+/** Convocations of the user (or of the children) for events that have not started, whatever the answer. Refreshed with the calendar. */
+export function useMyUpcomingConvocations(enabled: boolean) {
+  return useAllPages<Convocation>(["my-convocations", "upcoming"], enabled ? "/convocations" : null, { upcoming: true });
 }
 
 export interface ContactBody {

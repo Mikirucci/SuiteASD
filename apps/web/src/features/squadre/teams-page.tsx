@@ -1,104 +1,57 @@
 "use client";
 
-import { Pencil, Plus, Trash2, UsersRound } from "lucide-react";
-import { useState } from "react";
-import { Button, Chip, ConfirmDialog, DataList, EmptyState, LoadMore, SectionHeading, useToast } from "@/components/ui";
+import { Plus, Search, SearchX, UsersRound } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Button, DataBoundary, EmptyState, Input, SectionHeading, Select } from "@/components/ui";
 import type { Team } from "@/features/tesserati/types";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { usePermission } from "@/hooks/use-permission";
-import { ApiError, describeError } from "@/lib/api";
 import { pluralize } from "@/lib/format";
-import { useDeleteTeam, useTeamsPage } from "./api";
+import { useAllTeams, useNextEventByTeam } from "./api";
+import { DeleteTeamDialog } from "./delete-team-dialog";
+import { TeamCard } from "./team-card";
+import { EMPTY_TEAM_FILTERS, categoryOptions, filterTeams, hasActiveFilters, type TeamFilters } from "./team-filters";
 import { TeamFormDialog } from "./team-form-dialog";
-import { TEAM_GENDER_LABEL, isTeamGender } from "./team-schema";
+import { TEAM_GENDER_OPTIONS, type TeamGender } from "./team-schema";
 
-/** What deleting does to the data around a team: the API removes the team from members and keeps the rest. */
-export function deleteWarning(team: Team): string {
-  const members =
-    team.membersCount === 0
-      ? "La squadra non ha tesserati."
-      : `${pluralize(team.membersCount, "tesserato resta", "tesserati restano")} in società ma ${team.membersCount === 1 ? "esce" : "escono"} dalla squadra.`;
-  return `${members} Partite, quote e comunicazioni collegate restano, senza squadra. L'operazione non si può annullare.`;
+/** Filters make sense once there is something to choose between. */
+const MIN_TEAMS_FOR_FILTERS = 2;
+
+function countLabel(shown: number, total: number): string {
+  const teams = pluralize(total, "squadra", "squadre");
+  return shown === total ? teams : `${shown} di ${teams}`;
 }
 
-function describeDeleteError(error: unknown): string {
-  if (error instanceof ApiError) {
-    if (error.status === 409) return "La squadra è usata da altri dati e non si può eliminare.";
-    if (error.status === 404) return "La squadra non esiste più. Chiudi questa finestra: l'elenco si aggiorna da solo.";
-  }
-  return describeError(error);
-}
-
-function detailLines(team: Team): string[] {
-  return [
-    isTeamGender(team.gender) ? TEAM_GENDER_LABEL[team.gender] : null,
-    pluralize(team.membersCount, "tesserato", "tesserati"),
-    team.description,
-  ].filter((line): line is string => Boolean(line));
-}
-
-interface TeamRowProps {
-  team: Team;
-  onEdit?: () => void;
-  onDelete?: () => void;
-}
-
-function TeamRow({ team, onEdit, onDelete }: TeamRowProps) {
-  const lines = detailLines(team);
-  return (
-    <div className="flex flex-col gap-3 p-4">
-      <div className="flex items-start gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="break-words text-sm font-bold text-fg">{team.name}</p>
-          {lines.map((line) => (
-            <p key={line} className="break-words text-sm text-fg-muted">
-              {line}
-            </p>
-          ))}
-        </div>
-        {team.category && team.category !== team.name ? <Chip tone="brand">{team.category}</Chip> : null}
-      </div>
-      {onEdit || onDelete ? (
-        <div className="flex flex-wrap gap-2">
-          {onEdit ? (
-            <Button variant="secondary" leftIcon={<Pencil />} aria-label={`Modifica ${team.name}`} onClick={onEdit}>
-              Modifica
-            </Button>
-          ) : null}
-          {onDelete ? (
-            <Button variant="ghost" leftIcon={<Trash2 />} aria-label={`Elimina ${team.name}`} onClick={onDelete}>
-              Elimina
-            </Button>
-          ) : null}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-/** The teams of the society: list, create, edit, delete. */
+/** The teams of the society: cards to open, filters to find one, create, edit, delete. */
 export function TeamsPage() {
-  const { toast } = useToast();
   const canWrite = usePermission("teams:write");
-  const list = useTeamsPage();
-  const remove = useDeleteTeam();
+  const list = useAllTeams();
+  const nextEvents = useNextEventByTeam();
   const [formOpen, setFormOpen] = useState(false);
   // Kept after the dialog closes so that its closing animation does not flash the "new team" form
   const [editing, setEditing] = useState<Team | undefined>(undefined);
   const [deleting, setDeleting] = useState<Team | null>(null);
+  const [search, setSearch] = useState(EMPTY_TEAM_FILTERS.q);
+  const [category, setCategory] = useState(EMPTY_TEAM_FILTERS.category);
+  const [gender, setGender] = useState(EMPTY_TEAM_FILTERS.gender);
+  const debouncedSearch = useDebouncedValue(search);
+
+  // Emptying the box applies at once; typing waits for a pause so that the counter is not read at every key
+  const filters: TeamFilters = { q: search === "" ? "" : debouncedSearch, category, gender };
+  const teams = useMemo(() => list.data ?? [], [list.data]);
+  const visible = filterTeams(teams, filters);
+  const categories = useMemo(() => categoryOptions(teams), [teams]);
+  const filtering = hasActiveFilters(filters);
 
   function openForm(team?: Team) {
     setEditing(team);
     setFormOpen(true);
   }
 
-  function confirmDelete() {
-    if (!deleting) return;
-    remove.mutate(deleting.id, {
-      onSuccess: () => {
-        toast({ title: "Squadra eliminata", description: deleting.name, tone: "success" });
-        setDeleting(null);
-      },
-    });
+  function resetFilters() {
+    setSearch(EMPTY_TEAM_FILTERS.q);
+    setCategory(EMPTY_TEAM_FILTERS.category);
+    setGender(EMPTY_TEAM_FILTERS.gender);
   }
 
   const newButton = canWrite ? (
@@ -107,6 +60,31 @@ export function TeamsPage() {
     </Button>
   ) : undefined;
 
+  const noTeams = (
+    <EmptyState
+      icon={UsersRound}
+      title="Nessuna squadra ancora"
+      description={
+        canWrite
+          ? "Crea la prima squadra: poi potrai assegnarle i tesserati e pianificare le partite."
+          : "La segreteria non ha ancora creato le squadre."
+      }
+      action={newButton}
+    />
+  );
+  const noResults = (
+    <EmptyState
+      icon={SearchX}
+      title="Nessuna squadra trovata"
+      description="Prova con un altro nome o cambia i filtri."
+      action={
+        <Button variant="secondary" onClick={resetFilters}>
+          Azzera i filtri
+        </Button>
+      }
+    />
+  );
+
   return (
     <div className="flex flex-col gap-6">
       <SectionHeading
@@ -114,62 +92,82 @@ export function TeamsPage() {
         label="Squadre"
         title="Le squadre della società."
         highlight="squadre"
-        description="Crea le squadre, poi aggiungi i tesserati o manda il link d'iscrizione: gli atleti entrano nella squadra giusta da soli."
+        description="Apri una squadra per vedere i tesserati, i prossimi appuntamenti e le quote. Per aggiungere i tesserati manda il link d'iscrizione: gli atleti entrano nella squadra giusta da soli."
       />
 
-      {list.items && list.items.length > 0 ? <div>{newButton}</div> : null}
+      {teams.length > 0 ? (
+        <div className="flex flex-col gap-4">
+          {teams.length >= MIN_TEAMS_FOR_FILTERS ? (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <Input
+                label="Cerca squadra"
+                hideLabel
+                type="search"
+                placeholder="Cerca per nome o categoria"
+                leadingIcon={<Search />}
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                className="sm:col-span-2"
+              />
+              <Select
+                label="Categoria"
+                placeholder="Tutte"
+                options={categories.map((value) => ({ value, label: value }))}
+                value={category}
+                onChange={(event) => setCategory(event.target.value)}
+              />
+              <Select
+                label="Genere"
+                placeholder="Tutti"
+                options={TEAM_GENDER_OPTIONS}
+                value={gender}
+                onChange={(event) => setGender(event.target.value as TeamGender | "")}
+              />
+            </div>
+          ) : null}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p aria-live="polite" className="text-sm font-semibold text-fg-muted">
+              {countLabel(visible.length, teams.length)}
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              {filtering && visible.length > 0 ? (
+                <Button variant="ghost" onClick={resetFilters}>
+                  Azzera i filtri
+                </Button>
+              ) : null}
+              {newButton}
+            </div>
+          </div>
+        </div>
+      ) : null}
 
-      <DataList
-        label="Squadre"
-        items={list.items}
-        getKey={(team) => team.id}
-        renderItem={(team) => (
-          <TeamRow
-            team={team}
-            onEdit={canWrite ? () => openForm(team) : undefined}
-            onDelete={
-              canWrite
-                ? () => {
-                    remove.reset();
-                    setDeleting(team);
-                  }
-                : undefined
-            }
-          />
-        )}
-        isLoading={list.isLoading}
+      <DataBoundary
+        isLoading={list.isPending}
         error={list.error}
-        onRetry={list.refetch}
+        onRetry={() => void list.refetch()}
+        isEmpty={visible.length === 0}
+        empty={teams.length === 0 ? noTeams : noResults}
         loadingLabel="Caricamento delle squadre"
         skeletonRows={4}
-        empty={
-          <EmptyState
-            icon={UsersRound}
-            title="Nessuna squadra ancora"
-            description={
-              canWrite
-                ? "Crea la prima squadra: poi potrai assegnarle i tesserati e pianificare le partite."
-                : "La segreteria non ha ancora creato le squadre."
-            }
-            action={newButton}
-          />
-        }
-      />
-      <LoadMore list={list} noun="Squadre" moreLabel="Carica altre squadre" />
+      >
+        <ul aria-label="Squadre" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {visible.map((team) => (
+            <li key={team.id}>
+              <TeamCard
+                team={team}
+                next={nextEvents}
+                onEdit={canWrite ? () => openForm(team) : undefined}
+                onDelete={canWrite ? () => setDeleting(team) : undefined}
+              />
+            </li>
+          ))}
+        </ul>
+      </DataBoundary>
 
       {canWrite ? (
         <>
           <TeamFormDialog open={formOpen} onOpenChange={setFormOpen} team={editing} />
-          <ConfirmDialog
-            open={deleting !== null}
-            onOpenChange={(open) => !open && setDeleting(null)}
-            title={deleting ? `Eliminare ${deleting.name}?` : ""}
-            description={deleting ? deleteWarning(deleting) : ""}
-            confirmLabel="Elimina"
-            loading={remove.isPending}
-            error={remove.error ? describeDeleteError(remove.error) : null}
-            onConfirm={confirmDelete}
-          />
+          <DeleteTeamDialog team={deleting} onClose={() => setDeleting(null)} />
         </>
       ) : null}
     </div>

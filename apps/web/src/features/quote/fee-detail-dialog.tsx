@@ -1,13 +1,13 @@
 "use client";
 
-import { FileDown, HandCoins } from "lucide-react";
-import type { ReactNode } from "react";
-import { Alert, AutoChip, Button, Dialog, DialogContent, useToast } from "@/components/ui";
-import { describeError, useApiMutation } from "@/lib/api";
+import { HandCoins } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { Alert, AutoChip, Button, Dialog, DialogContent } from "@/components/ui";
+import { useApiQuery } from "@/lib/api";
 import { FeeStatusChip } from "./fee-row";
 import { formatDateTime, formatDay, formatEuro } from "@/lib/format";
-import { METHOD_LABELS } from "./format";
-import { saveFile } from "@/lib/save-file";
+import { claimNote, METHOD_LABELS } from "./format";
+import { ReceiptActions } from "./receipt-actions";
 import type { Fee } from "./types";
 
 function Detail({ label, children }: { label: string; children: ReactNode }) {
@@ -25,42 +25,53 @@ function reminderText(fee: Fee): string {
   return `${fee.reminderCount}${last}`;
 }
 
+/**
+ * What the secretariat reads right after registering a payment. The receipt is only said to be sent when the fee
+ * confirms it (`sentAt`): the answer of the payment itself is a snapshot taken before the notification goes out.
+ */
+function describeOutcome(fee: Fee): string {
+  if (!fee.receipt) return "Pagamento registrato. Nessuna ricevuta emessa per questo pagamento.";
+  const issued = `Pagamento registrato. Ricevuta n. ${fee.receipt.code} emessa`;
+  return fee.receipt.sentAt ? `${issued} e inviata a ${fee.memberName} e all'amministrazione.` : `${issued}.`;
+}
+
 export interface FeeDetailDialogProps {
   fee: Fee | null;
   onClose: () => void;
   /** Set only for users who may register payments. */
   onPay?: (fee: Fee) => void;
+  /** Who reads the card: it shapes the wording of a reported payment. */
+  viewer?: "payer" | "secretariat";
+  /** The card opens right after a payment was registered: it states the outcome, with the receipt and its delivery. */
+  justPaid?: boolean;
 }
 
-/** Fee card: amounts, dates, who paid and the numbered receipt, which can be downloaded as a PDF. */
-export function FeeDetailDialog({ fee, onClose, onPay }: FeeDetailDialogProps) {
-  const { toast } = useToast();
-  const download = useApiMutation(
-    async (target: Fee, client) => {
-      const file = await client.download(`/fees/${target.id}/receipt`);
-      saveFile(file, `ricevuta-${target.receipt?.code ?? target.id}.pdf`);
-    },
-    { onSuccess: () => toast({ title: "Ricevuta scaricata", tone: "success" }) },
-  );
+/** Fee card: amounts, dates, who paid and the numbered receipt, which can be looked at or downloaded as a PDF. */
+export function FeeDetailDialog({ fee, onClose, onPay, viewer = "payer", justPaid = false }: FeeDetailDialogProps) {
+  const [receiptError, setReceiptError] = useState<string | null>(null);
+  // The answer of `pay` cannot know whether the receipt went out: read the fee again to find out
+  const fresh = useApiQuery<Fee>(["fees", "detail", fee?.id ?? ""], fee ? `/fees/${fee.id}` : "/fees", {
+    enabled: justPaid && fee !== null,
+  });
 
   if (!fee) return null;
-  const settled = fee.status === "PAID";
-  const canPay = onPay !== undefined && (fee.status === "PENDING" || fee.status === "OVERDUE");
+  const current = justPaid ? (fresh.data ?? fee) : fee;
+  const settled = current.status === "PAID";
+  const canPay = onPay !== undefined && (current.status === "PENDING" || current.status === "OVERDUE");
+  const note = claimNote(current, viewer);
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent
-        title={fee.memberName}
-        description={`${fee.description} · ${formatEuro(fee.amountCents)}`}
+        title={current.memberName}
+        description={`${current.description} · ${formatEuro(current.amountCents)}`}
         footer={
           <>
-            {fee.receipt ? (
-              <Button variant="secondary" leftIcon={<FileDown />} loading={download.isPending} onClick={() => download.mutate(fee)}>
-                Scarica ricevuta
-              </Button>
+            {current.receipt ? (
+              <ReceiptActions feeId={current.id} receipt={current.receipt} variant="card" onError={setReceiptError} />
             ) : null}
             {canPay ? (
-              <Button leftIcon={<HandCoins />} onClick={() => onPay(fee)}>
+              <Button leftIcon={<HandCoins />} onClick={() => onPay(current)}>
                 Registra pagamento
               </Button>
             ) : null}
@@ -68,29 +79,32 @@ export function FeeDetailDialog({ fee, onClose, onPay }: FeeDetailDialogProps) {
         }
       >
         <div className="flex flex-col gap-4">
-          {download.error ? <Alert tone="danger">{describeError(download.error)}</Alert> : null}
+          {justPaid && settled ? <Alert tone="success">{describeOutcome(current)}</Alert> : null}
+          {receiptError ? <Alert tone="danger">{receiptError}</Alert> : null}
           <dl className="grid grid-cols-[minmax(0,6.5rem)_minmax(0,1fr)] items-center gap-x-4 gap-y-3 text-sm">
             <Detail label="Stato">
-              <FeeStatusChip fee={fee} />
+              <FeeStatusChip fee={current} />
             </Detail>
-            <Detail label="Scadenza">{formatDay(fee.dueDate)}</Detail>
-            {fee.teams.length > 0 ? <Detail label="Squadra">{fee.teams.map((team) => team.name).join(", ")}</Detail> : null}
-            {settled && fee.paidAt ? <Detail label="Pagata il">{formatDateTime(fee.paidAt)}</Detail> : null}
-            {settled && fee.method ? <Detail label="Metodo">{METHOD_LABELS[fee.method]}</Detail> : null}
-            {settled && fee.payerName ? <Detail label="Pagante">{fee.payerName}</Detail> : null}
-            {settled && fee.reference ? <Detail label="Riferimento">{fee.reference}</Detail> : null}
-            {fee.receipt ? (
+            <Detail label="Scadenza">{formatDay(current.dueDate)}</Detail>
+            {current.teams.length > 0 ? <Detail label="Squadra">{current.teams.map((team) => team.name).join(", ")}</Detail> : null}
+            {note ? <Detail label="Segnalazione">{note}</Detail> : null}
+            {settled && current.paidAt ? <Detail label="Pagata il">{formatDateTime(current.paidAt)}</Detail> : null}
+            {settled && current.method ? <Detail label="Metodo">{METHOD_LABELS[current.method]}</Detail> : null}
+            {settled && current.payerName ? <Detail label="Pagante">{current.payerName}</Detail> : null}
+            {settled && current.reference ? <Detail label="Riferimento">{current.reference}</Detail> : null}
+            {current.receipt ? (
               <Detail label="Ricevuta">
                 <span className="flex flex-wrap items-center gap-2">
-                  n. {fee.receipt.code}
+                  n. {current.receipt.code}
                   <AutoChip>Emessa in automatico</AutoChip>
                 </span>
               </Detail>
             ) : null}
-            {!settled && fee.status !== "CANCELLED" ? (
+            {current.receipt?.sentAt ? <Detail label="Ricevuta inviata">{formatDateTime(current.receipt.sentAt)}</Detail> : null}
+            {!settled && current.status !== "CANCELLED" ? (
               <Detail label="Promemoria">
                 <span className="flex flex-wrap items-center gap-2">
-                  {reminderText(fee)}
+                  {reminderText(current)}
                   <AutoChip />
                 </span>
               </Detail>

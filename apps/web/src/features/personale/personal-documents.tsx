@@ -1,26 +1,16 @@
 "use client";
 
-import { Download, FilePlus2, FileText, FileUp } from "lucide-react";
+import { FileText, FileUp, Upload } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Button, Card, DataBoundary, EmptyState, SectionHeading, useToast } from "@/components/ui";
-import { describeExpiry, formatDateOnly } from "@/features/tesserati/document-format";
+import { Button, Card, DataBoundary, EmptyState, SectionHeading } from "@/components/ui";
+import { documentHeading } from "@/features/tesserati/document-format";
+import { DocumentItem } from "@/features/tesserati/document-item";
 import { DocumentSummary } from "@/features/tesserati/document-summary";
-import { DocumentStatusChip } from "@/features/tesserati/document-status-chip";
-import { useDocumentTypes, useDownloadDocument, useMember, useMemberDocuments } from "@/features/tesserati/api";
+import { useDocumentTypes, useMember, useMemberDocuments } from "@/features/tesserati/api";
 import type { DocumentIndicator, MemberDocument } from "@/features/tesserati/types";
-import { describeError } from "@/lib/api";
-import { formatFileSize } from "@/lib/format";
 import { useSubjectChoice } from "./subject-picker";
 import { usePersonalSubjects, type Subject } from "./subjects";
 import { UploadDocumentDialog } from "./upload-document-dialog";
-
-function detailLine(indicator: DocumentIndicator): string {
-  if (indicator.status === "MISSING") return "Non ancora caricato";
-  if (indicator.expiresAt && indicator.daysRemaining !== null) {
-    return `Scade il ${formatDateOnly(indicator.expiresAt)} · ${describeExpiry(indicator.daysRemaining)}`;
-  }
-  return "In regola";
-}
 
 interface RowProps {
   indicator: DocumentIndicator;
@@ -29,53 +19,30 @@ interface RowProps {
 }
 
 function DocumentRow({ indicator, document, onUpload }: RowProps) {
-  const { toast } = useToast();
-  const download = useDownloadDocument();
+  const isMissing = indicator.status === "MISSING";
   const needsAction = indicator.status !== "OK";
-  const hasFile = Boolean(document?.downloadUrl);
+  const name = indicator.name;
   return (
-    <li className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0">
-      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
-        <div className="min-w-0">
-          <p className="text-sm font-bold text-fg">{indicator.name}</p>
-          <p className="mt-0.5 text-sm text-fg-muted">{detailLine(indicator)}</p>
-          {document?.hasFile && document.fileName ? (
-            <p className="mt-0.5 text-xs text-fg-muted">
-              {document.fileName}
-              {document.sizeBytes ? ` · ${formatFileSize(document.sizeBytes)}` : ""}
-            </p>
-          ) : null}
-        </div>
-        <DocumentStatusChip status={indicator.status} />
-      </div>
-      <div className="flex flex-wrap gap-2">
+    <DocumentItem
+      heading={documentHeading(name, document?.title ?? null)}
+      typeName={name}
+      status={indicator.status}
+      expiresAt={indicator.expiresAt}
+      daysRemaining={indicator.daysRemaining}
+      note={isMissing ? "Non ancora caricato" : "In regola"}
+      document={document}
+      actions={
         <Button
-          variant={needsAction ? "primary" : "secondary"}
+          variant={needsAction ? "primary" : "ghost"}
           size="sm"
           leftIcon={<FileUp />}
-          aria-label={`${indicator.status === "MISSING" ? "Carica" : "Carica la nuova versione di"} ${indicator.name}`}
+          aria-label={`${isMissing ? "Carica" : "Carica la nuova versione di"} ${name}`}
           onClick={() => onUpload(indicator.documentTypeId)}
         >
-          {indicator.status === "MISSING" ? "Carica" : "Carica la nuova versione"}
+          {isMissing ? "Carica" : "Carica la nuova versione"}
         </Button>
-        {document && hasFile ? (
-          <Button
-            variant="secondary"
-            size="sm"
-            leftIcon={<Download />}
-            loading={download.isPending}
-            aria-label={`Scarica ${indicator.name}`}
-            onClick={() =>
-              download.mutate(document, {
-                onError: (error) => toast({ title: "Download non riuscito", description: describeError(error), tone: "danger" }),
-              })
-            }
-          >
-            Scarica
-          </Button>
-        ) : null}
-      </div>
-    </li>
+      }
+    />
   );
 }
 
@@ -90,14 +57,9 @@ function SubjectDocuments({ subject }: { subject: Subject }) {
 
   return (
     <Card className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <h2 className="text-lg font-bold tracking-title text-fg">{subject.isSelf ? "I tuoi documenti" : `Documenti di ${subject.name}`}</h2>
-          {member.data ? <DocumentSummary indicators={member.data.documents} /> : null}
-        </div>
-        <Button variant="secondary" size="sm" leftIcon={<FilePlus2 />} onClick={() => setUpload({})}>
-          Carica un altro documento
-        </Button>
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 className="text-lg font-bold tracking-title text-fg">{subject.isSelf ? "I tuoi documenti" : `Documenti di ${subject.name}`}</h2>
+        {member.data ? <DocumentSummary indicators={member.data.documents} /> : null}
       </div>
 
       <DataBoundary
@@ -112,9 +74,15 @@ function SubjectDocuments({ subject }: { subject: Subject }) {
         skeletonRows={3}
         empty={
           <EmptyState
+            className="shadow-none"
             icon={FileText}
             title="Nessun documento richiesto"
             description="La società non ha ancora indicato i documenti da consegnare. Puoi comunque caricarne uno."
+            action={
+              <Button variant="secondary" leftIcon={<Upload />} onClick={() => setUpload({})}>
+                Carica un documento
+              </Button>
+            }
           />
         }
       >

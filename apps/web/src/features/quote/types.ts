@@ -26,6 +26,8 @@ export interface Receipt {
   /** Zero-padded number, e.g. "0147". */
   code: string;
   issuedAt: string;
+  /** When the receipt notification went out to the payer and the administration; null until then. */
+  sentAt: string | null;
 }
 
 export interface Fee {
@@ -47,6 +49,8 @@ export interface Fee {
   reference: string | null;
   reminderCount: number;
   lastReminderAt: string | null;
+  /** When the payer reported "Ho pagato"; null if never. The status stays unchanged until the payment is registered. */
+  claimedAt: string | null;
   receipt: Receipt | null;
   createdAt: string;
   updatedAt: string;
