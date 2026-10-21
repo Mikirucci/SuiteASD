@@ -119,7 +119,7 @@ describe('automation jobs for the administration and the missing documents', () 
 
       // The athlete uploads the privacy form: the next week's reminder lists the other two only.
       const privacy = await typeOf(society.id, 'PRIVACY_CONSENT');
-      await ctx.prisma.document.create({ data: { societyId: society.id, memberId: member.id, documentTypeId: privacy.id } });
+      await ctx.prisma.document.create({ data: { societyId: society.id, fileKey: 'test/file.pdf', memberId: member.id, documentTypeId: privacy.id } });
       expect(await sent(new Date(weekStart.getTime() + 7 * 86_400_000))).toBe(4);
       const rows = await inApp(society.id, 'DOCUMENT_MISSING');
       expect(rows.at(-1)?.body).toBe('Per Sara Conti mancano: Certificato medico, Modulo iscrizione');
@@ -129,11 +129,11 @@ describe('automation jobs for the administration and the missing documents', () 
       const society = await societyWithTypes('Completi ASD');
       const { member } = await athleteJoined(society.id, 10);
       for (const key of ['MEMBERSHIP_FORM', 'PRIVACY_CONSENT']) {
-        await ctx.prisma.document.create({ data: { societyId: society.id, memberId: member.id, documentTypeId: (await typeOf(society.id, key)).id } });
+        await ctx.prisma.document.create({ data: { societyId: society.id, fileKey: 'test/file.pdf', memberId: member.id, documentTypeId: (await typeOf(society.id, key)).id } });
       }
       // Certificate on file but expired: not "missing".
       await ctx.prisma.document.create({
-        data: { societyId: society.id, memberId: member.id, documentTypeId: (await typeOf(society.id, 'MEDICAL_CERTIFICATE')).id, expiresAt: day('2020-01-01') },
+        data: { societyId: society.id, fileKey: 'test/file.pdf', memberId: member.id, documentTypeId: (await typeOf(society.id, 'MEDICAL_CERTIFICATE')).id, expiresAt: day('2020-01-01') },
       });
       expect(await run(missingDocuments, society.id, new Date())).toMatchObject({ result: { membersChecked: 1, membersReminded: 0, notifications: 0 } });
     });
@@ -189,10 +189,10 @@ describe('automation jobs for the administration and the missing documents', () 
       await ctx.prisma.payment.create({ data: { societyId: society.id, memberId: sara.id, description: 'Pagata', amountCents: 6000, dueDate: day('2026-09-01'), status: 'PAID', paidAt: day('2026-09-02') } });
       // Sara has everything but an expiring certificate; Anna has nothing.
       for (const key of ['MEMBERSHIP_FORM', 'PRIVACY_CONSENT']) {
-        await ctx.prisma.document.create({ data: { societyId: society.id, memberId: sara.id, documentTypeId: (await typeOf(society.id, key)).id } });
+        await ctx.prisma.document.create({ data: { societyId: society.id, fileKey: 'test/file.pdf', memberId: sara.id, documentTypeId: (await typeOf(society.id, key)).id } });
       }
       await ctx.prisma.document.create({
-        data: { societyId: society.id, memberId: sara.id, documentTypeId: (await typeOf(society.id, 'MEDICAL_CERTIFICATE')).id, expiresAt: day('2026-11-20') },
+        data: { societyId: society.id, fileKey: 'test/file.pdf', memberId: sara.id, documentTypeId: (await typeOf(society.id, 'MEDICAL_CERTIFICATE')).id, expiresAt: day('2026-11-20') },
       });
 
       const outcome = await run(adminDigest, society.id, at('2026-11-10'));

@@ -33,8 +33,8 @@ export function useRevokeInvitation() {
 export interface InvitationInfo {
   society: { name: string };
   role: Role;
-  /** The invited email with most of it hidden, e.g. "m***@example.test". */
-  maskedEmail: string;
+  /** The invited email with most of it hidden, e.g. "m***@example.test"; null when the link names nobody. */
+  maskedEmail: string | null;
 }
 
 export function useInvitationInfo(token: string) {
@@ -47,6 +47,8 @@ export interface AcceptInvitationBody {
   /** Needed only when the invited email has no account yet. */
   firstName?: string;
   lastName?: string;
+  /** Needed when the link names nobody: the account is made with this email. */
+  email?: string;
 }
 
 export function acceptInvitation(body: AcceptInvitationBody): Promise<SessionResponse> {

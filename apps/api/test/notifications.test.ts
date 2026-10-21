@@ -240,12 +240,12 @@ describe('notifications (SPEC 07)', () => {
     it('lists every personal type and channel enabled by default', async () => {
       const user = await createActor(ctx, societyId, 'GENITORE');
       const body = (await get(user, '/notifications/preferences')).json();
-      expect(body.preferences).toHaveLength(14);
+      expect(body.preferences).toHaveLength(16);
       expect(body.preferences.every((item: { enabled: boolean }) => item.enabled)).toBe(true);
       expect(body.preferences.some((item: { type: string }) => item.type.startsWith('ADMIN_'))).toBe(false);
     });
 
-    it('lists only the organisation types to the administration, and refuses the others', async () => {
+    it('lists the organisation types and the receipts to the administration, and refuses the others', async () => {
       for (const role of ['ADMIN', 'SEGRETERIA'] as const) {
         const user = await createActor(ctx, societyId, role);
         const types = new Set(
@@ -255,9 +255,12 @@ describe('notifications (SPEC 07)', () => {
           'ADMIN_DOCUMENT_ALERT',
           'ADMIN_DOCUMENT_UPLOADED',
           'ADMIN_FEE_OVERDUE',
+          'ADMIN_INVITATION_ACCEPTED',
           'ADMIN_NEW_ENROLMENT',
+          'ADMIN_PAYMENT_CLAIMED',
           'ADMIN_PAYMENT_RECEIVED',
           'ADMIN_SPONSOR_EXPIRING',
+          'RECEIPT_ISSUED',
         ]);
         const refused = await send('PUT', user, '/notifications/preferences', {
           preferences: [{ type: 'CONVOCATION', channel: 'EMAIL', enabled: false }],
@@ -273,7 +276,7 @@ describe('notifications (SPEC 07)', () => {
     it('offers both audiences to somebody who is administrator and athlete at once', async () => {
       const both = await createActor(ctx, societyId, 'ADMIN', 'ATLETA');
       const response = await get(both, '/notifications/preferences');
-      expect(response.json().preferences).toHaveLength(26);
+      expect(response.json().preferences).toHaveLength(32);
     });
 
     it('switches a channel off for a type and back on, and then stops creating that channel', async () => {

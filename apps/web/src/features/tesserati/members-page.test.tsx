@@ -93,12 +93,27 @@ describe("MembersPage", () => {
     expect(chip.closest("[title]")).toHaveAttribute("title", "Mancanti o scaduti: Certificato medico, Modulo iscrizione");
   });
 
-  it("shows the live summary bar", async () => {
+  it("shows the live figures at the top, before the list of people", async () => {
     standardApi();
     renderScreen(<MembersPage />);
-    expect(await screen.findByLabelText("Riepilogo")).toHaveTextContent(
-      "118 tesserati · 6 squadre · 0 documenti mancanti",
-    );
+    const summary = await screen.findByLabelText("Riepilogo");
+    expect(within(summary).getByText("Tesserati").parentElement?.parentElement).toHaveTextContent("118");
+    expect(within(summary).getByText("Squadre").parentElement?.parentElement).toHaveTextContent("6");
+    expect(within(summary).getByText("Documenti").parentElement?.parentElement).toHaveTextContent("0Nessun documento mancante");
+    const list = await screen.findByRole("list", { name: "Tesserati" });
+    expect(summary.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("puts the secondary actions in a menu next to the main one", async () => {
+    standardApi();
+    renderScreen(<MembersPage />);
+    await screen.findByText("Sara Conti");
+    expect(screen.getByRole("button", { name: "Nuovo tesserato" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Importa CSV" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Altre azioni" }));
+    expect(await screen.findByRole("menuitem", { name: "Link di iscrizione" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Importa CSV" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Esporta CSV" })).toBeInTheDocument();
   });
 
   it("builds the team pills from the existing teams and filters by the chosen one", async () => {
@@ -261,7 +276,8 @@ describe("MembersPage", () => {
     renderScreen(<MembersPage />);
     await screen.findByText("Sara Conti");
     expect(calls.some((call) => call.path === "/join-links")).toBe(false);
-    await userEvent.click(screen.getByRole("button", { name: "Link di iscrizione" }));
+    await userEvent.click(screen.getByRole("button", { name: "Altre azioni" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Link di iscrizione" }));
     expect(await screen.findByRole("dialog", { name: "Link di iscrizione" })).toBeInTheDocument();
     await waitFor(() => expect(calls.some((call) => call.path === "/join-links")).toBe(true));
   });
@@ -278,7 +294,8 @@ describe("MembersPage", () => {
     });
     renderScreen(<MembersPage />);
     await screen.findByText("Sara Conti");
-    await userEvent.click(screen.getByRole("button", { name: "Esporta CSV" }));
+    await userEvent.click(screen.getByRole("button", { name: "Altre azioni" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Esporta CSV" }));
     await waitFor(() => expect(calls.some((call) => call.path === "/members/export")).toBe(true));
     await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
   });

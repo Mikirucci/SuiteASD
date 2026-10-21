@@ -5,7 +5,7 @@ import { formatDay, formatEuro } from "@/lib/format";
 import { toDayKey } from "@/lib/dates";
 import type { ResourceConfig } from "../crud/types";
 import { amountToInput, bodyReader, optionalText, parseAmount, requiredAmount, requiredDay, requiredText } from "../crud/values";
-import type { LedgerEntry, LedgerKind } from "../types";
+import type { LedgerEntry, LedgerKind, LedgerSource } from "../types";
 
 export const KIND_LABELS: Record<LedgerKind, string> = { INCOME: "Entrata", EXPENSE: "Uscita" };
 
@@ -16,6 +16,13 @@ const schema = z.object({
   occurredOn: requiredDay(),
   description: optionalText(500),
 });
+
+const SOURCE_NOTES: Record<LedgerSource, string> = {
+  PAYMENT: "Registrato dai pagamenti: si modifica da lì.",
+  VENUE: "Costo di una palestra: si modifica dalla palestra.",
+  KIT: "Costo di una divisa: si modifica dalla divisa.",
+  TRIP: "Costo di una trasferta: si modifica dalla trasferta.",
+};
 
 /** Signed amount for a list row: the sign and the kind badge carry the meaning, not the colour. */
 function signedAmount(entry: LedgerEntry): string {
@@ -29,8 +36,8 @@ export const ledgerConfig: ResourceConfig<LedgerEntry> = {
   attachmentType: "LEDGER_ENTRY",
   icon: Banknote,
   fieldAliases: { amountCents: "amount" },
-  // Entries created by a payment belong to the Quote module: changing them here would desync the two.
-  isReadOnly: (entry) => entry.paymentId !== null,
+  // Entries born from a payment or from the cost of a venue, kit or trip follow their source: changing them here would desync the two.
+  isReadOnly: (entry) => entry.source !== null,
   copy: {
     plural: "Movimenti",
     loadingLabel: "Caricamento dei movimenti",
@@ -53,7 +60,7 @@ export const ledgerConfig: ResourceConfig<LedgerEntry> = {
     label: "Filtra per tipo",
     param: "kind",
     options: [
-      { value: "", label: "Tutti" },
+      { value: "", label: "Tutti i tipi" },
       { value: "INCOME", label: "Entrate" },
       { value: "EXPENSE", label: "Uscite" },
     ],
@@ -92,7 +99,7 @@ export const ledgerConfig: ResourceConfig<LedgerEntry> = {
   nameOf: (entry) => `${entry.category} del ${formatDay(entry.occurredOn)}`,
   row: (entry) => ({
     title: entry.category,
-    lines: [entry.description, formatDay(entry.occurredOn), entry.paymentId ? "Registrato dalle quote: si modifica da lì." : null],
+    lines: [entry.description, formatDay(entry.occurredOn), entry.source ? SOURCE_NOTES[entry.source] : null],
     figure: (
       <span className={entry.kind === "INCOME" ? "text-base font-extrabold text-success" : "text-base font-extrabold text-fg"}>
         {signedAmount(entry)}

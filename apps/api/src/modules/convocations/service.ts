@@ -63,9 +63,10 @@ function toDto(row: ConvocationRow, showOverride: boolean): ConvocationDto {
 
 const canSeeOverride = (ctx: TenantRequestContext) => can(ctx.auth.roles, 'convocations:read');
 
-// Staff see every convocation; athletes and guardians only the convocations already sent to them or their children.
+// Staff see every convocation; athletes and guardians only their own and their children's. A convocation is visible
+// (and answerable) from the moment it exists: `sentAt` only records that the notification went out.
 function visibilityFilter(ctx: TenantRequestContext): Prisma.ConvocationWhereInput {
-  return can(ctx.auth.roles, 'convocations:read') ? {} : { sentAt: { not: null }, member: ownMemberFilter(ctx) };
+  return can(ctx.auth.roles, 'convocations:read') ? {} : { member: ownMemberFilter(ctx) };
 }
 
 async function loadEvent({ db }: Pick<ConvocationScope, 'db'>, eventId: string) {
@@ -180,8 +181,10 @@ export async function createConvocations(
   }
 
   await db.$transaction(async (tx) => {
-    // Declined athletes free their slot: only the others count against the capacity.
-    const taken = await tx.convocation.count({ where: { eventId, status: { not: 'DECLINED' } } });
+    // The automatic rows of a team event (D-32) are not slots: they cover the whole roster and only the confirmed
+    // athletes take a place. Manual additions to a team event are therefore checked against the confirmed ones; an
+    // event without a team only has manual rows, so there every row that is not declined takes a slot.
+    const taken = await tx.convocation.count({ where: { eventId, status: event.teamId ? 'CONFIRMED' : { not: 'DECLINED' } } });
     const capacity = maxConvocationsOf(event);
     if (taken + newIds.length > capacity) {
       throw conflict('capacity_exceeded', `The event has ${capacity} convocation slots, ${taken} already taken`);
@@ -208,14 +211,14 @@ export async function removeConvocation(ctx: TenantRequestContext, id: string): 
   await ctx.db.convocation.deleteMany({ where: { id } });
 }
 
-// Athlete or guardian answers for the athlete (ABAC: own member or linked child, and only once the convocation was sent).
+// Athlete or guardian answers for the athlete (ABAC: own member or linked child), even before any notification went out.
 export async function respondToConvocation(
   ctx: TenantRequestContext,
   id: string,
   body: RespondBody,
 ): Promise<ConvocationDto> {
   const row = await ctx.db.convocation.findFirst({
-    where: { id, sentAt: { not: null }, member: ownMemberFilter(ctx) },
+    where: { id, member: ownMemberFilter(ctx) },
     include: convocationInclude,
   });
   if (!row) throw notFound('Convocation');
@@ -253,8 +256,8 @@ function recipientUserIds(row: ConvocationRecipients): string[] {
   return ids.filter((id): id is string => id !== null);
 }
 
-// Sends the convocations of an event that were not sent yet: marks them (Convocation.sentAt, Event.convocationsSentAt)
-// and notifies the athlete and the guardians. Idempotent: calling it again only handles convocations added since.
+// Notifies the convocations of an event that were not notified yet: marks them (Convocation.sentAt,
+// Event.convocationsSentAt) and tells the athlete and the guardians. Idempotent: calling it again only handles convocations added since.
 export async function sendConvocations(
   scope: ConvocationScope,
   eventId: string,
@@ -277,7 +280,8 @@ export async function sendConvocations(
     await tx.event.update({ where: { id: eventId }, data: { convocationsSentAt: sentAt } });
 
     let notified = 0;
-    for (const row of unsent) {
+    // Rows already answered are marked as sent too, but there is no point asking those athletes again.
+    for (const row of unsent.filter((candidate) => candidate.status === 'PENDING')) {
       notified += await createNotification(tx, {
         societyId: scope.societyId,
         userIds: recipientUserIds(row),

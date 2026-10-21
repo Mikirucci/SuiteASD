@@ -29,16 +29,29 @@ describe('expiry rules (SPEC 02)', () => {
 
   it('treats a missing document as MISSING and a no-expiry document as OK', () => {
     expect(statusOfDocument(null, true, NOW)).toBe('MISSING');
-    expect(statusOfDocument({ expiresAt: null }, false, NOW)).toBe('OK');
-    expect(statusOfDocument({ expiresAt: null }, true, NOW)).toBe('MISSING');
+    expect(statusOfDocument({ expiresAt: null, fileKey: 'k' }, false, NOW)).toBe('OK');
+    expect(statusOfDocument({ expiresAt: null, fileKey: 'k' }, true, NOW)).toBe('MISSING');
+  });
+
+  it('keeps a document without its file MISSING, whatever its expiry', () => {
+    expect(statusOfDocument({ expiresAt: null, fileKey: null }, false, NOW)).toBe('MISSING');
+    expect(statusOfDocument({ expiresAt: day('2027-06-01'), fileKey: null }, true, NOW)).toBe('MISSING');
+    expect(statusOfDocument({ expiresAt: day('2027-06-01'), fileKey: 'k' }, true, NOW)).toBe('OK');
   });
 
   it('picks the document valid the longest as the current one', () => {
-    const old = { expiresAt: day('2026-01-01') };
-    const renewed = { expiresAt: day('2027-01-01') };
+    const old = { expiresAt: day('2026-01-01'), fileKey: 'old' };
+    const renewed = { expiresAt: day('2027-01-01'), fileKey: 'new' };
     expect(pickCurrentDocument([old, renewed], true)).toBe(renewed);
-    expect(pickCurrentDocument([{ expiresAt: null }], true)).toBeNull();
+    expect(pickCurrentDocument([{ expiresAt: null, fileKey: 'k' }], true)).toBeNull();
     expect(pickCurrentDocument([], false)).toBeNull();
+  });
+
+  it('prefers a document with its file over a later one still waiting for it', () => {
+    const onFile = { expiresAt: day('2026-12-01'), fileKey: 'k' };
+    const waiting = { expiresAt: day('2027-12-01'), fileKey: null };
+    expect(pickCurrentDocument([waiting, onFile], true)).toBe(onFile);
+    expect(pickCurrentDocument([waiting], true)).toBe(waiting);
   });
 
   it('aggregates to the worst indicator, expired counting as missing', () => {

@@ -122,7 +122,7 @@ export function registerCrudRoutes<Dto, CreateBody, UpdateBody, ListQuery extend
         summary: `Delete a ${noun}`,
         security: bearerSecurity,
         params: idParamsSchema,
-        response: { 204: z.null(), ...problemResponses(401, 403, 404) },
+        response: { 204: z.null(), ...problemResponses(401, 403, 404, 409) },
       },
     },
     async (request, reply) => {

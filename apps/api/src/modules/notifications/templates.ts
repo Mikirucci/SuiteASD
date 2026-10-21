@@ -1,5 +1,7 @@
 // Italian texts of the notification types (SPEC 07 and docs/DECISIONS.md D-21). Pure functions: the same input always gives the same text.
 
+import type { Role } from '../../shared/enums.js';
+
 export interface RenderedNotification {
   title: string;
   body: string;
@@ -13,12 +15,24 @@ export type NotificationTemplate =
   | { type: 'EVALUATION_PUBLISHED'; matchLabel: string; rating: number }
   | { type: 'ANNOUNCEMENT'; title: string; body: string }
   | { type: 'DOCUMENT_MISSING'; memberName: string; documentNames: readonly string[] }
+  | { type: 'RECEIPT_ISSUED'; audience: 'PAYER' | 'ADMINISTRATION'; code: string; memberName: string; description: string; amountCents: number }
   | { type: 'ADMIN_PAYMENT_RECEIVED'; memberName: string; description: string; amountCents: number }
+  | { type: 'ADMIN_PAYMENT_CLAIMED'; memberName: string; description: string; amountCents: number }
   | { type: 'ADMIN_FEE_OVERDUE'; count: number; totalCents: number }
   | { type: 'ADMIN_DOCUMENT_ALERT'; membersToFix: number; documentsToFix: number; expiringSoon: number }
   | { type: 'ADMIN_DOCUMENT_UPLOADED'; memberName: string; documentName: string; expiresAt: Date | null }
   | { type: 'ADMIN_NEW_ENROLMENT'; memberName: string; teamName: string | null }
+  | { type: 'ADMIN_INVITATION_ACCEPTED'; personName: string; role: Role }
   | { type: 'ADMIN_SPONSOR_EXPIRING'; sponsorName: string; daysLeft: number };
+
+const COLLABORATOR_LABELS: Record<Role, string> = {
+  ADMIN: 'amministratore',
+  SEGRETERIA: 'segreteria',
+  ALLENATORE: 'allenatore',
+  STAFF: 'staff',
+  ATLETA: 'atleta',
+  GENITORE: 'genitore',
+};
 
 const TIMEZONE = 'Europe/Rome';
 const DAY_MS = 86_400_000;
@@ -103,6 +117,17 @@ export function renderNotification(template: NotificationTemplate): RenderedNoti
         title: 'Documenti da caricare',
         body: `Per ${template.memberName} mancano: ${template.documentNames.join(', ')}`,
       };
+    case 'RECEIPT_ISSUED': {
+      const what = `${template.description}, ${formatEuro(template.amountCents)}`;
+      return template.audience === 'PAYER'
+        ? { title: 'Ricevuta emessa', body: `Ricevuta n. ${template.code} emessa: ${what}. La trovi in Pagamenti.` }
+        : { title: 'Ricevuta emessa', body: `Ricevuta n. ${template.code} emessa per ${template.memberName}: ${what}. La trovi in Quote.` };
+    }
+    case 'ADMIN_PAYMENT_CLAIMED':
+      return {
+        title: 'Pagamento segnalato',
+        body: `Per ${template.memberName} è stato segnalato il pagamento di «${template.description}» (${formatEuro(template.amountCents)}): controlla la banca e registra il pagamento`,
+      };
     case 'ADMIN_PAYMENT_RECEIVED':
       return {
         title: 'Pagamento ricevuto',
@@ -131,6 +156,11 @@ export function renderNotification(template: NotificationTemplate): RenderedNoti
       return {
         title: 'Nuova iscrizione',
         body: `${template.memberName}${template.teamName ? ` · ${template.teamName}` : ''}`,
+      };
+    case 'ADMIN_INVITATION_ACCEPTED':
+      return {
+        title: 'Nuovo collaboratore',
+        body: `${template.personName} ha accettato l'invito come ${COLLABORATOR_LABELS[template.role]}`,
       };
     case 'ADMIN_SPONSOR_EXPIRING':
       return {

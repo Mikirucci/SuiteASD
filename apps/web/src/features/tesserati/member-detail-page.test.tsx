@@ -15,6 +15,7 @@ import {
   detailOf,
   documentOf,
   meWith,
+  member,
   mockApi,
   page,
   problem,
@@ -97,11 +98,56 @@ describe("MemberDetailPage", () => {
     expect(within(list).getByRole("button", { name: "Aggiungi Certificato medico" })).toBeInTheDocument();
   });
 
+  it("has no general add button while there is a document or a required one still missing", async () => {
+    baseApi();
+    renderScreen(<MemberDetailPage id="m-sara" />);
+    await screen.findByRole("list", { name: "Documenti del tesserato" });
+    expect(screen.queryByRole("button", { name: "Aggiungi documento" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the row buttons of a missing document when nothing has been uploaded yet", async () => {
+    baseApi({
+      "GET /members/m-anna": () => ({ body: detailOf(ANNA_FERRI) }),
+      "GET /members/m-anna/documents": () => page([]),
+    });
+    renderScreen(<MemberDetailPage id="m-anna" />);
+    const list = await screen.findByRole("list", { name: "Documenti del tesserato" });
+    expect(within(list).getByRole("button", { name: "Aggiungi Certificato medico" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Aggiungi documento" })).not.toBeInTheDocument();
+  });
+
+  it("offers the add button in the empty state, and only to who can write", async () => {
+    const empty = detailOf(member({ id: "m-sara", firstName: "Sara", lastName: "Conti", documents: [] }));
+    baseApi({ "GET /members/m-sara": () => ({ body: empty }), "GET /members/m-sara/documents": () => page([]) });
+    renderScreen(<MemberDetailPage id="m-sara" />);
+    expect(await screen.findByRole("heading", { name: "Nessun documento" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Aggiungi documento" }));
+    expect(await screen.findByRole("dialog", { name: "Aggiungi documento" })).toBeInTheDocument();
+  });
+
+  it("does not offer the add button in the empty state to an athlete", async () => {
+    mocks.permissions = ATHLETE_PERMISSIONS;
+    const empty = detailOf(member({ id: "m-sara", firstName: "Sara", lastName: "Conti", documents: [] }));
+    baseApi({ "GET /members/m-sara": () => ({ body: empty }), "GET /members/m-sara/documents": () => page([]) });
+    renderScreen(<MemberDetailPage id="m-sara" />);
+    expect(await screen.findByRole("heading", { name: "Nessun documento" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Aggiungi documento" })).not.toBeInTheDocument();
+  });
+
+  it("opens the file of a document in the platform from its row", async () => {
+    URL.createObjectURL = () => "blob:test";
+    URL.revokeObjectURL = () => undefined;
+    baseApi({ "GET /documents/doc-1/file": () => ({ body: "%PDF", headers: { "content-type": "application/pdf" } }) });
+    renderScreen(<MemberDetailPage id="m-sara" />);
+    await userEvent.click(await screen.findByRole("button", { name: "Apri Certificato medico" }));
+    expect(await screen.findByTitle("Anteprima di Certificato medico")).toBeInTheDocument();
+  });
+
   it("shows expiry and file details of an uploaded certificate", async () => {
     baseApi();
     renderScreen(<MemberDetailPage id="m-sara" />);
     const list = await screen.findByRole("list", { name: "Documenti del tesserato" });
-    expect(within(list).getByText(/Scade il 27 novembre 2026 · Scade tra 15 giorni/)).toBeInTheDocument();
+    expect(within(list).getByText(/Scade il 27 novembre 2026 · scade tra 15 giorni/)).toBeInTheDocument();
     expect(within(list).getByText("certificato-conti.pdf · 240 KB")).toBeInTheDocument();
     expect(within(list).getByText("In scadenza")).toBeInTheDocument();
   });
@@ -120,7 +166,8 @@ describe("MemberDetailPage", () => {
       }),
     });
     renderScreen(<MemberDetailPage id="m-sara" />);
-    await userEvent.click(await screen.findByRole("button", { name: "Scarica Certificato medico" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Altre azioni di Certificato medico" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Scarica Certificato medico" }));
     await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
     expect(calls.some((call) => call.path === "/documents/doc-1/file")).toBe(true);
   });
@@ -155,7 +202,8 @@ describe("MemberDetailPage", () => {
   it("deletes a document after confirmation", async () => {
     const { calls } = baseApi({ "DELETE /documents/doc-1": () => ({ status: 204 }) });
     renderScreen(<MemberDetailPage id="m-sara" />);
-    await userEvent.click(await screen.findByRole("button", { name: "Elimina Certificato medico" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Altre azioni di Certificato medico" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Elimina Certificato medico" }));
     const dialog = await screen.findByRole("dialog", { name: "Eliminare Certificato medico?" });
     await userEvent.click(within(dialog).getByRole("button", { name: "Elimina documento" }));
     await waitFor(() => expect(calls.some((call) => call.method === "DELETE")).toBe(true));
@@ -207,9 +255,13 @@ describe("MemberDetailPage", () => {
     mocks.permissions = ATHLETE_PERMISSIONS;
     baseApi();
     renderScreen(<MemberDetailPage id="m-sara" />);
-    expect(await screen.findByRole("button", { name: "Scarica Certificato medico" })).toBeInTheDocument();
-    for (const name of ["Modifica", "Elimina", "Aggiungi documento", "Sostituisci file di Certificato medico"]) {
+    await userEvent.click(await screen.findByRole("button", { name: "Altre azioni di Certificato medico" }));
+    expect(await screen.findByRole("menuitem", { name: "Scarica Certificato medico" })).toBeInTheDocument();
+    for (const name of ["Modifica", "Elimina", "Aggiungi documento", "Carica file di Certificato medico"]) {
       expect(screen.queryByRole("button", { name })).not.toBeInTheDocument();
+    }
+    for (const name of ["Modifica Certificato medico", "Elimina Certificato medico", "Sostituisci file di Certificato medico"]) {
+      expect(screen.queryByRole("menuitem", { name })).not.toBeInTheDocument();
     }
   });
 

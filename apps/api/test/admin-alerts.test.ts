@@ -172,7 +172,7 @@ describe('self-service documents and the alerts the administration gets', () => 
       const certificate = await ctx.prisma.documentType.findFirstOrThrow({ where: { societyId: society.id, key: 'MEDICAL_CERTIFICATE' } });
       const owner = await createActor(ctx, society.id, 'ATLETA');
       const member = await createMember(ctx, society.id, { userId: owner.user.id });
-      await ctx.prisma.document.create({ data: { societyId: society.id, memberId: member.id, documentTypeId: certificate.id, expiresAt: new Date(`${inDays(-5)}T00:00:00.000Z`) } });
+      await ctx.prisma.document.create({ data: { societyId: society.id, fileKey: 'test/file.pdf', memberId: member.id, documentTypeId: certificate.id, expiresAt: new Date(`${inDays(-5)}T00:00:00.000Z`) } });
       const own = () => ctx.app.inject({ method: 'GET', url: `${API}/members/${member.id}`, headers: owner.headers });
       expect((await own()).json().documents[0].status).toBe('EXPIRED');
       const renewal = await ctx.app.inject({
@@ -266,7 +266,7 @@ describe('self-service documents and the alerts the administration gets', () => 
       const rows = await ctx.prisma.notification.findMany({ where: { societyId: society.id, type: 'ADMIN_PAYMENT_RECEIVED', channel: 'IN_APP' } });
       expect(rows.map((row) => row.userId)).toEqual([owner.user.id]);
       expect(rows[0]).toMatchObject({ title: 'Pagamento ricevuto', body: 'Sara Conti · Quota novembre · € 60' });
-      expect(await ctx.prisma.notification.count({ where: { userId: parent.user.id } })).toBe(0);
+      expect(await ctx.prisma.notification.count({ where: { userId: parent.user.id, type: { not: 'RECEIPT_ISSUED' } } })).toBe(0);
     });
 
     it('does not repeat the alert when the same request is replayed', async () => {
@@ -285,7 +285,7 @@ describe('self-service documents and the alerts the administration gets', () => 
       const owner = await createActor(ctx, society.id, 'ADMIN');
       const fee = await feeIn(society.id, (await createMember(ctx, society.id)).id);
       expect((await pay(owner, fee.id)).statusCode).toBe(200);
-      expect(await ctx.prisma.notification.count({ where: { societyId: society.id } })).toBe(0);
+      expect(await ctx.prisma.notification.count({ where: { societyId: society.id, type: 'ADMIN_PAYMENT_RECEIVED' } })).toBe(0);
     });
   });
 });

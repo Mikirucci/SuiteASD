@@ -130,19 +130,36 @@ describe('convocations (SPEC 04)', () => {
       expect(duplicate.statusCode).toBe(422);
     });
 
-    it('enforces the event capacity, freeing the slot of an athlete who declines', async () => {
+    const setStatus = (eventId: string, athletes: readonly Athlete[], status: 'CONFIRMED' | 'DECLINED') =>
+      ctx.prisma.convocation.updateMany({ where: { eventId, memberId: { in: athletes.map((athlete) => athlete.member.id) } }, data: { status } });
+
+    // D-32: the rows of a team event are not slots, only the confirmed athletes take a place (manual additions are checked against them).
+    it('enforces the event capacity on the confirmed athletes of a team event, freeing the slot of one who declines', async () => {
       const event = await newMatch({ maxConvocations: 3 });
       const athletes = await squad(5);
       expect((await convoke(event.id, athletes.slice(0, 2))).statusCode).toBe(201);
+      await setStatus(event.id, athletes.slice(0, 2), 'CONFIRMED');
       const tooMany = await convoke(event.id, athletes.slice(2, 4));
       expect(tooMany.statusCode).toBe(409);
       expect(tooMany.json()).toMatchObject({ code: 'capacity_exceeded' });
       expect((await send('GET', actors.ALLENATORE, `/events/${event.id}/convocations`)).json().summary.total).toBe(2);
 
       expect((await convoke(event.id, athletes.slice(2, 3))).statusCode).toBe(201);
-      await ctx.prisma.convocation.updateMany({ where: { eventId: event.id, memberId: athletes[0]?.member.id }, data: { status: 'DECLINED' } });
+      await setStatus(event.id, athletes.slice(2, 3), 'CONFIRMED');
+      expect((await convoke(event.id, athletes.slice(3, 4))).statusCode).toBe(409);
+      await setStatus(event.id, athletes.slice(0, 1), 'DECLINED');
       expect((await convoke(event.id, athletes.slice(3, 4))).statusCode).toBe(201);
+      await setStatus(event.id, athletes.slice(3, 4), 'CONFIRMED');
       expect((await convoke(event.id, athletes.slice(4, 5))).statusCode).toBe(409);
+    });
+
+    it('counts every row that is not declined on an event without a team, where all rows are manual', async () => {
+      const event = await newMatch({ teamId: null, maxConvocations: 2 });
+      const athletes = await squad(4);
+      expect((await convoke(event.id, athletes.slice(0, 2))).statusCode).toBe(201);
+      expect((await convoke(event.id, athletes.slice(2, 3))).json()).toMatchObject({ code: 'capacity_exceeded' });
+      await setStatus(event.id, athletes.slice(0, 1), 'DECLINED');
+      expect((await convoke(event.id, athletes.slice(2, 3))).statusCode).toBe(201);
     });
 
     it('defaults to 12 slots for volleyball', async () => {
@@ -150,6 +167,7 @@ describe('convocations (SPEC 04)', () => {
       const athletes = await squad(13);
       expect((await convoke(event.id, athletes)).statusCode).toBe(409);
       expect((await convoke(event.id, athletes.slice(0, 12))).statusCode).toBe(201);
+      await setStatus(event.id, athletes.slice(0, 12), 'CONFIRMED');
       expect((await convoke(event.id, athletes.slice(12))).statusCode).toBe(409);
     });
 
@@ -384,14 +402,17 @@ describe('convocations (SPEC 04)', () => {
       expect((await respond(foreignAthlete, id, { status: 'CONFIRMED' })).statusCode).toBe(404);
     });
 
-    it('hides convocations that were not sent yet', async () => {
+    // D-32: `sentAt` only records the notification, the athlete sees and answers the convocation as soon as it exists.
+    it('shows convocations that were not sent yet and lets the athlete answer them', async () => {
       const event = await newMatch();
       const athlete = await createAthlete(ctx, societyId, teamId, { athlete: true });
       await convoke(event.id, [athlete]);
       const id = (await ctx.prisma.convocation.findFirstOrThrow({ where: { eventId: event.id } })).id;
-      expect((await respond(athlete.athlete, id, { status: 'CONFIRMED' })).statusCode).toBe(404);
-      expect((await send('GET', athlete.athlete, '/convocations')).json().data).toEqual([]);
-      expect((await send('GET', athlete.athlete, `/events/${event.id}/convocations`)).json().data).toEqual([]);
+      expect((await send('GET', athlete.athlete, '/convocations')).json().data.map((row: { id: string }) => row.id)).toEqual([id]);
+      expect((await send('GET', athlete.athlete, `/events/${event.id}/convocations`)).json().data).toHaveLength(1);
+      const answered = await respond(athlete.athlete, id, { status: 'CONFIRMED' });
+      expect(answered.statusCode).toBe(200);
+      expect(answered.json()).toMatchObject({ status: 'CONFIRMED', sentAt: null });
     });
 
     it('validates the answer: a reason is only allowed when declining', async () => {

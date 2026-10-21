@@ -1,6 +1,6 @@
 import { addDays, startOfWeek } from "@/lib/dates";
 import { ApiError, describeError } from "@/lib/api";
-import type { CalendarEvent, ConvocationSummary, EventType, MatchContext } from "./types";
+import type { CalendarEvent, ConvocationStatus, ConvocationSummary, EventType, MatchContext } from "./types";
 
 export const EVENT_TYPE_LABELS: Record<EventType, string> = {
   MATCH: "Partita",
@@ -36,6 +36,13 @@ export function formatDayTitle(date: Date): string {
 /** "20:30". */
 export function formatTime(iso: string): string {
   return timeFormat.format(new Date(iso));
+}
+
+const weekdayDateFormat = new Intl.DateTimeFormat("it-IT", { weekday: "short", day: "numeric", month: "short" });
+
+/** "Gio 12 nov · 19:00": when an appointment is, in one short line. */
+export function formatWeekdayTime(iso: string): string {
+  return `${capitalize(weekdayDateFormat.format(new Date(iso)))} · ${formatTime(iso)}`;
 }
 
 /** "9 nov, 10:00". */
@@ -95,9 +102,19 @@ export function combineLocal(day: string, time: string): string {
 
 // ---- convocations --------------------------------------------------------------------------------------------------
 
-/** "5/12 confermate". */
+/** "5/12 confermate", or "14 confermati · posti 12" when more athletes confirmed than there are slots. */
 export function confirmedText(summary: Pick<ConvocationSummary, "confirmed" | "capacity">): string {
+  if (summary.confirmed > summary.capacity) return `${summary.confirmed} confermati · posti ${summary.capacity}`;
   return `${summary.confirmed}/${summary.capacity} confermate`;
+}
+
+/**
+ * Slots left for manual additions, as the server counts them: the confirmed athletes of a team event (the automatic
+ * rows take no slot), every row not declined when the event has no team.
+ */
+export function freeSlotsOf(hasTeam: boolean, rows: ReadonlyArray<{ status: ConvocationStatus }>, capacity: number): number {
+  const taken = rows.filter((row) => (hasTeam ? row.status === "CONFIRMED" : row.status !== "DECLINED")).length;
+  return Math.max(0, capacity - taken);
 }
 
 /** The match card eyebrow: "SERIE D · GIRONE B · GIORNATA 6", or the team when the match has no competition. */
@@ -110,6 +127,14 @@ export function matchEyebrow(event: Pick<CalendarEvent, "team">, context: MatchC
 /** An event accepts convocations and answers while it is ahead of us and not cancelled. */
 export function isOpen(event: Pick<CalendarEvent, "status" | "startsAt">, now: Date = new Date()): boolean {
   return event.status !== "CANCELLED" && new Date(event.startsAt) > now;
+}
+
+export type ClosedReason = "cancelled" | "started";
+
+/** Why an event takes no more answers: it was cancelled or it already started; null while it is still open. */
+export function closedReason(event: Pick<CalendarEvent, "status" | "startsAt">, now: Date = new Date()): ClosedReason | null {
+  if (event.status === "CANCELLED") return "cancelled";
+  return new Date(event.startsAt) > now ? null : "started";
 }
 
 export function formatPercent(value: number | null): string {

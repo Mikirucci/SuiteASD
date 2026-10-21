@@ -146,6 +146,8 @@ Con il backend reale acceso (`npm run dev` dalla root) si possono scrivere E2E s
 
 ## 9. Note e limiti noti
 
+- Componenti condivisi del 17/10 (sera): `components/ui/file-preview-dialog` (anteprima di immagini e PDF scaricati con l'API autenticata, usata da documenti e ricevute), `features/tesserati/document-item` (riga documento della scheda e dell'area personale), `features/squadre/team-card` e `team-detail-page`, `features/personale/personal-home-*` (quadrati e tabelle della home atleta), `features/statistiche/*` (KPI e sezioni con "Come leggere"). `DataTable` accetta `onRowClick`. La vetrina `/design` non mostra ancora `FilePreviewDialog`.
+
 - Tutti i moduli della SPEC sono costruiti; `[...slug]` resta come fallback onesto per le rotte che non esistono ("Questa pagina non è ancora disponibile" dentro la shell).
 - Le pagine di amministrazione conservano la vista "solo i propri dati" per atleta e genitore (ad esempio Tesserati, Scadenze, Pagelle): oggi chi ha solo quei ruoli viene portato in `/area-personale`, quindi quella vista serve solo a chi unisce un ruolo di amministrazione e uno personale con permessi limitati. Le pagelle sono destinate a essere eliminate.
 - `AGENTS.md` in `apps/web` è generato da `next dev` (Next 16.4): lascialo, ricorda di leggere `node_modules/next/dist/docs/` prima di usare API Next poco comuni.

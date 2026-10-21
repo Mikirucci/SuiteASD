@@ -5,6 +5,7 @@ import { json, page, problem, renderWithProviders, stubApi } from "@/test/stub-a
 import { expectNoA11yViolations } from "@/test/a11y";
 import { venuesConfig } from "../resources/venues";
 import { PALAZZETTO, SCUOLA } from "../test-fixtures";
+import { pickFromMenu } from "@/test/row-menu";
 import { ResourceView } from "./resource-view";
 
 const auth = vi.hoisted(() => ({ permissions: [] as string[] }));
@@ -79,7 +80,7 @@ describe("ResourceView (venues)", () => {
       }),
     );
     renderWithProviders(<ResourceView config={venuesConfig} />);
-    await userEvent.click(await screen.findByRole("button", { name: "Allegati di Palazzetto dello Sport" }));
+    await pickFromMenu("Altre azioni di Palazzetto dello Sport", "Allegati di Palazzetto dello Sport");
 
     const dialog = await screen.findByRole("dialog", { name: "Allegati · Palazzetto dello Sport" });
     expect(await within(dialog).findByText("Contratto di affitto")).toBeInTheDocument();
@@ -93,7 +94,7 @@ describe("ResourceView (venues)", () => {
     stubApi(routes());
     renderWithProviders(<ResourceView config={venuesConfig} />);
     await screen.findByText("Palazzetto dello Sport");
-    expect(screen.queryByRole("button", { name: /Allegati di/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Altre azioni di/ })).not.toBeInTheDocument();
   });
 
   it("sends the search text as q and offers to clear it when nothing matches", async () => {
@@ -135,7 +136,7 @@ describe("ResourceView (venues)", () => {
   it("edits a venue and clears an optional field with null", async () => {
     const api = stubApi(routes({ "PATCH /venues/v-palazzetto": () => json(200, PALAZZETTO) }));
     renderWithProviders(<ResourceView config={venuesConfig} />);
-    await userEvent.click(await screen.findByRole("button", { name: "Modifica Palazzetto dello Sport" }));
+    await pickFromMenu("Altre azioni di Palazzetto dello Sport", "Modifica Palazzetto dello Sport");
     const dialog = await screen.findByRole("dialog", { name: "Modifica la palestra" });
     expect(within(dialog).getByLabelText(/Nome della palestra/)).toHaveValue("Palazzetto dello Sport");
     expect(within(dialog).getByLabelText("Capienza")).toHaveValue("400");
@@ -151,6 +152,8 @@ describe("ResourceView (venues)", () => {
       capacity: null,
       availability: "Martedì e giovedì 18:00-21:00",
       notes: null,
+      costCents: 45000,
+      costDate: "2026-11-02",
     });
     expect(await screen.findByText("Palestra aggiornata")).toBeInTheDocument();
   });
@@ -181,7 +184,7 @@ describe("ResourceView (venues)", () => {
   it("asks before deleting, deletes and reloads the list", async () => {
     const api = stubApi(routes({ "DELETE /venues/v-scuola": () => json(204) }));
     renderWithProviders(<ResourceView config={venuesConfig} />);
-    await userEvent.click(await screen.findByRole("button", { name: "Elimina Palestra Scuola Media" }));
+    await pickFromMenu("Altre azioni di Palestra Scuola Media", "Elimina Palestra Scuola Media");
     const dialog = await screen.findByRole("dialog", { name: "Eliminare Palestra Scuola Media?" });
     expect(api.count("DELETE /venues/v-scuola")).toBe(0);
 
@@ -195,7 +198,7 @@ describe("ResourceView (venues)", () => {
   it("keeps the confirmation open and explains a failed deletion", async () => {
     stubApi(routes({ "DELETE /venues/v-scuola": () => problem(403, "forbidden") }));
     renderWithProviders(<ResourceView config={venuesConfig} />);
-    await userEvent.click(await screen.findByRole("button", { name: "Elimina Palestra Scuola Media" }));
+    await pickFromMenu("Altre azioni di Palestra Scuola Media", "Elimina Palestra Scuola Media");
     const dialog = await screen.findByRole("dialog");
     await userEvent.click(within(dialog).getByRole("button", { name: "Elimina" }));
     expect(await within(dialog).findByText("Non hai i permessi per eseguire questa azione.")).toBeInTheDocument();
@@ -207,7 +210,6 @@ describe("ResourceView (venues)", () => {
     renderWithProviders(<ResourceView config={venuesConfig} />);
     await screen.findByText("Palazzetto dello Sport");
     expect(screen.queryByRole("button", { name: "Nuova palestra" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /^Modifica / })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /^Elimina / })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Altre azioni di / })).not.toBeInTheDocument();
   });
 });

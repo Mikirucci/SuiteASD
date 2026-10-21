@@ -88,6 +88,15 @@ export function requiredAmount(minCents = 0) {
   }, minCents > 0 ? "Inserisci un importo maggiore di zero, per esempio 60 o 60,50" : AMOUNT_MESSAGE);
 }
 
+/** Optional amount that is either empty or at least one cent: the API refuses a cost of zero. */
+export function optionalPositiveAmount() {
+  return z.string().refine((value) => {
+    if (value.trim() === "") return true;
+    const cents = parseAmount(value);
+    return cents !== null && cents >= 1;
+  }, "Inserisci un importo maggiore di zero, per esempio 60 o 60,50");
+}
+
 export function optionalAmount() {
   return z.string().refine((value) => value.trim() === "" || parseAmount(value) !== null, AMOUNT_MESSAGE);
 }
@@ -109,6 +118,7 @@ export function bodyReader(values: FormValues, mode: FormMode) {
     integer: (name: string) => clearable(raw(name) === "" ? null : Number(raw(name)), mode),
     amount: (name: string) => clearable(raw(name) === "" ? null : parseAmount(raw(name)), mode),
     dateTime: (name: string) => clearable(raw(name) === "" ? null : fromLocalInput(raw(name)), mode),
+    day: (name: string) => clearable(raw(name) === "" ? null : raw(name), mode),
   };
 }
 

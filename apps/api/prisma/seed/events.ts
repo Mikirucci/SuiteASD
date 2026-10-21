@@ -1,3 +1,5 @@
+import { scopeToTenant } from '../../src/lib/tenant.js';
+import { addTeamConvocations } from '../../src/modules/convocations/auto.js';
 import { expandWeekly, toRrule } from '../../src/modules/events/recurrence.js';
 import type { SeedStep } from './context.js';
 
@@ -49,6 +51,13 @@ async function seedTrainings(context: Parameters<SeedStep>[0], teamId: string, v
   await prisma.event.createMany({
     data: others.map((start) => ({ ...base, startsAt: start, endsAt: endOf(start), recurrenceParentId: first.id })),
   });
+
+  // D-32: the athletes can answer the trainings still ahead from the start, as they would for an event created in the app.
+  const ahead = await prisma.event.findMany({
+    where: { societyId, type: 'TRAINING', startsAt: { gt: new Date() } },
+    select: { id: true, teamId: true, startsAt: true, status: true },
+  });
+  await addTeamConvocations(scopeToTenant(prisma, societyId), societyId, ahead);
 
   // Check-in history for the trainings already held, so the attendance percentages are not empty.
   const squad = await prisma.member.findMany({

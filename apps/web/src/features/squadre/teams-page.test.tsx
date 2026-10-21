@@ -1,12 +1,22 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { team } from "@/features/tesserati/test-support";
+import type { CalendarEvent } from "@/features/calendario/types";
 import type { Team } from "@/features/tesserati/types";
 import { expectNoA11yViolations } from "@/test/a11y";
 import { json, page, problem, renderWithProviders, stubApi } from "@/test/stub-api";
-import { TeamsPage, deleteWarning } from "./teams-page";
+import { deleteWarning } from "./delete-team-dialog";
+import { TeamsPage } from "./teams-page";
 
+vi.mock("next/link", () => ({
+  default: ({ href, children, ...props }: { href: string; children: ReactNode } & Record<string, unknown>) => (
+    <a href={href} {...props}>
+      {children}
+    </a>
+  ),
+}));
 const auth = vi.hoisted(() => ({ permissions: [] as string[] }));
 vi.mock("@/features/auth/auth-provider", () => ({
   useAuth: () => ({ status: "authenticated", me: { permissions: auth.permissions, roles: ["ADMIN"] } }),
@@ -24,12 +34,50 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+const U14: Team = { ...team("t14", "Under 14", "U14"), gender: "MALE", membersCount: 11 };
+
+function calendarEvent(overrides: Partial<CalendarEvent> & Pick<CalendarEvent, "id" | "title" | "startsAt">): CalendarEvent {
+  return {
+    type: "MATCH",
+    endsAt: null,
+    status: "SCHEDULED",
+    notes: null,
+    team: { id: "t16", name: "Under 16" },
+    venue: null,
+    recurrenceRule: null,
+    recurrenceParentId: null,
+    convocations: { confirmed: 0, declined: 0, pending: 0, total: 0, capacity: 0 },
+    convocationsSentAt: null,
+    createdAt: "2026-09-01T08:00:00.000Z",
+    updatedAt: "2026-09-01T08:00:00.000Z",
+    ...overrides,
+  };
+}
+
+const NEXT_MATCH = calendarEvent({ id: "e1", title: "Aquile contro Delfini", startsAt: "2026-11-14T12:00:00.000Z" });
+const LATER_TRAINING = calendarEvent({
+  id: "e2",
+  title: "Allenamento del giovedì",
+  startsAt: "2026-11-19T12:00:00.000Z",
+  type: "TRAINING",
+});
+
 function routes(extra: Parameters<typeof stubApi>[0] = {}) {
-  return { "GET /teams": () => json(200, page([U16, SERIE_D, OPEN])), ...extra };
+  return {
+    "GET /teams": () => json(200, page([U16, SERIE_D, OPEN])),
+    "GET /events": () => json(200, page([])),
+    ...extra,
+  };
+}
+
+async function openFilteredPage(teams: Team[] = [U16, SERIE_D, OPEN, U14]) {
+  stubApi(routes({ "GET /teams": () => json(200, page(teams)) }));
+  renderWithProviders(<TeamsPage />);
+  await screen.findByRole("list", { name: "Squadre" });
 }
 
 describe("TeamsPage", () => {
-  it("shows a loading state, then the teams with category, gender, members and description", async () => {
+  it("shows a loading state, then the teams with name, gender, members and commitments of the week", async () => {
     stubApi(routes());
     const { container } = renderWithProviders(<TeamsPage />);
     expect(screen.getByRole("status", { name: "Caricamento delle squadre" })).toBeInTheDocument();
@@ -37,17 +85,75 @@ describe("TeamsPage", () => {
     const list = await screen.findByRole("list", { name: "Squadre" });
     const [first, second, third] = within(list).getAllByRole("listitem");
     expect(first).toHaveTextContent("Under 16");
-    expect(first).toHaveTextContent("U16");
+    // Only the name identifies a team on the card: no category, no monogram
+    expect(first).not.toHaveTextContent("U16");
     expect(first).toHaveTextContent("Femminile");
     expect(first).toHaveTextContent("14 tesserati");
-    expect(first).toHaveTextContent("Martedì e giovedì, palestra comunale");
+    // The long description is left to the team page: every card keeps the same three bands
+    expect(first).not.toHaveTextContent("Martedì e giovedì, palestra comunale");
     expect(second).toHaveTextContent("Mista");
     expect(second).toHaveTextContent("1 tesserato");
-    // The category chip is left out when it repeats the name
     expect(within(second as HTMLElement).getAllByText("Serie D")).toHaveLength(1);
     expect(third).toHaveTextContent("0 tesserati");
-    expect(screen.getByText("Squadre in tutto: 3")).toBeInTheDocument();
+    await waitFor(() => expect(third).toHaveTextContent("0 impegni questa settimana"));
+    expect(screen.getByText("3 squadre")).toBeInTheDocument();
     await expectNoA11yViolations(container);
+  });
+
+  it("makes the whole card a link to the team, named after the team", async () => {
+    stubApi(routes());
+    renderWithProviders(<TeamsPage />);
+    const list = await screen.findByRole("list", { name: "Squadre" });
+    const [first] = within(list).getAllByRole("listitem");
+    const link = within(first as HTMLElement).getByRole("link", { name: "Under 16" });
+    expect(link).toHaveAttribute("href", "/squadre/t16");
+    expect(within(list).getAllByRole("link")).toHaveLength(3);
+  });
+
+  it("keeps edit and delete outside the link, so that opening the team stays the main action", async () => {
+    stubApi(routes());
+    renderWithProviders(<TeamsPage />);
+    const link = await screen.findByRole("link", { name: "Under 16" });
+    const edit = screen.getByRole("button", { name: "Modifica Under 16" });
+    expect(link).not.toContainElement(edit);
+    expect(link).not.toContainElement(screen.getByRole("button", { name: "Elimina Under 16" }));
+    await userEvent.click(edit);
+    expect(await screen.findByRole("dialog", { name: "Modifica squadra" })).toBeInTheDocument();
+  });
+
+  it("counts the commitments of the current week for each team, with a single request", async () => {
+    const api = stubApi(routes({ "GET /events": () => json(200, page([NEXT_MATCH, LATER_TRAINING])) }));
+    renderWithProviders(<TeamsPage />);
+    const list = await screen.findByRole("list", { name: "Squadre" });
+    const [first, second] = within(list).getAllByRole("listitem");
+    await waitFor(() => expect(first).toHaveTextContent("2 impegni questa settimana"));
+    // Only the total: neither the title nor the day of the events is repeated on the card
+    expect(first).not.toHaveTextContent("Aquile contro Delfini");
+    expect(second).toHaveTextContent("0 impegni questa settimana");
+    const requests = api.calls.filter((call) => call.path === "/events");
+    expect(requests).toHaveLength(1);
+    expect(requests[0]?.query.get("status")).toBe("SCHEDULED");
+    const from = new Date(requests[0]?.query.get("from") ?? "");
+    const to = new Date(requests[0]?.query.get("to") ?? "");
+    // From Monday to the next Monday, in local time
+    expect(from.getDay()).toBe(1);
+    expect(Math.round((to.getTime() - from.getTime()) / 86_400_000)).toBe(7);
+  });
+
+  it("writes the singular for a single commitment", async () => {
+    stubApi(routes({ "GET /events": () => json(200, page([NEXT_MATCH])) }));
+    renderWithProviders(<TeamsPage />);
+    const list = await screen.findByRole("list", { name: "Squadre" });
+    await waitFor(() => expect(within(list).getAllByRole("listitem")[0]).toHaveTextContent("1 impegno questa settimana"));
+  });
+
+  it("still lists the teams when the events cannot be loaded, without claiming there are none", async () => {
+    const api = stubApi(routes({ "GET /events": () => problem(500, "internal") }));
+    renderWithProviders(<TeamsPage />);
+    const list = await screen.findByRole("list", { name: "Squadre" });
+    await waitFor(() => expect(api.calls.some((call) => call.path === "/events")).toBe(true));
+    expect(within(list).getAllByRole("listitem")).toHaveLength(3);
+    expect(list).not.toHaveTextContent("Nessun evento");
   });
 
   it("invites to create the first team when there are none, and creates it", async () => {
@@ -167,17 +273,17 @@ describe("TeamsPage", () => {
     expect(await screen.findByText("Under 16")).toBeInTheDocument();
   });
 
-  it("loads further teams on request", async () => {
-    stubApi({
-      "GET /teams": ({ query }) =>
-        json(200, query.get("cursor") ? page([SERIE_D]) : page([U16], "next")),
-    });
+  it("loads every page of teams so that counts and filters cover all of them", async () => {
+    stubApi(
+      routes({
+        "GET /teams": ({ query }) => json(200, query.get("cursor") ? page([SERIE_D]) : page([U16], "next")),
+      }),
+    );
     renderWithProviders(<TeamsPage />);
-    await screen.findByText("Under 16");
-    expect(screen.getByText("Squadre mostrate: 1, ce ne sono altre")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Carica altre squadre" }));
-    expect(await screen.findByText("Serie D")).toBeInTheDocument();
-    expect(screen.getByText("Squadre in tutto: 2")).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: "Serie D" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Under 16" })).toBeInTheDocument();
+    expect(screen.getByText("2 squadre")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Carica altre squadre" })).not.toBeInTheDocument();
   });
 
   it("is read-only without the write permission", async () => {
@@ -196,6 +302,78 @@ describe("TeamsPage", () => {
     renderWithProviders(<TeamsPage />);
     expect(await screen.findByText("La segreteria non ha ancora creato le squadre.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Nuova squadra" })).not.toBeInTheDocument();
+  });
+});
+
+describe("TeamsPage filters", () => {
+  it("narrows the list while typing in the search box and updates the counter", async () => {
+    await openFilteredPage();
+    expect(screen.getByText("4 squadre")).toBeInTheDocument();
+    await userEvent.type(screen.getByRole("searchbox", { name: "Cerca squadra" }), "under");
+    expect(await screen.findByText("2 di 4 squadre")).toBeInTheDocument();
+    const list = screen.getByRole("list", { name: "Squadre" });
+    expect(within(list).getAllByRole("listitem")).toHaveLength(2);
+    expect(list).not.toHaveTextContent("Serie D");
+  });
+
+  it("searches by name only: there is no category filter and the category is not searched", async () => {
+    await openFilteredPage();
+    expect(screen.queryByLabelText("Categoria")).not.toBeInTheDocument();
+    await userEvent.type(screen.getByRole("searchbox", { name: "Cerca squadra" }), "U14");
+    expect(await screen.findByRole("heading", { name: "Nessuna squadra trovata" })).toBeInTheDocument();
+  });
+
+  it("puts search, gender and the new-team button on one row, the gender as a menu", async () => {
+    await openFilteredPage();
+    const search = screen.getByRole("searchbox", { name: "Cerca squadra" });
+    const gender = screen.getByLabelText("Genere");
+    const create = screen.getByRole("button", { name: "Nuova squadra" });
+    expect(gender.tagName).toBe("SELECT");
+    expect(within(gender).getAllByRole("option").map((option) => option.textContent)).toEqual([
+      "Tutti i generi",
+      "Femminile",
+      "Maschile",
+      "Mista",
+    ]);
+    // The button is a direct child of the row that also holds the other two controls
+    const row = create.parentElement as HTMLElement;
+    expect(row).toContainElement(search);
+    expect(row).toContainElement(gender);
+    expect(search.compareDocumentPosition(gender) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(gender.compareDocumentPosition(create) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("filters by gender", async () => {
+    await openFilteredPage();
+    await userEvent.selectOptions(screen.getByLabelText("Genere"), "MIXED");
+    expect(await screen.findByText("1 di 4 squadre")).toBeInTheDocument();
+    expect(within(screen.getByRole("list", { name: "Squadre" })).getByRole("link")).toHaveAccessibleName("Serie D");
+  });
+
+  it("tells a search with no result apart from having no teams, and resets from there", async () => {
+    await openFilteredPage();
+    await userEvent.type(screen.getByRole("searchbox", { name: "Cerca squadra" }), "zzz");
+    expect(await screen.findByRole("heading", { name: "Nessuna squadra trovata" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Nessuna squadra ancora" })).not.toBeInTheDocument();
+    expect(screen.getByText("0 di 4 squadre")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Azzera i filtri" }));
+    expect(await screen.findByText("4 squadre")).toBeInTheDocument();
+    expect(screen.getByRole("searchbox", { name: "Cerca squadra" })).toHaveValue("");
+    expect(screen.getByLabelText("Genere")).toHaveValue("");
+  });
+
+  it("offers the reset only while a filter is active", async () => {
+    await openFilteredPage();
+    expect(screen.queryByRole("button", { name: "Azzera i filtri" })).not.toBeInTheDocument();
+    await userEvent.selectOptions(screen.getByLabelText("Genere"), "MALE");
+    expect(await screen.findByRole("button", { name: "Azzera i filtri" })).toBeInTheDocument();
+  });
+
+  it("does not show filters for a single team", async () => {
+    await openFilteredPage([U16]);
+    expect(screen.queryByRole("searchbox", { name: "Cerca squadra" })).not.toBeInTheDocument();
+    expect(screen.getByText("1 squadra")).toBeInTheDocument();
   });
 });
 

@@ -74,7 +74,7 @@ export const sponsorsConfig: ResourceConfig<Sponsor> = {
     label: "Filtra per stato",
     param: "status",
     options: [
-      { value: "", label: "Tutti" },
+      { value: "", label: "Tutti gli stati" },
       { value: "ACTIVE", label: "Attivi" },
       { value: "PROSPECT", label: "Potenziali" },
       { value: "EXPIRED", label: "Scaduti" },

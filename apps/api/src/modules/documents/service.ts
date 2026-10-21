@@ -4,6 +4,7 @@ import { conflict, forbidden, notFound, unprocessable } from '../../lib/errors.j
 import { cursorArgs, toPage, type Page, type PaginationQuery } from '../../lib/pagination.js';
 import { isUniqueViolation } from '../../lib/prisma-errors.js';
 import { toIso } from '../../lib/schemas.js';
+import type { TenantDb } from '../../lib/tenant.js';
 import type { TenantRequestContext } from '../../plugins/auth.js';
 import { can } from '../../rbac/permissions.js';
 import { memberScope, ownMemberIds } from '../members/access.js';
@@ -544,7 +545,7 @@ export async function listExpirations(ctx: TenantRequestContext, query: Expirati
 // Members (among `memberIds`) whose current medical certificate has expired. A member without any certificate
 // is flagged by the document indicators but is not blocked here (SPEC only blocks the EXPIRED certificate).
 export async function ineligibleMemberIds(
-  { db }: Pick<TenantRequestContext, 'db'>,
+  { db }: { db: Pick<TenantDb, 'document'> },
   memberIds: readonly string[],
   now = new Date(),
 ): Promise<Set<string>> {

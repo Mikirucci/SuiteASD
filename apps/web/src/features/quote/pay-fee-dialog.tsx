@@ -51,6 +51,7 @@ function PayFeeForm({ fee, onPaid }: PayFeeFormProps) {
     Promise.all([
       queryClient.invalidateQueries({ queryKey: ["fees"] }),
       queryClient.invalidateQueries({ queryKey: ["fees-summary"] }),
+      queryClient.invalidateQueries({ queryKey: ["fee-plans"] }),
     ]);
 
   const pay = useApiMutation(

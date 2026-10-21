@@ -14,6 +14,8 @@ export const PALAZZETTO: Venue = {
   capacity: 400,
   availability: "Martedì e giovedì 18:00-21:00",
   notes: null,
+  costCents: 45000,
+  costDate: "2026-11-02",
   ...STAMPS,
 };
 
@@ -25,6 +27,8 @@ export const SCUOLA: Venue = {
   capacity: null,
   availability: null,
   notes: "Chiavi in segreteria",
+  costCents: null,
+  costDate: null,
   ...STAMPS,
 };
 
@@ -52,6 +56,8 @@ export const MAGLIA: Kit = {
   member: { id: "m-rossi", firstName: "Giulia", lastName: "Rossi" },
   assignedAt: "2026-11-03T09:00:00.000Z",
   notes: null,
+  costCents: 2500,
+  costDate: "2026-10-20",
   ...STAMPS,
 };
 
@@ -65,6 +71,8 @@ export const TUTA: Kit = {
   member: null,
   assignedAt: null,
   notes: null,
+  costCents: null,
+  costDate: null,
   ...STAMPS,
 };
 
@@ -104,6 +112,7 @@ export const QUOTE_NOVEMBRE: LedgerEntry = {
   occurredOn: "2026-11-05",
   sponsorId: null,
   paymentId: "pay-1",
+  source: "PAYMENT",
   ...STAMPS,
 };
 
@@ -116,6 +125,7 @@ export const AFFITTO: LedgerEntry = {
   occurredOn: "2026-11-02",
   sponsorId: null,
   paymentId: null,
+  source: null,
   ...STAMPS,
 };
 

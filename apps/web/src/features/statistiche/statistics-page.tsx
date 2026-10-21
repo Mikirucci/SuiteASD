@@ -1,135 +1,70 @@
 "use client";
 
-import { BarChart3, CalendarDays, Lock, Trophy } from "lucide-react";
-import { AutoChip, Chip } from "@/components/ui/chip";
-import { Card } from "@/components/ui/card";
+import { BarChart3, Lock } from "lucide-react";
 import { DataBoundary } from "@/components/ui/data-boundary";
-import { DataList, DataListRow } from "@/components/ui/data-list";
 import { EmptyState } from "@/components/ui/empty-state";
-import { ProgressBar } from "@/components/ui/progress-bar";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatMatchDate } from "@/features/classifiche/format";
-import { formatEuro } from "@/lib/format";
 import { usePermission } from "@/hooks/use-permission";
 import { useApiQuery } from "@/lib/api";
-import { CertificatesCard } from "./certificates-card";
-import { Figure } from "./figure";
+import { CertificatesSection } from "./certificates-section";
+import { LatestResultsSection, UpcomingEventsSection } from "./events-and-results";
+import { FeesSection } from "./fees-section";
+import { KpiGrid } from "./kpi-grid";
 import { MembersByTeam } from "./members-by-team";
-import type { EventType, StatisticsOverview } from "./types";
+import type { StatisticsOverview } from "./types";
 
-const EVENT_LABELS: Record<EventType, string> = {
-  MATCH: "Partita",
-  TRAINING: "Allenamento",
-  TOURNAMENT: "Torneo",
-  MEETING: "Riunione",
-};
+/** Same grid as the loaded page: 12 columns from lg, one column below. */
+const ROW = "grid gap-8 lg:grid-cols-12 lg:gap-x-6";
+
+function SkeletonSection({ className, bodyClassName }: { className?: string; bodyClassName: string }) {
+  return (
+    <div className={className}>
+      <Skeleton className="h-6 w-40" />
+      <Skeleton className="mt-2 h-4 w-3/4" />
+      <Skeleton className={`mt-3 ${bodyClassName}`} />
+    </div>
+  );
+}
 
 function OverviewSkeleton() {
   return (
-    <div role="status" aria-busy="true" aria-label="Caricamento delle statistiche" className="flex flex-col gap-6">
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Skeleton className="h-32" />
-        <Skeleton className="h-32" />
+    <div role="status" aria-busy="true" aria-label="Caricamento delle statistiche" className="flex flex-col gap-8">
+      <Skeleton className="h-40 sm:h-32 lg:h-28" />
+      <div className={ROW}>
+        <SkeletonSection className="lg:col-span-7" bodyClassName="h-56" />
+        <SkeletonSection className="lg:col-span-5" bodyClassName="h-56" />
       </div>
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Skeleton className="h-56" />
-        <Skeleton className="h-56" />
+      <div className={`${ROW} lg:items-start`}>
+        <SkeletonSection className="lg:col-span-7" bodyClassName="h-64" />
+        <div className="flex flex-col gap-8 lg:col-span-5">
+          <SkeletonSection bodyClassName="h-28" />
+          <SkeletonSection bodyClassName="h-28" />
+        </div>
       </div>
     </div>
   );
 }
 
 function Dashboard({ data }: { data: StatisticsOverview }) {
-  const { members, attendance, fees } = data;
   return (
     <div className="flex flex-col gap-8">
-      <div className="grid gap-4 lg:grid-cols-5">
-        <Card as="section" aria-label="Tesserati e presenze" className="lg:col-span-2">
-          <dl className="grid divide-y divide-line sm:grid-cols-2 sm:divide-x sm:divide-y-0">
-            <Figure label="Tesserati attivi" value={members.total} />
-            <Figure
-              label="Presenza media"
-              value={attendance.averagePercent === null ? "Nessun dato" : `${attendance.averagePercent}%`}
-              note={
-                attendance.averagePercent === null ? (
-                  "Servono presenze registrate agli allenamenti."
-                ) : (
-                  <>
-                    <span className="mb-2 block">
-                      Allenamenti, ultimi 90 giorni ({attendance.recordsCount} presenze registrate)
-                    </span>
-                    <ProgressBar label="Presenza media agli allenamenti" value={attendance.averagePercent} tone="success" />
-                  </>
-                )
-              }
-            />
-          </dl>
-        </Card>
-        <Card as="section" aria-label="Quote" className="lg:col-span-3">
-          <dl className="grid divide-y divide-line sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-            <Figure label="Incassato" tone="success" value={formatEuro(fees.collectedCents)} />
-            <Figure
-              label="Da incassare"
-              value={formatEuro(fees.toCollectCents)}
-              note={fees.overdueCents > 0 ? `di cui ${formatEuro(fees.overdueCents)} scaduti` : "nessuna quota scaduta"}
-            />
-            <Figure label="Promemoria inviati" value={fees.remindersSent} note={<AutoChip />} />
-          </dl>
-        </Card>
+      <section aria-labelledby="headline-figures-title">
+        <h2 id="headline-figures-title" className="sr-only">
+          Numeri principali
+        </h2>
+        <KpiGrid data={data} />
+      </section>
+      <div className={ROW}>
+        <FeesSection fees={data.fees} className="lg:col-span-7" />
+        <CertificatesSection counts={data.certificates} className="lg:col-span-5" />
       </div>
-
-      <div className="grid items-start gap-4 lg:grid-cols-2">
-        <MembersByTeam teams={members.byTeam} />
-        <CertificatesCard counts={data.certificates} />
-      </div>
-
-      <div className="grid items-start gap-8 lg:grid-cols-2">
-        <section aria-labelledby="upcoming-title" className="flex flex-col gap-3">
-          <h2 id="upcoming-title" className="text-lg font-bold tracking-title text-fg">
-            Prossimi eventi
-          </h2>
-          <DataList
-            label="Prossimi eventi"
-            items={data.upcomingEvents}
-            getKey={(event) => event.id}
-            empty={
-              <EmptyState icon={CalendarDays} title="Nessun evento in programma" description="Gli eventi inseriti nel calendario compaiono qui." />
-            }
-            renderItem={(event) => (
-              <DataListRow
-                title={event.title}
-                subtitle={[formatMatchDate(event.startsAt), event.teamName].filter(Boolean).join(" · ")}
-                trailing={<Chip>{EVENT_LABELS[event.type]}</Chip>}
-              />
-            )}
-          />
-        </section>
-        <section aria-labelledby="results-title" className="flex flex-col gap-3">
-          <h2 id="results-title" className="text-lg font-bold tracking-title text-fg">
-            Ultimi risultati
-          </h2>
-          <DataList
-            label="Ultimi risultati"
-            items={data.latestResults}
-            getKey={(result) => result.matchId}
-            empty={
-              <EmptyState icon={Trophy} title="Nessun risultato ancora" description="I risultati inseriti nelle classifiche compaiono qui." />
-            }
-            renderItem={(result) => (
-              <DataListRow
-                title={`${result.homeTeam} - ${result.awayTeam}`}
-                subtitle={[result.competitionName, result.playedAt ? formatMatchDate(result.playedAt) : null].filter(Boolean).join(" · ")}
-                trailing={
-                  <span className="text-base font-extrabold tabular-nums text-fg">
-                    <span className="sr-only">Risultato </span>
-                    {result.homeSets}-{result.awaySets}
-                  </span>
-                }
-              />
-            )}
-          />
-        </section>
+      <div className={`${ROW} lg:items-start`}>
+        <MembersByTeam teams={data.members.byTeam} className="lg:col-span-7" />
+        <div className="flex min-w-0 flex-col gap-8 lg:col-span-5">
+          <UpcomingEventsSection events={data.upcomingEvents} />
+          <LatestResultsSection results={data.latestResults} />
+        </div>
       </div>
     </div>
   );

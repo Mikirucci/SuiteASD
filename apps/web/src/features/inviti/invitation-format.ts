@@ -3,7 +3,10 @@ import type { Role } from "@/lib/api";
 /** Wire types of the invitations endpoints. Source of truth: apps/api/src/modules/invitations/schema.ts. */
 export interface Invitation {
   id: string;
-  email: string;
+  /** Null for a link that names nobody: the person gives their email when joining. */
+  email: string | null;
+  /** Free note of who the link is for. */
+  label: string | null;
   role: Role;
   memberId: string | null;
   expiresAt: string;
@@ -16,8 +19,13 @@ export interface CreatedInvitation extends Invitation {
 }
 
 export interface CreateInvitationBody {
-  email: string;
+  label?: string;
   role: Role;
+}
+
+/** What identifies an invitation in the list: the note, the email some older invitations carry, or at least the role. */
+export function invitationTitle(invitation: Pick<Invitation, "label" | "email" | "role">): string {
+  return invitation.label ?? invitation.email ?? `Invito come ${ROLE_LABEL[invitation.role].toLowerCase()}`;
 }
 
 export const ROLE_LABEL: Record<Role, string> = {

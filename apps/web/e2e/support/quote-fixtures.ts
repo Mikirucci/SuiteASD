@@ -9,7 +9,7 @@ const CORS = {
   "access-control-expose-headers": "content-disposition",
 };
 
-const STAFF_PERMISSIONS = ["payments:read", "payments:write", "receipts:read", "automations:read", "teams:read"];
+const STAFF_PERMISSIONS = ["payments:read", "payments:write", "receipts:read", "teams:read"];
 const ATHLETE_PERMISSIONS = ["payments:readOwn", "teams:read"];
 
 interface MockFee {
@@ -30,7 +30,8 @@ interface MockFee {
   reference: string | null;
   reminderCount: number;
   lastReminderAt: string | null;
-  receipt: { id: string; number: number; code: string; issuedAt: string } | null;
+  claimedAt: string | null;
+  receipt: { id: string; number: number; code: string; issuedAt: string; sentAt: string | null } | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -54,6 +55,7 @@ function fee(id: string, memberName: string, team: [string, string], status: Moc
     reference: null,
     reminderCount: 0,
     lastReminderAt: null,
+    claimedAt: null,
     receipt: null,
     createdAt: "2026-10-01T08:00:00.000Z",
     updatedAt: "2026-10-01T08:00:00.000Z",
@@ -67,7 +69,7 @@ function initialFees(): MockFee[] {
       paidAt: "2026-10-05T10:00:00.000Z",
       method: "CASH",
       payerName: "Paolo Ferri",
-      receipt: { id: "r146", number: 146, code: "0146", issuedAt: "2026-10-05T10:00:00.000Z" },
+      receipt: { id: "r146", number: 146, code: "0146", issuedAt: "2026-10-05T10:00:00.000Z", sentAt: "2026-10-05T10:00:05.000Z" },
     }),
     fee("f2", "Chiara Neri", ["t-u16", "U16"], "PENDING", "2099-11-10"),
     fee("f3", "Marta Bianchi", ["t-u18", "U18"], "OVERDUE", "2026-10-10", { reminderCount: 2, lastReminderAt: "2026-10-20T08:00:00.000Z" }),
@@ -133,6 +135,53 @@ function summaryOf(fees: MockFee[]) {
   };
 }
 
+/** Where each person stands in the plan: late if any fee is late, waiting if something is left to pay, settled otherwise. */
+function planPeople(fees: MockFee[], query: URLSearchParams) {
+  const byMember = new Map<string, MockFee[]>();
+  for (const item of fees.filter((candidate) => candidate.feePlanId === "p-nov" && candidate.status !== "CANCELLED")) {
+    byMember.set(item.memberId, [...(byMember.get(item.memberId) ?? []), item]);
+  }
+  const everyone = [...byMember.values()]
+    .map((own) => {
+      const unpaid = own.filter((item) => item.status === "PENDING" || item.status === "OVERDUE");
+      const status = unpaid.some((item) => item.status === "OVERDUE") ? "OVERDUE" : unpaid.length > 0 ? "PENDING" : "PAID";
+      return {
+        memberId: own[0]!.memberId,
+        memberName: own[0]!.memberName,
+        teams: own[0]!.teams,
+        totalDueCents: unpaid.reduce((total, item) => total + item.amountCents, 0),
+        allPlansDueCents: fees
+          .filter((item) => item.memberId === own[0]!.memberId && (item.status === "PENDING" || item.status === "OVERDUE"))
+          .reduce((total, item) => total + item.amountCents, 0),
+        paidCents: own.filter((item) => item.status === "PAID").reduce((total, item) => total + item.amountCents, 0),
+        status,
+        feesCount: own.length,
+        nextDueDate: unpaid.map((item) => item.dueDate).sort()[0] ?? null,
+      };
+    })
+    .sort((a, b) => a.memberName.localeCompare(b.memberName, "it"));
+  const count = (status: string) => everyone.filter((person) => person.status === status).length;
+  const sum = (status: MockFee["status"]) => fees.filter((item) => item.feePlanId === "p-nov" && item.status === status).reduce((total, item) => total + item.amountCents, 0);
+  const stats = {
+    incassatoCents: sum("PAID"),
+    daIncassareCents: sum("PENDING") + sum("OVERDUE"),
+    scadutoCents: sum("OVERDUE"),
+    paidPeople: count("PAID"),
+    pendingPeople: count("PENDING"),
+    overduePeople: count("OVERDUE"),
+  };
+  const search = query.get("q")?.toLowerCase();
+  const team = query.get("teamId");
+  const status = query.get("status");
+  const people = everyone.filter(
+    (person) =>
+      (!search || person.memberName.toLowerCase().includes(search)) &&
+      (!team || person.teams.some((entry) => entry.id === team)) &&
+      (!status || person.status === status),
+  );
+  return { stats, people };
+}
+
 /** Signs the user in (stored refresh token) and serves the quote endpoints for a staff member or an athlete. */
 export async function mockQuoteApi(page: Page, role: QuoteRole = "staff"): Promise<QuoteApiState> {
   const staff = role === "staff";
@@ -178,6 +227,9 @@ export async function mockQuoteApi(page: Page, role: QuoteRole = "staff"): Promi
     if (key === "GET /me") return respond(route, 200, me);
     if (key === "GET /teams") return respond(route, 200, pageOf(TEAMS));
     if (key === "GET /fee-plans") return respond(route, 200, pageOf(PLANS));
+    if (key === "GET /fee-plans/report") return respond(route, 200, { data: [{ feePlanId: "p-nov", ...planPeople(state.fees, query).stats }] });
+    if (key === "GET /fee-plans/p-nov") return respond(route, 200, PLANS[0]);
+    if (key === "GET /fee-plans/p-nov/people") return respond(route, 200, planPeople(state.fees, query));
     if (key === "POST /fee-plans") {
       const body = request.postDataJSON() as Record<string, unknown>;
       return respond(route, 201, { ...PLANS[0], ...body, id: "p-new" });
@@ -211,7 +263,7 @@ export async function mockQuoteApi(page: Page, role: QuoteRole = "staff"): Promi
         method: body.method,
         payerName: body.payerName ?? target.memberName,
         reference: body.reference ?? null,
-        receipt: { id: `r${number}`, number, code: String(number).padStart(4, "0"), issuedAt: new Date().toISOString() },
+        receipt: { id: `r${number}`, number, code: String(number).padStart(4, "0"), issuedAt: new Date().toISOString(), sentAt: null },
       });
       return respond(route, 200, target);
     }

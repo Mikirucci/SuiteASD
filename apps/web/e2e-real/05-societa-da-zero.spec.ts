@@ -89,7 +89,10 @@ test.describe("società nuova, dalla registrazione alle convocazioni, sul backen
     await expect(page.getByText("Squadra creata", { exact: true })).toBeVisible();
     const list = page.getByRole("list", { name: "Squadre" });
     await expect(list).toContainText(TEAM);
-    await expect(list).toContainText(CATEGORY);
+    // The card carries the name only: the category saved with the team is read on its page
+    await list.getByRole("link", { name: TEAM }).click();
+    await expect(page.getByRole("heading", { level: 1, name: TEAM })).toBeVisible();
+    await expect(page.getByText(CATEGORY, { exact: true })).toBeVisible();
   });
 
   test("Rita invita un allenatore da Accessi e inviti e legge il link", async ({ page }) => {
@@ -99,12 +102,14 @@ test.describe("società nuova, dalla registrazione alle convocazioni, sul backen
 
     await page.getByRole("button", { name: "Invita una persona" }).click();
     const dialog = page.getByRole("dialog", { name: "Invita una persona" });
-    await dialog.getByLabel("Email della persona").fill(davide.email);
+    // No email is asked: the link is passed on by hand and the person gives their own when joining
+    await expect(dialog.getByLabel(/^Email/)).toHaveCount(0);
     await dialog.getByLabel("Ruolo").selectOption("ALLENATORE");
-    await dialog.getByRole("button", { name: "Crea l'invito" }).click();
+    await dialog.getByLabel("Per chi è").fill("Davide, nuovo allenatore");
+    await dialog.getByRole("button", { name: "Crea il link" }).click();
 
-    const ready = page.getByRole("dialog", { name: "Invito pronto" });
-    await expect(ready).toContainText(`${davide.email} entrerà come allenatore`);
+    const ready = page.getByRole("dialog", { name: "Link pronto" });
+    await expect(ready).toContainText("Davide, nuovo allenatore: entrerà come allenatore");
     links.invitation = pathOf(await ready.getByText(/\/invito\//).textContent(), /\/invito\/\S+/);
   });
 
@@ -113,7 +118,8 @@ test.describe("società nuova, dalla registrazione alle convocazioni, sul backen
     await menuOf(page).getByRole("link", { name: "Tesserati" }).click();
     await expect(page).toHaveURL(/\/tesserati$/);
 
-    await page.getByRole("button", { name: "Link di iscrizione" }).click();
+    await page.getByRole("button", { name: "Altre azioni" }).click();
+    await page.getByRole("menuitem", { name: "Link di iscrizione" }).click();
     const dialog = page.getByRole("dialog", { name: "Link di iscrizione" });
     const team = dialog.getByLabel("Squadra");
     // The option reads "Rosa Under 16 (U16)": pick it by its name, not by the exact label
@@ -133,6 +139,7 @@ test.describe("società nuova, dalla registrazione alle convocazioni, sul backen
       page.getByRole("heading", { level: 1, name: new RegExp(`Sei stato invitato da ${SOCIETY} come allenatore`) }),
     ).toBeVisible();
 
+    await page.getByLabel(/^Email/).fill(davide.email);
     await page.getByRole("textbox", { name: "Nome", exact: true }).fill(davide.firstName);
     await page.getByRole("textbox", { name: "Cognome", exact: true }).fill(davide.lastName);
     await page.getByLabel(/^Password/).fill(DEMO_PASSWORD);
@@ -146,6 +153,20 @@ test.describe("società nuova, dalla registrazione alle convocazioni, sul backen
     for (const href of ["/squadre", "/inviti", "/quote", "/altro/bilancio"]) {
       await expect(menu.locator(`a[href="${href}"]`)).toHaveCount(0);
     }
+  });
+
+  test("Rita trova Davide nello Staff e un avviso che ha accettato l'invito", async ({ page }) => {
+    await signIn(page, rita, "/notifiche");
+    const notifications = page.getByRole("list", { name: "Notifiche", exact: true });
+    await expect(notifications).toContainText("Nuovo collaboratore");
+    await expect(notifications).toContainText(`${davide.firstName} ${davide.lastName} ha accettato l'invito come allenatore`);
+
+    await page.goto("/altro/staff");
+    const staff = page.getByRole("list", { name: "Staff", exact: true });
+    const card = staff.getByRole("listitem").filter({ hasText: `${davide.firstName} ${davide.lastName}` });
+    await expect(card).toHaveCount(1);
+    await expect(card).toContainText("Allenatore");
+    await expect(card).toContainText(davide.email);
   });
 
   test("Elena iscrive Sara dal link e arriva alla sua area personale", async ({ page }) => {
@@ -173,7 +194,7 @@ test.describe("società nuova, dalla registrazione alle convocazioni, sul backen
     await expect(page.getByRole("heading", { level: 1, name: /Ciao Elena/ })).toBeVisible();
   });
 
-  test("Davide crea la partita, convoca Sara e invia le convocazioni", async ({ page }) => {
+  test("Davide crea la partita: Sara è già fra i senza risposta e può essere avvisata", async ({ page }) => {
     await signIn(page, davide);
     await menuOf(page).getByRole("button", { name: /^Attività sportiva/ }).click();
     await menuOf(page).getByRole("link", { name: "Calendario" }).click();
@@ -192,32 +213,25 @@ test.describe("società nuova, dalla registrazione alle convocazioni, sul backen
 
     await page.getByRole("list", { name: "Eventi del giorno" }).getByRole("button", { name: MATCH }).click();
     const detail = page.getByRole("dialog", { name: MATCH });
-    await detail.getByRole("button", { name: "Convoca atleti" }).click();
 
-    const convocate = page.getByRole("dialog", { name: "Convoca gli atleti" });
-    await convocate.getByRole("checkbox", { name: new RegExp(SARA.fullName) }).check();
-    await convocate.getByRole("button", { name: "Convoca", exact: true }).click();
-    await expect(page.getByText(/convocazione creata/)).toBeVisible();
-
-    // Back on the event: the convocation is a draft until it is sent
-    await expect(detail).toContainText(/Bozza: 1 atleta non vede ancora la convocazione/);
-    await expect(detail).toContainText(SARA.fullName);
-    await detail.getByRole("button", { name: "Invia convocazioni" }).click();
-    await expect(page.getByText(/convocazione inviata/)).toBeVisible();
-    await expect(detail.getByRole("button", { name: "Invia convocazioni" })).toHaveCount(0);
+    // No "convoca" step: the athletes of the team are asked as soon as the event exists
+    await expect(detail.getByRole("list", { name: "Senza risposta" })).toContainText(SARA.fullName);
+    await expect(detail.getByRole("list", { name: "Confermati" })).toHaveCount(0);
+    await detail.getByRole("button", { name: "Avvisa gli atleti" }).click();
+    await expect(page.getByText(/atleta avvisato/)).toBeVisible();
   });
 
-  test("Elena vede la convocazione di Sara, conferma e la trova nelle notifiche", async ({ page }) => {
+  test("Elena vede la partita nella sua home, conferma e trova l'avviso nelle notifiche", async ({ page }) => {
     await signIn(page, elena, "/area-personale");
-    const pending = page.getByRole("region", { name: "Da confermare" });
-    await expect(pending).toContainText(SARA.fullName);
-    await expect(pending).toContainText(MATCH);
-
     const menu = menuOf(page);
     await expect(menu.getByRole("link", { name: /^Notifiche\s+1\s+da leggere$/ })).toBeVisible();
 
-    await pending.getByRole("button", { name: `Confermo la presenza di ${SARA.fullName}` }).click();
+    const later = page.getByRole("region", { name: "Dopo questa settimana" });
+    await later.getByRole("button", { name: MATCH }).click();
+    const answer = page.getByRole("dialog", { name: MATCH });
+    await answer.getByRole("button", { name: `Confermo la presenza di ${SARA.fullName}` }).click();
     await expect(page.getByText("Presenza confermata", { exact: true })).toBeVisible();
+    await page.keyboard.press("Escape");
 
     await menu.getByRole("link", { name: /^Notifiche/ }).click();
     await expect(page).toHaveURL(/\/area-personale\/notifiche$/);
@@ -226,6 +240,24 @@ test.describe("società nuova, dalla registrazione alle convocazioni, sul backen
     await expect(list.getByRole("listitem")).toHaveCount(1);
     await expect(list).toContainText("Convocazione");
     await expect(list).toContainText(MATCH);
+  });
+
+  test("Davide rivede la partita: Sara è fra i confermati", async ({ page }) => {
+    await signIn(page, davide, "/calendario");
+    // The match is ten days away: walk the week strip to its day, as a person would
+    const date = new Date(`${dayAhead(10)}T12:00:00+02:00`);
+    const label = new Intl.DateTimeFormat("it-IT", { weekday: "short", day: "numeric", month: "long", timeZone: "Europe/Rome" })
+      .format(date)
+      .replace(".", "");
+    const day = page.getByRole("button", { name: new RegExp(`^${label}`) });
+    for (let week = 0; week < 3 && !(await day.isVisible()); week += 1) {
+      await page.getByRole("button", { name: "Settimana successiva" }).click();
+    }
+    await day.click();
+    await page.getByRole("list", { name: "Eventi del giorno" }).getByRole("button", { name: MATCH }).click();
+    const detail = page.getByRole("dialog", { name: MATCH });
+    await expect(detail.getByRole("list", { name: "Confermati" })).toContainText(SARA.fullName);
+    await expect(detail.getByRole("list", { name: "Senza risposta" })).toHaveCount(0);
   });
 
   test("Rita vede la nuova iscrizione fra le cose da fare, nelle notifiche e raggiunge il Bilancio dal menu", async ({ page }) => {

@@ -2,6 +2,7 @@
 
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, useApiQuery, type ApiError } from "@/lib/api";
+import { NOTIFICATIONS_KEY } from "@/hooks/use-unread-count";
 import { fetchAllPages, useAllPages } from "@/lib/use-all-pages";
 import { weekRange } from "./format";
 import type {
@@ -108,7 +109,7 @@ export function usePendingConvocations(enabled: boolean) {
   );
 }
 
-/** Everything that shows events or convocations must refresh after a write on either. */
+/** Everything that shows events or convocations must refresh after a write on either, notifications included. */
 export function useInvalidateCalendar() {
   const queryClient = useQueryClient();
   return async () => {
@@ -116,6 +117,7 @@ export function useInvalidateCalendar() {
       queryClient.invalidateQueries({ queryKey: ["events"] }),
       queryClient.invalidateQueries({ queryKey: ["event-convocations"] }),
       queryClient.invalidateQueries({ queryKey: ["my-convocations"] }),
+      queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_KEY }),
     ]);
   };
 }

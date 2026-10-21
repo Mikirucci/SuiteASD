@@ -104,16 +104,24 @@ export const PERSONAL_NOTIFICATION_TYPES = [
   'EVALUATION_PUBLISHED',
   'ANNOUNCEMENT',
 ] as const;
+// Of interest to both audiences: the payer and the administration each get their own copy of a receipt.
+export const SHARED_NOTIFICATION_TYPES = ['RECEIPT_ISSUED'] as const;
 export const ORGANISATION_NOTIFICATION_TYPES = [
   'ADMIN_PAYMENT_RECEIVED',
+  'ADMIN_PAYMENT_CLAIMED',
   'ADMIN_FEE_OVERDUE',
   'ADMIN_DOCUMENT_ALERT',
   'ADMIN_DOCUMENT_UPLOADED',
   'ADMIN_NEW_ENROLMENT',
+  'ADMIN_INVITATION_ACCEPTED',
   'ADMIN_SPONSOR_EXPIRING',
 ] as const;
 export type OrganisationNotificationType = (typeof ORGANISATION_NOTIFICATION_TYPES)[number];
-export const NOTIFICATION_TYPES = [...PERSONAL_NOTIFICATION_TYPES, ...ORGANISATION_NOTIFICATION_TYPES] as const;
+export const NOTIFICATION_TYPES = [
+  ...PERSONAL_NOTIFICATION_TYPES,
+  ...SHARED_NOTIFICATION_TYPES,
+  ...ORGANISATION_NOTIFICATION_TYPES,
+] as const;
 export const notificationTypeSchema = z.enum(NOTIFICATION_TYPES);
 export type NotificationType = z.infer<typeof notificationTypeSchema>;
 
@@ -123,9 +131,10 @@ const ORGANISATION_ROLES: readonly Role[] = ['ADMIN', 'SEGRETERIA'];
 export function notificationTypesForRoles(roles: readonly Role[]): readonly NotificationType[] {
   const organisation = roles.some((role) => ORGANISATION_ROLES.includes(role));
   const personal = roles.some((role) => !ORGANISATION_ROLES.includes(role));
-  return NOTIFICATION_TYPES.filter((type) =>
-    (ORGANISATION_NOTIFICATION_TYPES as readonly string[]).includes(type) ? organisation : personal,
-  );
+  return NOTIFICATION_TYPES.filter((type) => {
+    if ((SHARED_NOTIFICATION_TYPES as readonly string[]).includes(type)) return organisation || personal;
+    return (ORGANISATION_NOTIFICATION_TYPES as readonly string[]).includes(type) ? organisation : personal;
+  });
 }
 
 export const NOTIFICATION_CHANNELS = ['IN_APP', 'EMAIL'] as const;

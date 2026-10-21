@@ -22,6 +22,12 @@ const ADMIN = { roles: ["ADMIN"], permissions: [...READ_PERMISSIONS, "venues:wri
 const READER = { roles: ["ALLENATORE"], permissions: ["venues:read", "trips:read", "kits:read", "staff:read"] };
 
 /** Lets enter animations (dialogs, list reveal) finish so the colour contrast check reads the final colours. */
+/** Opens the "⋯" menu of a record and chooses one of its items. */
+async function pickFromMenu(page: Page, trigger: string | RegExp, item: string | RegExp): Promise<void> {
+  await page.getByRole("button", { name: trigger }).click();
+  await page.getByRole("menuitem", { name: item }).click();
+}
+
 async function settle(page: Page): Promise<void> {
   await page.waitForTimeout(600);
 }
@@ -150,14 +156,14 @@ test.describe("altro, palestre", () => {
     await expect(list.getByRole("listitem")).toHaveCount(3);
     expect(api.bodies.get("POST /venues")).toEqual({ name: "Palestra Comunale", city: "Seriate" });
 
-    await page.getByRole("button", { name: "Modifica Palestra Comunale" }).click();
+    await pickFromMenu(page, "Altre azioni di Palestra Comunale", "Modifica Palestra Comunale");
     const edit = page.getByRole("dialog", { name: "Modifica la palestra" });
     await edit.getByLabel("Indirizzo").fill("Via Roma 3");
     await edit.getByRole("button", { name: "Salva le modifiche" }).click();
     await expect(page.getByText("Palestra aggiornata")).toBeVisible();
     await expect(list.getByRole("listitem").filter({ hasText: "Palestra Comunale" })).toContainText("Via Roma 3 · Seriate");
 
-    await page.getByRole("button", { name: "Elimina Palestra Comunale" }).click();
+    await pickFromMenu(page, "Altre azioni di Palestra Comunale", "Elimina Palestra Comunale");
     const confirm = page.getByRole("dialog", { name: "Eliminare Palestra Comunale?" });
     await settle(page);
     expect(await auditAccessibility(page)).toEqual([]);
@@ -192,15 +198,64 @@ test.describe("altro, palestre", () => {
     await openAs(page, "/altro/palestre", READER, venues().handler);
     await expect(page.getByRole("list", { name: "Palestre", exact: true }).getByRole("listitem")).toHaveCount(2);
     await expect(page.getByRole("button", { name: "Nuova palestra" })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: /^Modifica / })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: /^Elimina / })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /^Altre azioni di / })).toHaveCount(0);
+  });
+});
+
+/** Groups of the wardrobe, as GET /kits/groups answers them for the pieces of the fixtures. */
+const kitGroups = (): ApiHandler => ({ method, path }) =>
+  method === "GET" && path === "/kits/groups"
+    ? {
+        body: {
+          data: [
+            { item: "Maglia gara", total: 1, assigned: 1, inStock: 0, totalCostCents: 2500 },
+            { item: "Tuta", total: 1, assigned: 0, inStock: 1, totalCostCents: 0 },
+          ],
+        },
+      }
+    : undefined;
+
+test.describe("altro, divise", () => {
+  test("shows one card per item with the totals and the previews, without accessibility violations", async ({ page }) => {
+    await openAs(page, "/altro/divise", ADMIN, combine(resource("/kits", [MAGLIA, TUTA]).handler, kitGroups()));
+    await expect(page.getByRole("heading", { level: 1, name: /Ogni maglia al suo posto/ })).toBeVisible();
+
+    const report = page.getByRole("region", { name: "Rendiconto delle divise" });
+    await expect(report.getByText("Capi", { exact: true }).locator("../..")).toContainText("2");
+    await expect(report.getByText("Costo", { exact: true }).locator("../..")).toContainText(/€\s25/);
+
+    const cards = page.getByRole("list", { name: "Capi", exact: true }).getByRole("listitem");
+    await expect(cards).toHaveCount(2);
+    await expect(cards.filter({ hasText: "Maglia gara" }).getByRole("link")).toHaveAttribute("href", "/altro/divise/Maglia%20gara");
+    await expect(cards.filter({ hasText: "Maglia gara" }).getByText("capi assegnati").locator("xpath=preceding-sibling::span[1]")).toHaveText("1");
+    await expect(cards.filter({ hasText: "Tuta" }).getByText("capi in magazzino").locator("xpath=preceding-sibling::span[1]")).toHaveText("1");
+    // the pieces are inside each card, not on the main page
+    await expect(page.getByRole("list", { name: "Divise", exact: true })).toHaveCount(0);
+    await settle(page);
+    expect(await auditAccessibility(page)).toEqual([]);
+  });
+
+  test("opens an item: its totals and its pieces as cards, with search and filter inside", async ({ page }) => {
+    const api = await openAs(page, "/altro/divise", ADMIN, combine(resource("/kits", [MAGLIA]).handler, kitGroups()));
+    await page.getByRole("link", { name: "Maglia gara" }).click();
+
+    await expect(page.getByRole("heading", { level: 1, name: "Maglia gara" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Tutte le divise" })).toHaveAttribute("href", "/altro/divise");
+    const pieces = page.getByRole("list", { name: "Divise", exact: true }).getByRole("listitem");
+    await expect(pieces).toHaveCount(1);
+    await expect(pieces).toContainText("Maglia gara · S · n. 7");
+    await expect(pieces).toContainText("Assegnato a Giulia Rossi");
+    await expect(pieces).toContainText(/Costo: €\s25/);
+    await page.getByLabel("Cerca per capo, taglia o assegnatario").fill("Rossi");
+    await expect.poll(() => api.calls.length).toBeGreaterThan(0);
+    await settle(page);
+    expect(await auditAccessibility(page)).toEqual([]);
   });
 });
 
 test.describe("altro, altre pagine", () => {
   const pages = [
     { url: "/altro/trasferte", heading: /Chi parte, con cosa e quanto costa/, handler: () => resource("/trips", [TRASFERTA]).handler, row: "Palasport Delfini, Verona", badge: "Confermata" },
-    { url: "/altro/divise", heading: /Ogni maglia al suo posto/, handler: () => resource("/kits", [MAGLIA, TUTA]).handler, row: "Maglia gara · S · n. 7", badge: "Assegnato" },
     { url: "/altro/sponsor", heading: /Contratti e scadenze sotto controllo/, handler: () => resource("/sponsors", [PANIFICIO]).handler, row: "Panificio Rizzi", badge: "Attivo" },
     { url: "/altro/staff", heading: /Chi guida le squadre/, handler: () => resource("/staff", [ALLENATORE]).handler, row: "Marco Villa", badge: "Allenatore" },
   ];
@@ -222,9 +277,9 @@ test.describe("altro, altre pagine", () => {
       method === "GET" && path === "/members"
         ? pageOf(query.get("q") === "rossi" ? [{ id: "m-rossi", firstName: "Giulia", lastName: "Rossi" }] : [{ id: "m-ferri", firstName: "Anna", lastName: "Ferri" }])
         : undefined;
-    const api = await openAs(page, "/altro/divise", ADMIN, combine(kits.handler, members));
+    const api = await openAs(page, "/altro/divise/Tuta", ADMIN, combine(kits.handler, members, kitGroups()));
 
-    await page.getByRole("button", { name: /^Modifica Tuta/ }).click();
+    await pickFromMenu(page, /^Altre azioni di Tuta/, /^Modifica Tuta/);
     const dialog = page.getByRole("dialog", { name: "Modifica il capo" });
     await dialog.getByLabel("Cerca un tesserato").fill("rossi");
     await expect(dialog.getByRole("option", { name: "Giulia Rossi" })).toBeAttached();
@@ -253,8 +308,11 @@ test.describe("altro, bilancio", () => {
     await expect(page.getByRole("region", { name: "Uscite per categoria" })).toContainText("Affitto palestra");
     const list = page.getByRole("list", { name: "Movimenti", exact: true });
     await expect(list.getByRole("listitem")).toHaveCount(2);
-    await expect(list.getByRole("listitem").filter({ hasText: "Quote" })).toContainText("Registrato dalle quote");
-    await expect(list.getByRole("button", { name: /Modifica Quote/ })).toHaveCount(0);
+    await expect(list.getByRole("listitem").filter({ hasText: "Quote" })).toContainText("Registrato dai pagamenti");
+    await list.getByRole("button", { name: /^Altre azioni di Quote/ }).click();
+    await expect(page.getByRole("menuitem", { name: /^Allegati di Quote/ })).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: /^Modifica Quote/ })).toHaveCount(0);
+    await page.keyboard.press("Escape");
     await settle(page);
     expect(await auditAccessibility(page)).toEqual([]);
 
@@ -311,7 +369,7 @@ test.describe("altro su telefono", () => {
     await expect(page.getByRole("list", { name: "Palestre", exact: true }).getByRole("listitem")).toHaveCount(2);
     await expectFits(page);
 
-    for (const name of ["Modifica Palazzetto dello Sport", "Elimina Palazzetto dello Sport", "Nuova palestra"]) {
+    for (const name of ["Altre azioni di Palazzetto dello Sport", "Nuova palestra"]) {
       const box = await page.getByRole("button", { name }).boundingBox();
       expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
     }

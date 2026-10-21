@@ -6,7 +6,7 @@ import { Alert, Avatar, Button, Textarea, useToast } from "@/components/ui";
 import { useApiMutation } from "@/lib/api";
 import { useInvalidateCalendar } from "./api";
 import { ConvocationStatusLabel, fullNameOf } from "./convocation-grid";
-import { describeCalendarError, formatShortDateTime } from "./format";
+import { describeCalendarError, formatShortDateTime, type ClosedReason } from "./format";
 import type { Convocation, RespondBody } from "./types";
 
 const MAX_REASON = 300;
@@ -15,10 +15,19 @@ export interface ConvocationAnswerProps {
   convocation: Convocation;
   /** Names the event too: for lists that mix several events. */
   showEvent?: boolean;
+  /** Set when the event takes no more answers: the buttons give way to the reason, the current answer stays visible. */
+  closed?: ClosedReason;
 }
 
-/** An athlete or a guardian confirms or declines (with an optional reason) a convocation. */
-export function ConvocationAnswer({ convocation, showEvent }: ConvocationAnswerProps) {
+function closedMessage(closed: ClosedReason, status: Convocation["status"]): string {
+  if (closed === "cancelled") return "Evento annullato: non c'è più nulla a cui rispondere.";
+  return status === "PENDING"
+    ? "L'evento è già iniziato: non si può più rispondere."
+    : "L'evento è già iniziato: non si può più cambiare la risposta.";
+}
+
+/** An athlete or a guardian confirms or declines (with an optional reason) a convocation, and can change the answer until the event starts. */
+export function ConvocationAnswer({ convocation, showEvent, closed }: ConvocationAnswerProps) {
   const { toast } = useToast();
   const invalidate = useInvalidateCalendar();
   const [declining, setDeclining] = useState(false);
@@ -65,7 +74,9 @@ export function ConvocationAnswer({ convocation, showEvent }: ConvocationAnswerP
         </div>
       </div>
       {respond.error ? <Alert tone="danger">{describeCalendarError(respond.error)}</Alert> : null}
-      {declining ? (
+      {closed ? (
+        <Alert tone="info">{closedMessage(closed, convocation.status)}</Alert>
+      ) : declining ? (
         <div className="flex flex-col gap-3">
           <Textarea
             label="Motivo (facoltativo)"

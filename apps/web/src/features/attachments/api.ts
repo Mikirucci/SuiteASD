@@ -1,7 +1,7 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { api, useApiMutation, useApiQuery } from "@/lib/api";
+import { api, useApiMutation, useApiQuery, type DownloadedFile } from "@/lib/api";
 import { saveFile } from "@/lib/save-file";
 
 /** Records of the administration a file can be attached to. Same values as the API (`AttachmentEntityType`). */
@@ -55,9 +55,13 @@ export function useDeleteAttachment(entityType: AttachmentEntityType, entityId: 
   });
 }
 
+/** The file of an attachment, fetched with the authenticated client (preview and download). */
+export function loadAttachmentFile(attachment: Attachment): Promise<DownloadedFile> {
+  return api.download(attachment.downloadUrl.replace(API_PREFIX, ""));
+}
+
 export function useDownloadAttachment() {
   return useApiMutation(async (attachment: Attachment) => {
-    const file = await api.download(attachment.downloadUrl.replace(API_PREFIX, ""));
-    saveFile(file, attachment.fileName);
+    saveFile(await loadAttachmentFile(attachment), attachment.fileName);
   });
 }

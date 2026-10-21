@@ -56,8 +56,10 @@ describe('demo seed: calendar and convocations (SPEC sections 4 and 6)', () => {
     await ctx.prisma.event.update({ where: { id: match.id }, data: { startsAt: new Date(Date.now() + 3 * 86_400_000) } });
     const athlete = await login('atleta@aquilevolley.it');
     const mine = await ctx.app.inject({ method: 'GET', url: `${API}/convocations?upcoming=true`, headers: athlete });
-    expect(mine.json().data).toHaveLength(1);
-    const convocation = mine.json().data[0];
+    // D-32: besides the match she already answers the trainings still ahead, from the day they exist.
+    const convocation = mine.json().data.find((row: { event: { id: string } }) => row.event.id === match.id);
+    expect(mine.json().data.length).toBeGreaterThan(1);
+    expect(mine.json().data.every((row: { status: string }) => row.status === 'PENDING')).toBe(true);
     expect(convocation).toMatchObject({ status: 'PENDING', member: { firstName: 'Giulia', lastName: 'Rossi' } });
 
     const answer = await ctx.app.inject({

@@ -77,7 +77,7 @@ describe("HomeOverview of a running society", () => {
     const { container } = renderWithQuery(<HomeOverview />);
     const services = await screen.findByRole("region", { name: "I tuoi servizi" });
     const titles = within(services).getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent);
-    expect(titles).toEqual(["Persone", "Calendario e partite", "Quote e pagamenti", "Documenti e scadenze"]);
+    expect(titles).toEqual(["Persone", "Calendario e partite", "Pagamenti", "Documenti e scadenze"]);
 
     const people = within(services).getByRole("list", { name: "Collegamenti rapidi: Persone" });
     expect(within(people).getAllByRole("link").map((link) => [link.textContent, link.getAttribute("href")])).toEqual([
@@ -93,7 +93,7 @@ describe("HomeOverview of a running society", () => {
     expect(await within(services).findByText(/Il prossimo: Aquile Volley vs Delfini Volley/)).toBeInTheDocument();
     expect(within(services).getByText("eventi nei prossimi 14 giorni")).toBeInTheDocument();
 
-    const fees = within(services).getByRole("list", { name: "Collegamenti rapidi: Quote e pagamenti" });
+    const fees = within(services).getByRole("list", { name: "Collegamenti rapidi: Pagamenti" });
     expect(within(fees).getByRole("link", { name: "Bilancio" })).toHaveAttribute("href", "/altro/bilancio");
     expect(await within(services).findByText("€ 180")).toBeInTheDocument();
     expect(within(services).getByText("€ 240 già incassati.")).toBeInTheDocument();
@@ -197,7 +197,7 @@ describe("HomeOverview by role", () => {
     const people = within(services).getByRole("list", { name: "Collegamenti rapidi: Persone" });
     expect(within(people).getAllByRole("link").map((link) => link.textContent)).toEqual(["Tesserati"]);
     expect(await within(services).findByText("118")).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Quote e pagamenti" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Pagamenti" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /Quota scaduta/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Automazioni" })).not.toBeInTheDocument();
     // Enrolments are for the administration, and what the coach cannot read is not even requested
@@ -232,9 +232,9 @@ describe("HomeOverview by role", () => {
     installFakeApi(ROUTES);
     renderWithQuery(<HomeOverview />);
     const services = await screen.findByRole("region", { name: "I tuoi servizi" });
-    const fees = within(services).getByRole("list", { name: "Collegamenti rapidi: Quote e pagamenti" });
+    const fees = within(services).getByRole("list", { name: "Collegamenti rapidi: Pagamenti" });
     // No ledger right: no link to the balance sheet
-    expect(within(fees).getAllByRole("link").map((link) => link.textContent)).toEqual(["Quote"]);
+    expect(within(fees).getAllByRole("link").map((link) => link.textContent)).toEqual(["Pagamenti"]);
   });
 });
 

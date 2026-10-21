@@ -18,9 +18,23 @@ test.describe("scritture sul backend reale", () => {
     await expect(page.getByRole("list", { name: "Tesserati" }).getByRole("listitem")).toHaveCount(1);
   });
 
+  test("la segreteria cerca Linda dalla pagina della squadra U12 e la aggiunge con un clic", async ({ page }) => {
+    await loginAs(page, "segreteria", "/squadre");
+    await page.getByRole("link", { name: "U12", exact: true }).click();
+    await page.getByRole("button", { name: "Aggiungi atleti" }).click();
+    const dialog = page.getByRole("dialog", { name: "Aggiungi atleti a U12" });
+    await dialog.getByRole("searchbox", { name: "Cerca tesserato" }).fill("Zanetti");
+    await dialog.getByText("Linda Zanetti").click();
+    await dialog.getByRole("button", { name: "Aggiungi 1 atleta" }).click();
+    await expect(page.getByText("1 atleta aggiunto")).toBeVisible();
+    await expect(page.getByRole("table", { name: "Rosa di U12" }).getByRole("link", { name: "Linda Zanetti" })).toBeVisible();
+  });
+
   test("la segreteria registra un pagamento e la ricevuta numerata parte da sola", async ({ page }) => {
     await loginAs(page, "segreteria", "/quote");
+    await page.getByRole("link", { name: "Quota novembre" }).click();
     await page.getByRole("button", { name: /Alice Moretti/ }).click();
+    await page.getByRole("dialog", { name: "Quote di Alice Moretti" }).getByRole("button", { name: /^Alice Moretti/ }).click();
     const card = page.getByRole("dialog", { name: "Alice Moretti" });
     await card.getByRole("button", { name: "Registra pagamento" }).click();
     const form = page.getByRole("dialog", { name: "Registra pagamento" });
@@ -33,7 +47,9 @@ test.describe("scritture sul backend reale", () => {
     await page.getByRole("dialog", { name: "Alice Moretti" }).getByRole("button", { name: "Scarica ricevuta" }).click();
     expect((await download).suggestedFilename()).toBe("ricevuta-0148.pdf");
     await page.keyboard.press("Escape");
-    await expect(page.getByText("Incassato", { exact: true }).locator("..")).toContainText(/€\s300/);
+    await page.keyboard.press("Escape");
+    const report = page.getByRole("region", { name: "Rendiconto del piano" });
+    await expect(report.getByText("Incassato", { exact: true }).locator("../..")).toContainText(/€\s300/);
   });
 
   test("l'amministratore spegne un'automazione e la percentuale scende", async ({ page }) => {

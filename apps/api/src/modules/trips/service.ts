@@ -1,6 +1,7 @@
 import type { Prisma, Trip } from '@prisma/client';
 import type { CrudService } from '../../lib/crud-routes.js';
 import { notFound } from '../../lib/errors.js';
+import { syncLinkedExpense } from '../../lib/ledger-links.js';
 import { cursorArgs, toPage } from '../../lib/pagination.js';
 import { toIso, toIsoOrNull } from '../../lib/schemas.js';
 import type { TenantRequestContext } from '../../plugins/auth.js';
@@ -28,6 +29,20 @@ function toDto(trip: Trip): TripDto {
 async function assertEventExists({ db }: TenantRequestContext, eventId: string | null | undefined): Promise<void> {
   if (!eventId) return;
   if (!(await db.event.findFirst({ where: { id: eventId }, select: { id: true } }))) throw notFound('Event');
+}
+
+// The cost of a trip is an expense of the balance on the day of departure; a cancelled trip costs nothing.
+async function syncCost(ctx: TenantRequestContext, trip: Trip): Promise<void> {
+  const booked = trip.costCents && trip.status !== 'CANCELLED';
+  await syncLinkedExpense({
+    db: ctx.db,
+    societyId: ctx.auth.societyId,
+    userId: ctx.auth.userId,
+    source: { tripId: trip.id },
+    expense: booked
+      ? { category: 'Trasferte', description: trip.destination, amountCents: trip.costCents ?? 0, occurredOn: new Date(Date.UTC(trip.departAt.getUTCFullYear(), trip.departAt.getUTCMonth(), trip.departAt.getUTCDate())) }
+      : null,
+  });
 }
 
 // `undefined` leaves the column untouched, `null` clears it.
@@ -66,6 +81,7 @@ export const tripService: CrudService<TripDto, CreateTripBody, UpdateTripBody, L
     const trip = await ctx.db.trip.create({
       data: { ...rest, societyId: ctx.auth.societyId, departAt: new Date(departAt), returnAt: toDate(returnAt) },
     });
+    await syncCost(ctx, trip);
     return toDto(trip);
   },
 
@@ -76,6 +92,7 @@ export const tripService: CrudService<TripDto, CreateTripBody, UpdateTripBody, L
       where: { id },
       data: { ...rest, departAt: toDate(departAt) ?? undefined, returnAt: toDate(returnAt) },
     });
+    await syncCost(ctx, trip);
     return toDto(trip);
   },
 

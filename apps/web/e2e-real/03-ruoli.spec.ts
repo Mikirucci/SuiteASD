@@ -7,9 +7,10 @@ test.describe("ruoli sul backend reale", () => {
   test("l'atleta vede la propria convocazione e la conferma", async ({ page }) => {
     await loginAs(page, "atleta", "/area-personale/calendario");
     const section = page.getByRole("region", { name: "Da confermare" });
-    await expect(section).toContainText("Aquile Volley vs Delfini Volley");
+    // D-32: the trainings of the team are already waiting for an answer, nearest first (the list shows five)
+    await expect(section).toContainText("Allenamento Serie D");
     await expect(page.getByRole("button", { name: "Nuovo evento" })).toHaveCount(0);
-    await page.getByRole("button", { name: /Confermo la presenza/ }).click();
+    await page.getByRole("button", { name: /Confermo la presenza/ }).first().click();
     await expect(page.getByText("Presenza confermata", { exact: true })).toBeVisible();
   });
 

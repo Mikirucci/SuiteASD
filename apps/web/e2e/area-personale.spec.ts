@@ -86,7 +86,10 @@ test.describe("area personale", () => {
     await expect(list.getByRole("listitem")).toHaveCount(3);
     const certificate = list.getByRole("listitem").filter({ hasText: "Certificato medico" });
     await expect(certificate).toContainText("Scade il");
-    await expect(certificate.getByRole("button", { name: "Scarica Certificato medico" })).toBeVisible();
+    await expect(certificate.getByRole("button", { name: "Apri Certificato medico" })).toBeVisible();
+    await certificate.getByRole("button", { name: "Altre azioni di Certificato medico" }).click();
+    await expect(page.getByRole("menuitem", { name: "Scarica Certificato medico" })).toBeVisible();
+    await page.keyboard.press("Escape");
 
     await settle(page);
     expect(await auditAccessibility(page)).toEqual([]);

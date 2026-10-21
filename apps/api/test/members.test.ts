@@ -199,13 +199,13 @@ describe('members module (SPEC 01)', () => {
         await ctx.prisma.teamMembership.create({ data: { societyId: society.id, teamId: team.id, memberId: member.id } });
         if (certDays !== null) {
           await ctx.prisma.document.create({
-            data: { societyId: society.id, memberId: member.id, documentTypeId: idOf('MEDICAL_CERTIFICATE'), expiresAt: inDays(certDays) },
+            data: { societyId: society.id, fileKey: 'test/file.pdf', memberId: member.id, documentTypeId: idOf('MEDICAL_CERTIFICATE'), expiresAt: inDays(certDays) },
           });
         }
         if (form) {
-          await ctx.prisma.document.create({ data: { societyId: society.id, memberId: member.id, documentTypeId: idOf('MEMBERSHIP_FORM') } });
+          await ctx.prisma.document.create({ data: { societyId: society.id, fileKey: 'test/file.pdf', memberId: member.id, documentTypeId: idOf('MEMBERSHIP_FORM') } });
         }
-        await ctx.prisma.document.create({ data: { societyId: society.id, memberId: member.id, documentTypeId: idOf('PRIVACY_CONSENT') } });
+        await ctx.prisma.document.create({ data: { societyId: society.id, fileKey: 'test/file.pdf', memberId: member.id, documentTypeId: idOf('PRIVACY_CONSENT') } });
         return member.id;
       };
       scope = {
@@ -237,6 +237,23 @@ describe('members module (SPEC 01)', () => {
         'MISSING',
         'MISSING',
       ]);
+    });
+
+    it('keeps a document whose file has not arrived yet as missing, in the list and on the card', async () => {
+      const certificate = await ctx.prisma.documentType.findFirstOrThrow({ where: { societyId: scope.societyId, key: 'MEDICAL_CERTIFICATE' } });
+      const member = await createMember(ctx, scope.societyId, { firstName: 'Senza', lastName: 'Allegato' });
+      const document = await ctx.prisma.document.create({
+        data: { societyId: scope.societyId, memberId: member.id, documentTypeId: certificate.id, expiresAt: inDays(200) },
+      });
+      const detail = (await get(scope.admin, `/members/${member.id}`)).json();
+      expect(detail.documents[0]).toMatchObject({ key: 'MEDICAL_CERTIFICATE', status: 'MISSING', documentId: document.id });
+      expect(detail.documentStatus).toBe('MISSING');
+      const row = (await get(scope.admin, `/members/${member.id}/documents`)).json().data[0];
+      expect(row).toMatchObject({ hasFile: false, status: 'MISSING' });
+      await ctx.prisma.document.update({ where: { id: document.id }, data: { fileKey: 'test/file.pdf' } });
+      expect((await get(scope.admin, `/members/${member.id}`)).json().documents[0].status).toBe('OK');
+      await ctx.prisma.document.delete({ where: { id: document.id } });
+      await ctx.prisma.member.delete({ where: { id: member.id } });
     });
 
     it('filters by document status, team and search text', async () => {

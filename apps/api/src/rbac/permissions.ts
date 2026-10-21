@@ -47,6 +47,8 @@ export const PERMISSIONS = {
   'payments:read': [A, S],
   'payments:readOwn': ALL,
   'payments:write': [A, S],
+  // "Ho pagato": the payer tells the administration they have paid; the administration records the payment.
+  'payments:claim': [T, G],
   'receipts:read': [A, S],
 
   'events:read': ALL,

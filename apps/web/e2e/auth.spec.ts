@@ -176,7 +176,7 @@ test.describe("app shell on a phone", () => {
     await expect(bar).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Sezioni", exact: true })).toBeHidden();
 
-    await expect(bar.getByRole("link")).toHaveText(["Home", "Tesserati", "Calendario", "Quote"]);
+    await expect(bar.getByRole("link")).toHaveText(["Home", "Tesserati", "Calendario", "Pagamenti"]);
     await bar.getByRole("button", { name: "Menu" }).click();
     const drawer = page.getByRole("dialog", { name: "Menu" });
     await expect(drawer.getByRole("link", { name: "Automazioni" })).toBeHidden();

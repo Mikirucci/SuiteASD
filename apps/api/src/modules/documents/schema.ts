@@ -149,3 +149,44 @@ export type ExpirationsQuery = z.infer<typeof expirationsQuerySchema>;
 export type ExpirationsDto = z.infer<typeof expirationsSchema>;
 export type ExpirationItem = z.infer<typeof expirationItemSchema>;
 export type DocumentIndicator = z.infer<typeof indicatorSchema>;
+
+// ---- Type report (Scadenze e documenti: one card per document type, people inside) -----------------------------
+
+export const typeStatsSchema = z.object({
+  validPeople: z.number().int().describe('People whose current document is valid (OK)'),
+  expiringPeople: z.number().int().describe('People whose current document expires within 30 days'),
+  expiredPeople: z.number().int(),
+  missingPeople: z.number().int().describe('People with no document, or one whose file has not arrived'),
+});
+
+export const documentTypeReportSchema = z.object({
+  data: z.array(typeStatsSchema.extend({ documentTypeId: z.string() })).describe('One entry per document type that applies to somebody'),
+});
+
+export const typePeopleQuerySchema = z.object({
+  q: z.string().trim().min(1).max(80).optional().describe('Substring of the member name'),
+  teamId: idRef.optional(),
+  status: documentStatusSchema.optional(),
+});
+
+export const typePersonSchema = z.object({
+  memberId: z.string(),
+  memberName: z.string(),
+  teams: z.array(z.object({ id: z.string(), name: z.string() })),
+  status: documentStatusSchema,
+  documentId: z.string().nullable(),
+  expiresAt: dateOnly.nullable(),
+  daysRemaining: z.number().int().nullable(),
+  hasFile: z.boolean(),
+});
+
+export const typePeopleSchema = z.object({
+  stats: typeStatsSchema.describe('Figures of the whole type, whatever the filters'),
+  people: z.array(typePersonSchema).describe('Ordered by name'),
+});
+
+export type TypeStats = z.infer<typeof typeStatsSchema>;
+export type DocumentTypeReportDto = z.infer<typeof documentTypeReportSchema>;
+export type TypePeopleQuery = z.infer<typeof typePeopleQuerySchema>;
+export type TypePerson = z.infer<typeof typePersonSchema>;
+export type TypePeopleDto = z.infer<typeof typePeopleSchema>;

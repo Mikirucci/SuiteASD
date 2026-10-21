@@ -1,8 +1,8 @@
 "use client";
 
 import { ResourceView } from "./crud/resource-view";
+import { KitsOverview } from "./kits/kits-overview";
 import { PageShell } from "./page-shell";
-import { kitsConfig } from "./resources/kits";
 import { sponsorsConfig } from "./resources/sponsors";
 import { staffConfig } from "./resources/staff";
 import { tripsConfig } from "./resources/trips";
@@ -40,9 +40,9 @@ export function KitsPage() {
       label="Divise"
       title="Ogni maglia al suo posto."
       highlight="al suo posto."
-      description="Cosa c'è in magazzino, in che taglia e a chi è assegnato."
+      description="Un capo per volta: apri una card per vedere taglie, numeri e a chi è assegnato."
     >
-      <ResourceView config={kitsConfig} />
+      <KitsOverview />
     </PageShell>
   );
 }
@@ -68,7 +68,7 @@ export function StaffPage() {
       highlight="guida le squadre."
       description="Allenatori, dirigenti e qualifiche, con i contatti a portata di mano."
     >
-      <ResourceView config={staffConfig} />
+      <ResourceView config={staffConfig} layout="grid" columns={2} />
     </PageShell>
   );
 }

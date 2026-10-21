@@ -9,7 +9,9 @@ import { normalizeEmail } from '../../lib/schemas.js';
 import { createDefaultDocumentTypes } from '../../lib/society-defaults.js';
 import { generateOpaqueToken, hashToken, type AuthContext } from '../../lib/tokens.js';
 import { permissionsFor } from '../../rbac/permissions.js';
-import { guardianRelationSchema, roleSchema, type Role } from '../../shared/enums.js';
+import { scopeToTenant } from '../../lib/tenant.js';
+import { guardianRelationSchema, roleSchema, type Role, type StaffRole } from '../../shared/enums.js';
+import { notifyAdministration } from '../notifications/admin-alerts.js';
 import { magicLinkEmail } from './magic-link-email.js';
 import { issueSession, type IssueSessionInput } from './session.js';
 import type {
@@ -51,6 +53,14 @@ function slugify(name: string): string {
     .slice(0, 40);
   return `${base || 'societa'}-${randomBytes(3).toString('hex')}`;
 }
+
+// Where an access role lands in the Staff list: the administration counts as "Dirigente".
+const STAFF_ROLE_OF_ACCESS_ROLE: Partial<Record<Role, StaffRole>> = {
+  ADMIN: 'MANAGER',
+  SEGRETERIA: 'MANAGER',
+  ALLENATORE: 'COACH',
+  STAFF: 'OTHER',
+};
 
 export function createAuthService({ prisma, config, passwords, email, log }: AuthDeps) {
   // Verified when the email is unknown so that response time does not reveal which emails exist.
@@ -183,7 +193,7 @@ export function createAuthService({ prisma, config, passwords, email, log }: Aut
     return {
       society: { name: invitation.society.name },
       role: roleSchema.parse(invitation.role),
-      maskedEmail: maskEmail(invitation.email),
+      maskedEmail: invitation.email ? maskEmail(invitation.email) : null,
     };
   }
 
@@ -196,7 +206,10 @@ export function createAuthService({ prisma, config, passwords, email, log }: Aut
       return invalid();
     }
     const role = roleSchema.parse(invitation.role);
-    const existing = await prisma.user.findUnique({ where: { email: invitation.email } });
+    // The link names nobody unless the inviter typed an email: then the person gives theirs here
+    const accountEmail = invitation.email ?? (body.email ? normalizeEmail(body.email) : null);
+    if (!accountEmail) throw unprocessable('email_required', 'The email of the account is required');
+    const existing = await prisma.user.findUnique({ where: { email: accountEmail } });
     if (existing) {
       if (!(await passwords.verify(existing.passwordHash, body.password))) {
         throw unauthorized('Invalid email or password');
@@ -206,7 +219,7 @@ export function createAuthService({ prisma, config, passwords, email, log }: Aut
     }
     const passwordHash = existing ? existing.passwordHash : await passwords.hash(body.password);
 
-    return prisma.$transaction(async (tx) => {
+    const { session, user: joined } = await prisma.$transaction(async (tx) => {
       // Atomic claim: only one concurrent request can consume the invitation.
       const claimed = await tx.invitation.updateMany({
         where: { id: invitation.id, acceptedAt: null, revokedAt: null },
@@ -218,7 +231,7 @@ export function createAuthService({ prisma, config, passwords, email, log }: Aut
         existing ??
         (await tx.user.create({
           data: {
-            email: invitation.email,
+            email: accountEmail,
             passwordHash,
             firstName: body.firstName ?? '',
             lastName: body.lastName ?? '',
@@ -229,6 +242,7 @@ export function createAuthService({ prisma, config, passwords, email, log }: Aut
         create: { userId: user.id, societyId: invitation.societyId, role },
         update: {},
       });
+      await ensureStaffCard(tx, invitation.societyId, user, role);
 
       if (invitation.memberId && role === 'ATLETA') {
         const member = await tx.member.findFirst({
@@ -254,13 +268,61 @@ export function createAuthService({ prisma, config, passwords, email, log }: Aut
       });
       const society = memberships[0]?.society;
       if (!society) return invalid();
-      return issue(tx, {
+      const session = await issue(tx, {
         user,
         society: { id: society.id, name: society.name },
         roles: memberships.map((membership) => roleSchema.parse(membership.role)),
         userAgent,
       });
+      return { session, user };
     });
+    await alertAdministration(invitation.societyId, invitation.id, joined, role);
+    return session;
+  }
+
+  // The collaborators of the society are listed in Staff: whoever joins with an invitation gets their card there,
+  // so nobody has to type them again. A card typed in advance with the same email is linked instead of duplicated.
+  async function ensureStaffCard(
+    tx: Prisma.TransactionClient,
+    societyId: string,
+    user: { id: string; firstName: string; lastName: string; email: string },
+    role: Role,
+  ): Promise<void> {
+    const staffRole = STAFF_ROLE_OF_ACCESS_ROLE[role];
+    if (!staffRole) return;
+    if (await tx.staffMember.findFirst({ where: { societyId, userId: user.id }, select: { id: true } })) return;
+    const typed = await tx.staffMember.findFirst({
+      where: { societyId, userId: null, email: user.email },
+      select: { id: true },
+    });
+    if (typed) {
+      await tx.staffMember.update({ where: { id: typed.id }, data: { userId: user.id } });
+      return;
+    }
+    await tx.staffMember.create({
+      data: { societyId, userId: user.id, firstName: user.firstName, lastName: user.lastName, email: user.email, role: staffRole },
+    });
+  }
+
+  // The administration hears about it at once. A failure here must not undo a joining that went through.
+  async function alertAdministration(
+    societyId: string,
+    invitationId: string,
+    user: { id: string; firstName: string; lastName: string },
+    role: Role,
+  ): Promise<void> {
+    try {
+      await notifyAdministration(scopeToTenant(prisma, societyId), {
+        societyId,
+        template: { type: 'ADMIN_INVITATION_ACCEPTED', personName: `${user.firstName} ${user.lastName}`.trim(), role },
+        dedupeKey: `invitation:${invitationId}`,
+        data: { userId: user.id },
+        exceptUserId: user.id,
+        now: new Date(),
+      });
+    } catch (error) {
+      log.error({ err: error, societyId, invitationId }, 'could not notify the administration of a new collaborator');
+    }
   }
 
   // Always completes the same way for known and unknown emails: the caller can never tell them apart.

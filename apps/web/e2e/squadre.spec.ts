@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { auditAccessibility } from "./support/axe";
 import { mockApi, seedStoredSession } from "./support/mock-api";
+import { demoMembers } from "./support/tesserati-fixtures";
 import { pageOf, routeApi, type ApiAnswer, type ApiHandler, type RoutedApi } from "./support/route-api";
 
 interface TeamFixture {
@@ -130,6 +131,99 @@ test.describe("squadre", () => {
     await expect(page.getByRole("alert").filter({ hasText: "Il servizio non è disponibile al momento" })).toBeVisible();
     await page.getByRole("button", { name: "Riprova" }).click();
     await expect(page.getByRole("list", { name: "Squadre" })).toContainText("Under 16");
+  });
+
+  test("adds several athletes from the team page: search, tick, one request", async ({ page }) => {
+    const inTeam = { id: "t16", name: "Under 16", category: "U16", position: null, jerseyNumber: null };
+    let everyone = demoMembers().map((item) => ({ ...item, teams: item.id === "m-sara" ? [inTeam] : [] }));
+    const handler: ApiHandler = ({ method, path, query, body }) => {
+      switch (`${method} ${path}`) {
+        case "GET /teams/t16":
+          return { body: U16 };
+        case "GET /members": {
+          const needle = (query.get("q") ?? "").toLowerCase();
+          const matching = everyone.filter(
+            (item) =>
+              (!needle || `${item.firstName} ${item.lastName}`.toLowerCase().includes(needle)) &&
+              (!query.get("teamId") || item.teams.some((ref) => ref.id === query.get("teamId"))),
+          );
+          return pageOf(matching.slice(0, 25));
+        }
+        case "POST /teams/t16/members": {
+          const ids = (body as { memberIds: string[] }).memberIds;
+          everyone = everyone.map((item) => (ids.includes(item.id) ? { ...item, teams: [inTeam] } : item));
+          return { body: { added: ids.length, alreadyInTeam: 0 } };
+        }
+        default:
+          return undefined;
+      }
+    };
+    await mockApi(page);
+    const api = await routeApi(page, { permissions: [...ADMIN, "members:read"], roles: ["ADMIN"] }, handler);
+    await seedStoredSession(page);
+    await page.goto("/squadre/t16");
+
+    const roster = page.getByRole("table", { name: "Rosa di Under 16" });
+    await expect(roster.getByRole("link", { name: "Sara Conti" })).toBeVisible();
+    await expect(roster.getByRole("link", { name: "Elena Russo" })).toHaveCount(0);
+
+    await page.getByRole("button", { name: "Aggiungi atleti" }).click();
+    const dialog = page.getByRole("dialog", { name: "Aggiungi atleti a Under 16" });
+    await expect(dialog.getByRole("searchbox", { name: "Cerca tesserato" })).toBeFocused();
+    await expect(dialog.getByRole("checkbox", { name: /Sara Conti/ })).toBeDisabled();
+    await expect(dialog.getByText("Già in squadra")).toBeVisible();
+
+    await dialog.getByRole("searchbox", { name: "Cerca tesserato" }).fill("russo");
+    await dialog.getByText("Elena Russo").click();
+    await dialog.getByRole("searchbox", { name: "Cerca tesserato" }).fill("neri");
+    await dialog.getByText("Chiara Neri").click();
+    await page.waitForTimeout(500);
+    expect(await auditAccessibility(page)).toEqual([]);
+
+    await dialog.getByRole("button", { name: "Aggiungi 2 atleti" }).click();
+    await expect(page.getByText("2 atleti aggiunti")).toBeVisible();
+    await expect(dialog).toBeHidden();
+    expect(api.bodies.get("POST /teams/t16/members")).toEqual({ memberIds: ["m-elena", "m-chiara"] });
+    await expect(roster.getByRole("link", { name: "Elena Russo" })).toBeVisible();
+    await expect(roster.getByRole("link", { name: "Chiara Neri" })).toBeVisible();
+  });
+
+  test("the roster shows every column in full, one line per athlete, and the cards sit above it", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const inTeam = { id: "t16", name: "Under 16", category: "U16", position: "Palleggiatrice", jerseyNumber: 12 };
+    const roster = demoMembers().map((item) => ({ ...item, teams: [inTeam] }));
+    await mockApi(page);
+    await routeApi(
+      page,
+      { permissions: [...ADMIN, "members:read", "events:read"], roles: ["ADMIN"] },
+      ({ method, path }) => {
+        if (method !== "GET") return undefined;
+        if (path === "/teams/t16") return { body: U16 };
+        if (path === "/members") return pageOf(roster.slice(0, 25));
+        if (path === "/events") return pageOf([]);
+        return undefined;
+      },
+    );
+    await seedStoredSession(page);
+    await page.goto("/squadre/t16");
+
+    const table = page.getByRole("table", { name: "Rosa di Under 16" });
+    await expect(table.getByRole("row")).toHaveCount(26);
+    const heights = await table.getByRole("row").evaluateAll((rows) => rows.map((row) => row.getBoundingClientRect().height));
+    // A wrapped name or chip would make its row taller than the others
+    expect(Math.max(...heights.slice(1)) - Math.min(...heights.slice(1))).toBeLessThanOrEqual(2);
+    const clipped = await table.evaluate((element) => {
+      const holder = element.parentElement as HTMLElement;
+      return holder.scrollWidth - holder.clientWidth;
+    });
+    expect(clipped).toBeLessThanOrEqual(0);
+
+    // The appointments come before the roster: the table gets the whole width
+    const appointments = page.getByRole("heading", { name: "Prossimi appuntamenti" });
+    const rosterHeading = page.getByRole("heading", { name: "Rosa" });
+    const [top, rosterTop] = [await appointments.boundingBox(), await rosterHeading.boundingBox()];
+    expect(top?.y ?? 0).toBeLessThan(rosterTop?.y ?? 0);
+    expect(await auditAccessibility(page)).toEqual([]);
   });
 
   test("fits a 320px screen without horizontal scrolling", async ({ page }) => {

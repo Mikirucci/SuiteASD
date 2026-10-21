@@ -65,14 +65,52 @@ describe("PersonalDocuments", () => {
     const list = await screen.findByRole("list", { name: "Documenti richiesti" });
     const [certificate, form, privacy] = within(list).getAllByRole("listitem");
     expect(certificate).toHaveTextContent("Certificato medico");
-    expect(certificate).toHaveTextContent("Scade il 27 novembre 2026 · Scade tra 15 giorni");
+    expect(certificate).toHaveTextContent("Scade il 27 novembre 2026 · scade tra 15 giorni");
     expect(certificate).toHaveTextContent("In scadenza");
     expect(certificate).toHaveTextContent("certificato-conti.pdf · 240 KB");
     expect(within(certificate as HTMLElement).getByRole("button", { name: "Carica la nuova versione di Certificato medico" })).toBeInTheDocument();
-    expect(within(certificate as HTMLElement).getByRole("button", { name: "Scarica Certificato medico" })).toBeInTheDocument();
+    expect(within(certificate as HTMLElement).getByRole("button", { name: "Altre azioni di Certificato medico" })).toBeInTheDocument();
+    expect(within(certificate as HTMLElement).getByRole("button", { name: "Apri Certificato medico" })).toBeInTheDocument();
     expect(form).toHaveTextContent("In regola");
     expect(privacy).toHaveTextContent("Privacy e liberatoria");
     await expectNoA11yViolations(container);
+  });
+
+  it("has no general upload button above the rows: each row carries its own", async () => {
+    athleteApi();
+    renderScreen(<PersonalDocuments />);
+    await screen.findByRole("list", { name: "Documenti richiesti" });
+    expect(screen.queryByRole("button", { name: "Carica un altro documento" })).not.toBeInTheDocument();
+  });
+
+  it("offers the upload inside the empty state when the society asks for no document", async () => {
+    athleteApi({ "GET /members/m-sara": () => ({ body: detailOf({ ...SARA_CONTI, documents: [] }) }) });
+    renderScreen(<PersonalDocuments />);
+    expect(await screen.findByRole("heading", { name: "Nessun documento richiesto" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Carica un documento" }));
+    expect(await screen.findByRole("dialog", { name: "Carica un documento · Sara Conti" })).toBeInTheDocument();
+  });
+
+  it("writes the expiry in coloured text only, and the words say the same", async () => {
+    athleteApi();
+    renderScreen(<PersonalDocuments />);
+    const list = await screen.findByRole("list", { name: "Documenti richiesti" });
+    const line = within(list).getByText("Scade il 27 novembre 2026 · scade tra 15 giorni");
+    expect(line).toHaveClass("text-warning");
+    expect(line.className).not.toMatch(/(bg|border|rounded)-/);
+  });
+
+  it("opens the file in the platform without downloading it", async () => {
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+    const api = athleteApi({
+      "GET /documents/doc-MEDICAL_CERTIFICATE/file": () => ({ body: "%PDF-1.4", headers: { "content-type": "application/pdf" } }),
+    });
+    renderScreen(<PersonalDocuments />);
+    await userEvent.click(await screen.findByRole("button", { name: "Apri Certificato medico" }));
+    const dialog = await screen.findByRole("dialog", { name: "Certificato medico" });
+    expect(await within(dialog).findByTitle("Anteprima di Certificato medico")).toBeInTheDocument();
+    expect(api.calls.filter((call) => call.path === "/documents/doc-MEDICAL_CERTIFICATE/file")).toHaveLength(1);
+    expect(click).not.toHaveBeenCalled();
   });
 
   it("says what is missing and offers the upload, with no download", async () => {
@@ -87,7 +125,7 @@ describe("PersonalDocuments", () => {
     expect(certificate).toHaveTextContent("Non ancora caricato");
     expect(certificate).toHaveTextContent("Mancante");
     expect(within(certificate as HTMLElement).getByRole("button", { name: "Carica Certificato medico" })).toBeInTheDocument();
-    expect(within(certificate as HTMLElement).queryByRole("button", { name: /Scarica/ })).not.toBeInTheDocument();
+    expect(within(certificate as HTMLElement).queryByRole("button", { name: /Scarica|Apri/ })).not.toBeInTheDocument();
     expect(screen.getByText("1 documento mancante")).toBeInTheDocument();
   });
 
@@ -117,8 +155,9 @@ describe("PersonalDocuments", () => {
   it("asks for the expiry only when the type has one", async () => {
     const api = athleteApi({ "POST /members/m-sara/documents/upload": () => ({ status: 201, body: CERTIFICATE_DOCUMENT }) });
     renderScreen(<PersonalDocuments />);
-    await userEvent.click(await screen.findByRole("button", { name: "Carica un altro documento" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Carica la nuova versione di Certificato medico" }));
     const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByLabelText(/Data di scadenza/)).toBeInTheDocument();
     await userEvent.selectOptions(within(dialog).getByLabelText(/Tipo di documento/), "type-MEMBERSHIP_FORM");
     expect(within(dialog).queryByLabelText(/Data di scadenza/)).not.toBeInTheDocument();
     await userEvent.upload(within(dialog).getByLabelText(/File/), pdf());
@@ -128,9 +167,9 @@ describe("PersonalDocuments", () => {
   });
 
   it("checks type, expiry and file before calling the API", async () => {
-    const api = athleteApi();
+    const api = athleteApi({ "GET /members/m-sara": () => ({ body: detailOf({ ...SARA_CONTI, documents: [] }) }) });
     renderScreen(<PersonalDocuments />);
-    await userEvent.click(await screen.findByRole("button", { name: "Carica un altro documento" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Carica un documento" }));
     const dialog = await screen.findByRole("dialog");
 
     await userEvent.click(within(dialog).getByRole("button", { name: "Carica il documento" }));
@@ -171,7 +210,8 @@ describe("PersonalDocuments", () => {
       "GET /documents/doc-MEDICAL_CERTIFICATE/file": () => ({ body: "%PDF-1.4", headers: { "content-type": "application/pdf" } }),
     });
     renderScreen(<PersonalDocuments />);
-    await userEvent.click(await screen.findByRole("button", { name: "Scarica Certificato medico" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Altre azioni di Certificato medico" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Scarica Certificato medico" }));
     await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
     expect(api.calls.some((call) => call.path === "/documents/doc-MEDICAL_CERTIFICATE/file")).toBe(true);
   });

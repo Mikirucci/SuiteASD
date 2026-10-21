@@ -18,7 +18,14 @@ describe('permission matrix (SPEC section 2)', () => {
   });
 
   it('gives ADMIN every administrative permission and no role more than ADMIN, except athlete/guardian self-service', () => {
-    const selfService: Permission[] = ['children:create', 'convocations:respond', 'documents:uploadOwn', 'evaluations:readOwn', 'members:updateOwn'];
+    const selfService: Permission[] = [
+      'children:create',
+      'convocations:respond',
+      'documents:uploadOwn',
+      'evaluations:readOwn',
+      'members:updateOwn',
+      'payments:claim',
+    ];
     const nonAdmin = (Object.keys(PERMISSIONS) as Permission[]).filter((permission) => !can(['ADMIN'], permission));
     expect(nonAdmin.sort()).toEqual([...selfService].sort());
   });
@@ -31,7 +38,9 @@ describe('permission matrix (SPEC section 2)', () => {
       expect(can([role], 'ledger:read')).toBe(false);
       expect(can([role], 'payments:readOwn')).toBe(true);
       expect(can([role], 'convocations:respond')).toBe(true);
+      expect(can([role], 'payments:claim')).toBe(true);
     }
+    for (const role of ['ADMIN', 'SEGRETERIA', 'ALLENATORE', 'STAFF'] as const) expect(can([role], 'payments:claim')).toBe(false);
   });
 
   it('keeps finance and sponsors admin-only, and reserves segreteria for members, documents and payments', () => {

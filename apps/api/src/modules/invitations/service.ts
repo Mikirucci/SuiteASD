@@ -15,6 +15,7 @@ function toDto(invitation: Invitation): InvitationDto {
   return {
     id: invitation.id,
     email: invitation.email,
+    label: invitation.label,
     role: roleSchema.parse(invitation.role),
     memberId: invitation.memberId,
     expiresAt: toIso(invitation.expiresAt),
@@ -42,7 +43,8 @@ export async function createInvitation(
   const invitation = await db.invitation.create({
     data: {
       societyId: auth.societyId,
-      email: normalizeEmail(body.email),
+      email: body.email ? normalizeEmail(body.email) : null,
+      label: body.label ?? null,
       role: body.role,
       memberId: body.memberId ?? null,
       invitedById: auth.userId,

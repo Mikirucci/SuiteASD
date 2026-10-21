@@ -1,7 +1,8 @@
 "use client";
 
 import { keepPreviousData, useInfiniteQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
-import { api, useApiMutation, useApiQuery, type ApiError } from "@/lib/api";
+import { useCallback } from "react";
+import { api, useApiMutation, useApiQuery, type ApiError, type DownloadedFile } from "@/lib/api";
 import type {
   CreateDocumentBody,
   CreateMemberBody,
@@ -191,10 +192,20 @@ export function useDeleteDocument() {
   return useApiMutation((id: string, client) => client.delete<void>(`/documents/${id}`), { onSuccess: invalidate });
 }
 
+/** `downloadUrl` is prefixed with /api/v1, which the client adds by itself. */
+function documentFilePath(downloadUrl: string): string {
+  return downloadUrl.replace(API_PREFIX, "");
+}
+
+/** Loader of a document's file for the in-platform preview (`FilePreviewDialog`); stable while the path is the same. */
+export function useDocumentFile(downloadUrl: string): () => Promise<DownloadedFile> {
+  return useCallback(() => api.download(documentFilePath(downloadUrl)), [downloadUrl]);
+}
+
 export function useDownloadDocument() {
   return useApiMutation(async (document: MemberDocument, client) => {
     if (!document.downloadUrl) return;
-    const file = await client.download(document.downloadUrl.replace(API_PREFIX, ""));
+    const file = await client.download(documentFilePath(document.downloadUrl));
     saveBlob(file.blob, file.filename ?? document.fileName ?? "documento");
   });
 }

@@ -8,7 +8,7 @@ import { usePermission } from "@/hooks/use-permission";
 import { ApiError, describeError } from "@/lib/api";
 import { usePendingInvitations, useRevokeInvitation } from "./api";
 import { InviteDialog } from "./invite-dialog";
-import { ROLE_LABEL, describeInvitationExpiry, invitableRoles, type Invitation } from "./invitation-format";
+import { ROLE_LABEL, describeInvitationExpiry, invitableRoles, invitationTitle, type Invitation } from "./invitation-format";
 
 function describeRevokeError(error: unknown): string {
   if (error instanceof ApiError && error.status === 404) {
@@ -28,7 +28,7 @@ function InvitationRow({ invitation, now, onRevoke }: InvitationRowProps) {
     <div className="flex flex-col gap-3 p-4">
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
-          <p className="break-all text-sm font-bold text-fg">{invitation.email}</p>
+          <p className="break-words text-sm font-bold text-fg">{invitationTitle(invitation)}</p>
           <p className="break-words text-sm text-fg-muted">
             {ROLE_LABEL[invitation.role]} · {describeInvitationExpiry(invitation.expiresAt, now)}
           </p>
@@ -37,7 +37,7 @@ function InvitationRow({ invitation, now, onRevoke }: InvitationRowProps) {
       </div>
       {onRevoke ? (
         <div>
-          <Button variant="ghost" leftIcon={<Ban />} aria-label={`Revoca l'invito a ${invitation.email}`} onClick={onRevoke}>
+          <Button variant="ghost" leftIcon={<Ban />} aria-label={`Revoca l'invito: ${invitationTitle(invitation)}`} onClick={onRevoke}>
             Revoca
           </Button>
         </div>
@@ -69,7 +69,7 @@ export function InvitationsPage() {
     if (!revoking) return;
     revoke.mutate(revoking.id, {
       onSuccess: () => {
-        toast({ title: "Invito revocato", description: revoking.email, tone: "success" });
+        toast({ title: "Invito revocato", description: invitationTitle(revoking), tone: "success" });
         setRevoking(null);
       },
     });
@@ -81,7 +81,7 @@ export function InvitationsPage() {
       label="Accessi e inviti"
       title="Chi può entrare nella società."
       highlight="Chi può entrare"
-      description="Invita allenatori, segreteria e staff: ognuno vede solo ciò che il suo ruolo permette. Atleti e genitori si iscrivono dal link d'iscrizione, nella pagina Tesserati."
+      description="Crea un link per allenatori, segreteria e staff e mandalo tu: ognuno vede solo ciò che il suo ruolo permette. Atleti e genitori si iscrivono dal link d'iscrizione, nella pagina Tesserati."
     />
   );
 
@@ -141,7 +141,7 @@ export function InvitationsPage() {
             title="Nessun invito in attesa"
             description={
               inviteButton
-                ? "Invita il primo collaboratore: riceverà un link per scegliere la password ed entrare."
+                ? "Crea il primo link: chi lo apre sceglie nome, email e password ed entra con il ruolo che hai scelto."
                 : "Quando qualcuno viene invitato, l'invito compare qui finché non lo accetta."
             }
             action={inviteButton}
@@ -150,8 +150,8 @@ export function InvitationsPage() {
       />
       <LoadMore list={list} noun="Inviti" moreLabel="Carica altri inviti" />
       <p className="max-w-prose text-sm text-fg-muted">
-        Qui vedi gli inviti ancora aperti: quando qualcuno accetta, scade o viene revocato, l&apos;invito esce
-        dall&apos;elenco.
+        Qui vedi i link ancora da usare. Quando qualcuno completa la registrazione il link esce dall&apos;elenco, la
+        persona compare in Staff e ricevi un avviso nelle notifiche. Un link scaduto o revocato esce anch&apos;esso.
       </p>
 
       {canWrite && roles.length > 0 ? (
@@ -162,7 +162,7 @@ export function InvitationsPage() {
           open={revoking !== null}
           onOpenChange={(open) => !open && setRevoking(null)}
           title="Revocare l'invito?"
-          description={revoking ? `Il link mandato a ${revoking.email} smette di funzionare subito.` : ""}
+          description={revoking ? `Il link «${invitationTitle(revoking)}» smette di funzionare subito.` : ""}
           confirmLabel="Revoca"
           loading={revoke.isPending}
           error={revoke.error ? describeRevokeError(revoke.error) : null}

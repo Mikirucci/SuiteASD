@@ -1,9 +1,9 @@
-import type { Fee, FeePlan, FeesSummary, TeamOption } from "./types";
+import type { Fee, FeePlan, FeesSummary, PlanPerson, PlanReport, PlanStats, TeamOption } from "./types";
 
 /** Fixtures of the quote feature tests. The network stub and the provider wrapper live in src/test/stub-api. */
 
 export const STAFF_PERMISSIONS = ["payments:read", "payments:write", "receipts:read", "automations:read", "teams:read"];
-export const ATHLETE_PERMISSIONS = ["payments:readOwn", "teams:read"];
+export const ATHLETE_PERMISSIONS = ["payments:readOwn", "payments:claim", "teams:read"];
 
 export function makeFee(overrides: Partial<Fee> = {}): Fee {
   return {
@@ -24,6 +24,7 @@ export function makeFee(overrides: Partial<Fee> = {}): Fee {
     reference: null,
     reminderCount: 0,
     lastReminderAt: null,
+    claimedAt: null,
     receipt: null,
     createdAt: "2026-10-01T08:00:00.000Z",
     updatedAt: "2026-10-01T08:00:00.000Z",
@@ -40,7 +41,7 @@ export const PAID_FEE = makeFee({
   paidAt: "2026-11-05T10:00:00.000Z",
   method: "CASH",
   payerName: "Paolo Ferri",
-  receipt: { id: "r147", number: 147, code: "0147", issuedAt: "2026-11-05T10:00:00.000Z" },
+  receipt: { id: "r147", number: 147, code: "0147", issuedAt: "2026-11-05T10:00:00.000Z", sentAt: "2026-11-05T10:00:05.000Z" },
 });
 export const PENDING_FEE = makeFee();
 export const OVERDUE_FEE = makeFee({
@@ -52,6 +53,15 @@ export const OVERDUE_FEE = makeFee({
   dueDate: "2026-10-10",
   reminderCount: 2,
   lastReminderAt: "2026-10-20T08:00:00.000Z",
+});
+
+/** Reported by the payer ("Ho pagato") and waiting for the secretariat to check the bank account. */
+export const CLAIMED_FEE = makeFee({
+  id: "f-claimed",
+  memberId: "m-conti",
+  memberName: "Sara Conti",
+  teams: [{ id: "t-u16", name: "U16" }],
+  claimedAt: "2026-11-08T09:30:00.000Z",
 });
 
 export const SUMMARY: FeesSummary = {
@@ -83,3 +93,62 @@ export const PLAN: FeePlan = {
   createdAt: "2026-10-01T08:00:00.000Z",
   updatedAt: "2026-10-01T08:00:00.000Z",
 };
+
+export const SECOND_PLAN: FeePlan = {
+  ...PLAN,
+  id: "p-iscr",
+  name: "Iscrizione 2026",
+  kind: "ENROLLMENT",
+  amountCents: 15000,
+  teamId: "t-u16",
+  dueDay: null,
+  isActive: false,
+};
+
+export const PLAN_STATS: PlanStats = {
+  incassatoCents: 6000,
+  daIncassareCents: 12000,
+  scadutoCents: 6000,
+  paidPeople: 1,
+  pendingPeople: 1,
+  overduePeople: 1,
+};
+
+export const PLAN_REPORT: PlanReport = { data: [{ feePlanId: "p-nov", ...PLAN_STATS }] };
+
+/** Ordered by name, as the API returns them. */
+export const PLAN_PEOPLE: PlanPerson[] = [
+  {
+    memberId: "m-ferri",
+    memberName: "Anna Ferri",
+    teams: [{ id: "t-u18", name: "U18" }],
+    totalDueCents: 0,
+    allPlansDueCents: 0,
+    paidCents: 6000,
+    status: "PAID",
+    feesCount: 1,
+    nextDueDate: null,
+  },
+  {
+    memberId: "m-neri",
+    memberName: "Chiara Neri",
+    teams: [{ id: "t-u16", name: "U16" }],
+    totalDueCents: 6000,
+    allPlansDueCents: 9000,
+    paidCents: 0,
+    status: "PENDING",
+    feesCount: 1,
+    nextDueDate: "2026-11-10",
+  },
+  {
+    memberId: "m-bianchi",
+    memberName: "Marta Bianchi",
+    teams: [{ id: "t-u18", name: "U18" }],
+    totalDueCents: 6000,
+    allPlansDueCents: 6000,
+    paidCents: 0,
+    status: "OVERDUE",
+    feesCount: 1,
+    nextDueDate: "2026-10-10",
+  },
+];

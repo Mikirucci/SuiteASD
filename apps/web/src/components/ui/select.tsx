@@ -11,6 +11,8 @@ export interface SelectOption {
 
 export interface SelectProps extends Omit<SelectHTMLAttributes<HTMLSelectElement>, "size" | "children"> {
   label: string;
+  /** Keeps the label for assistive tech but hides it visually (e.g. a filter in a toolbar). */
+  hideLabel?: boolean;
   options: readonly SelectOption[];
   /** Text of the empty first option; omit when a value is always selected. */
   placeholder?: string;
@@ -20,11 +22,11 @@ export interface SelectProps extends Omit<SelectHTMLAttributes<HTMLSelectElement
 }
 
 /** Native select: best keyboard, mobile and screen reader behaviour for free. */
-export function Select({ label, options, placeholder, hint, error, id, required, className, ref, ...props }: SelectProps) {
+export function Select({ label, hideLabel, options, placeholder, hint, error, id, required, className, ref, ...props }: SelectProps) {
   const ids = useFieldIds(id);
   return (
     <div className={cn("flex flex-col gap-2", className)}>
-      <FieldLabel htmlFor={ids.controlId} required={required}>
+      <FieldLabel htmlFor={ids.controlId} required={required} hidden={hideLabel}>
         {label}
       </FieldLabel>
       <div className="relative">

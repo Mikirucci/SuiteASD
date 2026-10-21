@@ -31,6 +31,8 @@ export const acceptInvitationBodySchema = z.object({
   // Used only when the invited email has no account yet.
   firstName: nameSchema.optional(),
   lastName: nameSchema.optional(),
+  // Needed when the invitation was created without an email (the normal case): the account is made with this one.
+  email: emailSchema.optional(),
 });
 
 export const invitationTokenParamsSchema = z.object({ token: z.string().min(1).max(256) });
@@ -40,7 +42,8 @@ export const invitationTokenParamsSchema = z.object({ token: z.string().min(1).m
 export const invitationInfoSchema = z.object({
   society: z.object({ name: z.string() }),
   role: roleSchema,
-  maskedEmail: z.string(),
+  // Null when the invitation names nobody: the person gives their email when joining.
+  maskedEmail: z.string().nullable(),
 });
 
 export const magicLinkRequestBodySchema = z.object({ email: emailSchema });

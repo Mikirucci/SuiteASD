@@ -70,7 +70,7 @@ export const tripsConfig: ResourceConfig<Trip> = {
   filter: {
     label: "Filtra per stato",
     param: "status",
-    options: [{ value: "", label: "Tutte" }, ...options(STATUS_LABELS)],
+    options: [{ value: "", label: "Tutti gli stati" }, ...options(STATUS_LABELS)],
   },
   fields: [
     { name: "destination", label: "Destinazione", kind: "text", required: true },

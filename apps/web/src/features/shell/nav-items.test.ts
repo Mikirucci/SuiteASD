@@ -49,7 +49,7 @@ describe("administration menu", () => {
       "Arbitri",
       "Statistiche",
     ]);
-    expect(group(ADMIN_ENTRIES, "Amministrazione").items.map((item) => item.label)).toEqual(["Quote", "Scadenze e documenti", "Bilancio", "Sponsor"]);
+    expect(group(ADMIN_ENTRIES, "Amministrazione").items.map((item) => item.label)).toEqual(["Pagamenti", "Scadenze e documenti", "Bilancio", "Sponsor"]);
     expect(group(ADMIN_ENTRIES, "Logistica").items.map((item) => item.label)).toEqual(["Palestre", "Trasferte", "Divise"]);
     expect(group(ADMIN_ENTRIES, "Comunicazione").items.map((item) => item.label)).toEqual(["Notifiche", "Bacheca", "Automazioni"]);
   });
@@ -77,7 +77,7 @@ describe("administration menu", () => {
   });
 
   it("keeps Home, Tesserati, Calendario and Quote on the bottom bar", () => {
-    expect(BOTTOM_BAR_ITEMS.map((item) => item.label)).toEqual(["Home", "Tesserati", "Calendario", "Quote"]);
+    expect(BOTTOM_BAR_ITEMS.map((item) => item.label)).toEqual(["Home", "Tesserati", "Calendario", "Pagamenti"]);
   });
 });
 
@@ -91,7 +91,7 @@ describe("visibleEntries", () => {
   it("hides from a coach what the permission matrix does not give", () => {
     const entries = visibleEntries(ADMIN_ENTRIES, COACH_PERMISSIONS);
     const shown = entries.flatMap((entry) => (isNavGroup(entry) ? entry.items : [entry])).map((item) => item.label);
-    for (const hidden of ["Squadre", "Staff", "Accessi e inviti", "Quote", "Bilancio", "Sponsor", "Arbitri", "Statistiche", "Automazioni"]) {
+    for (const hidden of ["Squadre", "Staff", "Accessi e inviti", "Pagamenti", "Bilancio", "Sponsor", "Arbitri", "Statistiche", "Automazioni"]) {
       expect(shown).not.toContain(hidden);
     }
     expect(group(entries, "Attività sportiva").items.map((item) => item.label)).toEqual(["Calendario", "Presenze", "Classifiche", "Tornei", "Pagelle"]);

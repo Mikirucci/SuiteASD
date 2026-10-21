@@ -78,12 +78,10 @@ test.describe("calendario, allenatore", () => {
 
     await expect(dialog.getByText("5/12 confermate")).toBeVisible();
     await expect(dialog.getByRole("progressbar", { name: /Presenze confermate/ })).toHaveAttribute("aria-valuenow", "5");
-    const squad = dialog.getByRole("list", { name: "Convocati" });
-    await expect(squad.getByRole("listitem").filter({ hasText: "Giulia Rossi" })).toContainText("Confermata");
-    await expect(squad.getByRole("listitem").filter({ hasText: "Anna Ferri" })).toContainText("In attesa");
-    await expect(squad.getByRole("listitem").filter({ hasText: "Chiara Neri" })).toContainText("Esame all'università");
-    await expect(dialog.getByText(/^Inviate il /)).toBeVisible();
-    await expect(dialog.getByText("5 posti liberi")).toBeVisible();
+    await expect(dialog.getByRole("list", { name: "Confermati" }).getByRole("listitem").filter({ hasText: "Giulia Rossi" })).toBeVisible();
+    await expect(dialog.getByRole("list", { name: "Senza risposta" }).getByRole("listitem").filter({ hasText: "Anna Ferri" })).toBeVisible();
+    await expect(dialog.getByRole("list", { name: "Rifiutati" }).getByRole("listitem").filter({ hasText: "Chiara Neri" })).toContainText("Esame all'università");
+    await expect(dialog.getByText(/^Avviso inviato il /)).toBeVisible();
     await settle(page);
     expect(await auditAccessibility(page)).toEqual([]);
 

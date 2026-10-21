@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   describeExpiry,
+  describeExpiryLine,
+  documentHeading,
+  expiryTone,
   formatDateOnly,
   expiringLabel,
   missingLabel,
@@ -22,6 +25,40 @@ describe("describeExpiry", () => {
     [-3, "Scaduto da 3 giorni"],
   ])("%i -> %s", (days, text) => {
     expect(describeExpiry(days)).toBe(text);
+  });
+});
+
+describe("expiryTone", () => {
+  it.each([
+    [-30, "danger"],
+    [-1, "danger"],
+    [0, "danger"],
+    [1, "danger"],
+    [7, "danger"],
+    [8, "warning"],
+    [30, "warning"],
+    [31, "neutral"],
+    [365, "neutral"],
+    [null, "neutral"],
+  ] as const)("%s days -> %s", (days, tone) => {
+    expect(expiryTone(days)).toBe(tone);
+  });
+});
+
+describe("describeExpiryLine", () => {
+  it("says when it expires and how soon, in words that do not depend on colour", () => {
+    expect(describeExpiryLine("2026-10-18", 1)).toBe("Scade il 18 ottobre 2026 · scade domani");
+    expect(describeExpiryLine("2026-11-27", 15)).toBe("Scade il 27 novembre 2026 · scade tra 15 giorni");
+    expect(describeExpiryLine("2026-10-17", 0)).toBe("Scade il 17 ottobre 2026 · scade oggi");
+  });
+
+  it("says it is already expired when the date is past", () => {
+    expect(describeExpiryLine("2026-10-16", -1)).toBe("Scaduto il 16 ottobre 2026 · ieri");
+    expect(describeExpiryLine("2026-10-10", -7)).toBe("Scaduto il 10 ottobre 2026 · da 7 giorni");
+  });
+
+  it("gives only the date when the days left are unknown", () => {
+    expect(describeExpiryLine("2026-11-27", null)).toBe("Scade il 27 novembre 2026");
   });
 });
 
@@ -102,6 +139,15 @@ describe("member form conversion", () => {
     expect(memberFormSchema.safeParse({ ...filled, email: "x" }).success).toBe(false);
     expect(memberFormSchema.safeParse({ ...filled, firstName: " " }).success).toBe(false);
     expect(memberFormSchema.safeParse({ ...filled, notes: "x".repeat(1001) }).success).toBe(false);
+  });
+});
+
+describe("documentHeading", () => {
+  it("never repeats the document type", () => {
+    expect(documentHeading("Certificato medico", null)).toBe("Certificato medico");
+    expect(documentHeading("Certificato medico", "Certificato medico")).toBe("Certificato medico");
+    expect(documentHeading("Modulo iscrizione", "Modulo iscrizione 2025/26")).toBe("Modulo iscrizione 2025/26");
+    expect(documentHeading("Certificato medico", "Agonistico 2026")).toBe("Certificato medico · Agonistico 2026");
   });
 });
 

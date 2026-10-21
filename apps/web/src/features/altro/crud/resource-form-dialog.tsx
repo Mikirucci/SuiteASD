@@ -10,7 +10,8 @@ import { ApiError, describeError, useApiMutation } from "@/lib/api";
 import { MemberField } from "./member-field";
 import type { FieldDef, FormValues, ResourceConfig } from "./types";
 
-export type ResourceDialogState<T> = { mode: "create" } | { mode: "edit"; item: T };
+/** `presets` fill fields of a new record in advance (the item name when adding a piece to its group). */
+export type ResourceDialogState<T> = { mode: "create"; presets?: FormValues } | { mode: "edit"; item: T };
 
 interface FieldsProps {
   fields: readonly FieldDef[];
@@ -74,7 +75,7 @@ function FormBody<T extends { id: string }>({ config, state, onClose }: FormBody
 
   const form = useForm<FormValues>({
     resolver: zodResolver(config.schema),
-    defaultValues: config.initialValues(state.mode === "edit" ? state.item : null),
+    defaultValues: state.mode === "edit" ? config.initialValues(state.item) : { ...config.initialValues(null), ...state.presets },
   });
 
   const save = useApiMutation(
@@ -109,7 +110,7 @@ function FormBody<T extends { id: string }>({ config, state, onClose }: FormBody
       footer={
         <>
           <DialogClose asChild>
-            <Button variant="ghost">Annulla</Button>
+            <Button variant="secondary">Annulla</Button>
           </DialogClose>
           <Button type="submit" form={formId} leftIcon={<Save />} loading={form.formState.isSubmitting}>
             {state.mode === "create" ? copy.createSubmit : "Salva le modifiche"}

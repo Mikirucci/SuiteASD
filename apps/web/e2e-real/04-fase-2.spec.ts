@@ -65,7 +65,8 @@ test.describe("iscrizione, area personale e amministrazione sul backend reale", 
 
   test("un file allegato a una palestra resta legato alla voce e si può eliminare", async ({ page }) => {
     await loginAs(page, "admin", "/altro/palestre");
-    await page.getByRole("button", { name: "Allegati di Palazzetto dello Sport" }).click();
+    await page.getByRole("button", { name: "Altre azioni di Palazzetto dello Sport" }).click();
+    await page.getByRole("menuitem", { name: "Allegati di Palazzetto dello Sport" }).click();
     const dialog = page.getByRole("dialog", { name: "Allegati · Palazzetto dello Sport" });
     await expect(dialog.getByText("Nessun allegato")).toBeVisible();
 
@@ -75,11 +76,19 @@ test.describe("iscrizione, area personale e amministrazione sul backend reale", 
     const attachments = dialog.getByRole("list", { name: "Allegati di Palazzetto dello Sport" });
     await expect(attachments).toContainText("Contratto 2026");
 
+    // A quick look first, then the download from the menu of the file
+    await dialog.getByRole("button", { name: "Apri Contratto 2026" }).click();
+    const preview = page.getByRole("dialog", { name: "Contratto 2026" });
+    await expect(preview.getByRole("button", { name: /Scarica/ })).toBeVisible();
+    await page.keyboard.press("Escape");
+
     const download = page.waitForEvent("download");
-    await dialog.getByRole("button", { name: "Scarica Contratto 2026" }).click();
+    await dialog.getByRole("button", { name: "Altre azioni di Contratto 2026" }).click();
+    await page.getByRole("menuitem", { name: "Scarica Contratto 2026" }).click();
     expect((await download).suggestedFilename()).toBe("documento.pdf");
 
-    await dialog.getByRole("button", { name: "Elimina Contratto 2026" }).click();
+    await dialog.getByRole("button", { name: "Altre azioni di Contratto 2026" }).click();
+    await page.getByRole("menuitem", { name: "Elimina Contratto 2026" }).click();
     await page.getByRole("dialog", { name: "Eliminare Contratto 2026?" }).getByRole("button", { name: "Elimina", exact: true }).click();
     await expect(dialog.getByText("Nessun allegato")).toBeVisible();
   });

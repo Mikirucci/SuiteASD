@@ -4,8 +4,11 @@ import {
   ClipboardList,
   FileUp,
   FileWarning,
+  HandCoins,
   Handshake,
   Megaphone,
+  Receipt,
+  UserCheck,
   UserPlus,
   Wallet,
   type LucideIcon,
@@ -25,16 +28,19 @@ export interface NotificationTypeInfo {
 export const NOTIFICATION_TYPES: readonly NotificationType[] = [
   "CONVOCATION",
   "FEE_DUE",
+  "RECEIPT_ISSUED",
   "CERTIFICATE_EXPIRING",
   "DOCUMENT_MISSING",
   "EVENT_CHANGED",
   "EVALUATION_PUBLISHED",
   "ANNOUNCEMENT",
+  "ADMIN_PAYMENT_CLAIMED",
   "ADMIN_PAYMENT_RECEIVED",
   "ADMIN_FEE_OVERDUE",
   "ADMIN_DOCUMENT_ALERT",
   "ADMIN_DOCUMENT_UPLOADED",
   "ADMIN_NEW_ENROLMENT",
+  "ADMIN_INVITATION_ACCEPTED",
   "ADMIN_SPONSOR_EXPIRING",
 ];
 
@@ -48,6 +54,11 @@ export const TYPE_INFO: Record<NotificationType, NotificationTypeInfo> = {
     label: "Quote in scadenza",
     description: "Promemoria sulle quote da pagare o già scadute.",
     icon: Wallet,
+  },
+  RECEIPT_ISSUED: {
+    label: "Ricevute",
+    description: "Quando viene emessa la ricevuta di un pagamento.",
+    icon: Receipt,
   },
   CERTIFICATE_EXPIRING: {
     label: "Certificati e documenti",
@@ -74,6 +85,11 @@ export const TYPE_INFO: Record<NotificationType, NotificationTypeInfo> = {
     description: "Gli annunci che la società pubblica per la squadra.",
     icon: Megaphone,
   },
+  ADMIN_PAYMENT_CLAIMED: {
+    label: "Pagamenti segnalati",
+    description: "Quando un atleta o un genitore segnala di aver pagato una quota, da controllare sul conto.",
+    icon: HandCoins,
+  },
   ADMIN_PAYMENT_RECEIVED: {
     label: "Pagamenti ricevuti",
     description: "Ogni volta che viene registrato il pagamento di una quota.",
@@ -98,6 +114,11 @@ export const TYPE_INFO: Record<NotificationType, NotificationTypeInfo> = {
     label: "Nuove iscrizioni",
     description: "Quando qualcuno si iscrive con il link della società.",
     icon: UserPlus,
+  },
+  ADMIN_INVITATION_ACCEPTED: {
+    label: "Nuovi collaboratori",
+    description: "Quando qualcuno accetta un invito ed entra nella società come allenatore, segreteria o staff.",
+    icon: UserCheck,
   },
   ADMIN_SPONSOR_EXPIRING: {
     label: "Sponsor in scadenza",

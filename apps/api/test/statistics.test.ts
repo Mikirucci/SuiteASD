@@ -69,12 +69,12 @@ describe('statistics overview (SPEC "Statistiche")', () => {
     });
     for (const [member, days] of [[anna, 200], [bea, 10], [cora, -4]] as const) {
       await ctx.prisma.document.create({
-        data: { societyId: society.id, memberId: member.id, documentTypeId: type.id, expiresAt: midnight(days) },
+        data: { societyId: society.id, fileKey: 'test/file.pdf', memberId: member.id, documentTypeId: type.id, expiresAt: midnight(days) },
       });
     }
     // Bea also has an older, expired certificate: only the latest counts.
     await ctx.prisma.document.create({
-      data: { societyId: society.id, memberId: bea.id, documentTypeId: type.id, expiresAt: midnight(-300) },
+      data: { societyId: society.id, fileKey: 'test/file.pdf', memberId: bea.id, documentTypeId: type.id, expiresAt: midnight(-300) },
     });
 
     // Fees: 60 EUR paid, 60 EUR pending, 40 EUR overdue (with 2 reminders).

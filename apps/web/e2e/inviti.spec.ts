@@ -7,18 +7,20 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 interface InvitationFixture {
   id: string;
-  email: string;
+  email: string | null;
+  label: string | null;
   role: string;
   memberId: null;
   expiresAt: string;
   createdAt: string;
 }
 
-function invitation(id: string, email: string, role: string): InvitationFixture {
+function invitation(id: string, email: string | null, role: string, label: string | null = null): InvitationFixture {
   const now = Date.now();
   return {
     id,
     email,
+    label,
     role,
     memberId: null,
     expiresAt: new Date(now + 5 * DAY_MS).toISOString(),
@@ -38,8 +40,8 @@ function invitationsBackend(initial: InvitationFixture[]): ApiHandler {
       case "GET /invitations":
         return pageOf(pending);
       case "POST /invitations": {
-        const sent = body as { email: string; role: string };
-        const created = invitation("inv-new", sent.email, sent.role);
+        const sent = body as { role: string; label?: string };
+        const created = invitation("inv-new", null, sent.role, sent.label ?? null);
         pending = [created, ...pending];
         return { status: 201, body: { ...created, token: "tok_E2E-token" } };
       }
@@ -72,23 +74,23 @@ test.describe("inviti", () => {
 
     await page.getByRole("button", { name: "Invita una persona" }).click();
     const dialog = page.getByRole("dialog", { name: "Invita una persona" });
-    await dialog.getByRole("button", { name: "Crea l'invito" }).click();
-    await expect(dialog.getByText("Inserisci un'email valida")).toBeVisible();
+    // No email: the platform does not send the link, the person gives their email when joining
+    await expect(dialog.getByLabel(/^Email/)).toHaveCount(0);
     expect(await auditAccessibility(page)).toEqual([]);
 
-    await dialog.getByLabel(/^Email/).fill("luca@example.test");
     await dialog.getByLabel(/^Ruolo/).selectOption("STAFF");
-    await dialog.getByRole("button", { name: "Crea l'invito" }).click();
+    await dialog.getByLabel("Per chi è").fill("Luca, nuovo magazziniere");
+    await dialog.getByRole("button", { name: "Crea il link" }).click();
 
-    const result = page.getByRole("dialog", { name: "Invito pronto" });
+    const result = page.getByRole("dialog", { name: "Link pronto" });
     await expect(result).toContainText("/invito/tok_E2E-token");
-    await expect(result).toContainText("L'app non invia l'invito da sola");
-    expect(api.bodies.get("POST /invitations")).toEqual({ email: "luca@example.test", role: "STAFF" });
+    await expect(result).toContainText("Per ora l'app non invia email");
+    expect(api.bodies.get("POST /invitations")).toEqual({ role: "STAFF", label: "Luca, nuovo magazziniere" });
     expect(await auditAccessibility(page)).toEqual([]);
     await result.getByRole("button", { name: "Fatto" }).click();
-    await expect(list).toContainText("luca@example.test");
+    await expect(list).toContainText("Luca, nuovo magazziniere");
 
-    await page.getByRole("button", { name: "Revoca l'invito a marco.allenatore@example.test" }).click();
+    await page.getByRole("button", { name: "Revoca l'invito: marco.allenatore@example.test" }).click();
     await page.getByRole("dialog", { name: "Revocare l'invito?" }).getByRole("button", { name: "Revoca" }).click();
     await expect(page.getByText("Invito revocato")).toBeVisible();
     await expect(list).not.toContainText("marco.allenatore@example.test");
@@ -153,6 +155,41 @@ test.describe("invito (pagina pubblica)", () => {
     expect(api.bodies.get("POST /invitations/accept")).toEqual({
       token: "tok_E2E-token",
       password: "una-password-valida",
+      firstName: "Marco",
+      lastName: "Bianchi",
+    });
+  });
+
+  test("a link that names nobody asks for the email and creates the access with it", async ({ page }) => {
+    const api = await open(
+      page,
+      "/invito/tok_senza-email",
+      [],
+      ({ method, path }) => {
+        if (`${method} ${path}` === "GET /invitations/tok_senza-email") return { body: { ...INFO, maskedEmail: null } };
+        return `${method} ${path}` === "POST /invitations/accept" ? { status: 200, body: SESSION } : undefined;
+      },
+      false,
+    );
+
+    await expect(page.getByText(/Scrivi la tua email e scegli una password/)).toBeVisible();
+    await expect(page.getByText(/L'invito è per/)).toHaveCount(0);
+    expect(await auditAccessibility(page)).toEqual([]);
+
+    await page.getByRole("button", { name: "Entra nella società" }).click();
+    await expect(page.getByText("Inserisci un'email valida")).toBeVisible();
+
+    await page.getByLabel(/^Email/).fill("marco@example.test");
+    await page.getByLabel("Nome", { exact: true }).fill("Marco");
+    await page.getByLabel("Cognome", { exact: true }).fill("Bianchi");
+    await page.getByLabel(/^Password/).fill("una-password-valida");
+    await page.getByRole("button", { name: "Entra nella società" }).click();
+
+    await expect(page).toHaveURL("/");
+    expect(api.bodies.get("POST /invitations/accept")).toEqual({
+      token: "tok_senza-email",
+      password: "una-password-valida",
+      email: "marco@example.test",
       firstName: "Marco",
       lastName: "Bianchi",
     });

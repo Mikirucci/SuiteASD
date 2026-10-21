@@ -1,7 +1,10 @@
 import { z } from 'zod';
 import { patchBodySchema } from '../../lib/crud-routes.js';
 import { paginationQuerySchema } from '../../lib/pagination.js';
+import { dateOnlySchema } from '../../lib/date-only.js';
 import { isoDateTimeSchema } from '../../lib/schemas.js';
+
+const costCentsSchema = z.number().int().min(1).max(100_000_000).describe('Cost in euro cents: it weighs on the balance as an expense');
 
 export const createVenueBodySchema = z.object({
   name: z.string().trim().min(1).max(120),
@@ -10,6 +13,8 @@ export const createVenueBodySchema = z.object({
   capacity: z.number().int().min(1).max(100_000).optional(),
   availability: z.string().trim().min(1).max(500).optional().describe('Free text, e.g. "Mar e Gio 18:00-21:00"'),
   notes: z.string().trim().min(1).max(1000).optional(),
+  costCents: costCentsSchema.optional(),
+  costDate: dateOnlySchema.optional().describe('Day the cost is booked in the balance (default: today)'),
 });
 
 export const updateVenueBodySchema = patchBodySchema({
@@ -19,6 +24,8 @@ export const updateVenueBodySchema = patchBodySchema({
   capacity: createVenueBodySchema.shape.capacity.nullable(),
   availability: createVenueBodySchema.shape.availability.nullable(),
   notes: createVenueBodySchema.shape.notes.nullable(),
+  costCents: costCentsSchema.nullable().describe('null removes the cost and its expense from the balance'),
+  costDate: dateOnlySchema.nullable(),
 });
 
 export const listVenuesQuerySchema = paginationQuerySchema.extend({
@@ -33,6 +40,8 @@ export const venueSchema = z.object({
   capacity: z.number().int().nullable(),
   availability: z.string().nullable(),
   notes: z.string().nullable(),
+  costCents: z.number().int().nullable(),
+  costDate: dateOnlySchema.nullable(),
   createdAt: isoDateTimeSchema,
   updatedAt: isoDateTimeSchema,
 });

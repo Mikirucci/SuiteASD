@@ -1,7 +1,8 @@
 import { Building2 } from "lucide-react";
 import { z } from "zod";
 import type { ResourceConfig } from "../crud/types";
-import { bodyReader, numberToInput, optionalInteger, optionalText, requiredText } from "../crud/values";
+import { formatDay, formatEuro } from "@/lib/format";
+import { amountToInput, bodyReader, numberToInput, optionalDay, optionalInteger, optionalPositiveAmount, optionalText, requiredText } from "../crud/values";
 import { joinParts } from "../format";
 import type { Venue } from "../types";
 
@@ -12,6 +13,8 @@ const schema = z.object({
   capacity: optionalInteger(1, 100_000),
   availability: optionalText(500),
   notes: optionalText(1000),
+  cost: optionalPositiveAmount(),
+  costDate: optionalDay(),
 });
 
 export const venuesConfig: ResourceConfig<Venue> = {
@@ -20,6 +23,7 @@ export const venuesConfig: ResourceConfig<Venue> = {
   writePermission: "venues:write",
   attachmentType: "VENUE",
   icon: Building2,
+  fieldAliases: { costCents: "cost" },
   searchLabel: "Cerca per nome o città",
   copy: {
     plural: "Palestre",
@@ -50,6 +54,8 @@ export const venuesConfig: ResourceConfig<Venue> = {
       kind: "textarea",
       hint: "Per esempio: martedì e giovedì 18:00-21:00.",
     },
+    { name: "cost", label: "Costo in euro", kind: "money", hint: "Facoltativo: finisce tra le uscite del bilancio.", half: true },
+    { name: "costDate", label: "Data del costo", kind: "date", hint: "Se la lasci vuota vale oggi.", half: true },
     { name: "notes", label: "Note", kind: "textarea" },
   ],
   schema,
@@ -60,6 +66,8 @@ export const venuesConfig: ResourceConfig<Venue> = {
     capacity: numberToInput(venue?.capacity ?? null),
     availability: venue?.availability ?? "",
     notes: venue?.notes ?? "",
+    cost: amountToInput(venue?.costCents ?? null),
+    costDate: venue?.costDate ?? "",
   }),
   toBody: (values, mode) => {
     const read = bodyReader(values, mode);
@@ -70,6 +78,8 @@ export const venuesConfig: ResourceConfig<Venue> = {
       capacity: read.integer("capacity"),
       availability: read.text("availability"),
       notes: read.text("notes"),
+      costCents: read.amount("cost"),
+      costDate: read.day("costDate"),
     };
   },
   nameOf: (venue) => venue.name,
@@ -79,6 +89,7 @@ export const venuesConfig: ResourceConfig<Venue> = {
       joinParts([venue.address, venue.city]),
       venue.availability ? `Orari: ${venue.availability}` : null,
       venue.capacity !== null ? `Capienza: ${venue.capacity} persone` : null,
+      venue.costCents !== null ? `Costo: ${formatEuro(venue.costCents)}${venue.costDate ? ` del ${formatDay(venue.costDate)}` : ""}` : null,
     ],
   }),
 };
