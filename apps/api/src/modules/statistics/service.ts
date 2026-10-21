@@ -29,9 +29,9 @@ async function certificateFigures({ db }: TenantRequestContext, now: Date): Prom
   const members = await db.member.findMany({ where: { status: 'ACTIVE' }, select: { id: true } });
   const documents = await db.document.findMany({
     where: { documentType: { key: MEDICAL_CERTIFICATE_KEY }, member: { status: 'ACTIVE' } },
-    select: { memberId: true, expiresAt: true },
+    select: { memberId: true, expiresAt: true, fileKey: true },
   });
-  const byMember = new Map<string, { expiresAt: Date | null }[]>();
+  const byMember = new Map<string, { expiresAt: Date | null; fileKey: string | null }[]>();
   for (const document of documents) byMember.set(document.memberId, [...(byMember.get(document.memberId) ?? []), document]);
 
   const figures = { OK: 0, EXPIRING: 0, EXPIRED: 0, MISSING: 0 };

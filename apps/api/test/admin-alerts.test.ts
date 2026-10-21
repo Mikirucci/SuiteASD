@@ -172,7 +172,7 @@ describe('self-service documents and the alerts the administration gets', () => 
       const certificate = await ctx.prisma.documentType.findFirstOrThrow({ where: { societyId: society.id, key: 'MEDICAL_CERTIFICATE' } });
       const owner = await createActor(ctx, society.id, 'ATLETA');
       const member = await createMember(ctx, society.id, { userId: owner.user.id });
-      await ctx.prisma.document.create({ data: { societyId: society.id, memberId: member.id, documentTypeId: certificate.id, expiresAt: new Date(`${inDays(-5)}T00:00:00.000Z`) } });
+      await ctx.prisma.document.create({ data: { societyId: society.id, fileKey: 'test/file.pdf', memberId: member.id, documentTypeId: certificate.id, expiresAt: new Date(`${inDays(-5)}T00:00:00.000Z`) } });
       const own = () => ctx.app.inject({ method: 'GET', url: `${API}/members/${member.id}`, headers: owner.headers });
       expect((await own()).json().documents[0].status).toBe('EXPIRED');
       const renewal = await ctx.app.inject({

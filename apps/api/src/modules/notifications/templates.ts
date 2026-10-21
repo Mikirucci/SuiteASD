@@ -1,5 +1,7 @@
 // Italian texts of the notification types (SPEC 07 and docs/DECISIONS.md D-21). Pure functions: the same input always gives the same text.
 
+import type { Role } from '../../shared/enums.js';
+
 export interface RenderedNotification {
   title: string;
   body: string;
@@ -20,7 +22,17 @@ export type NotificationTemplate =
   | { type: 'ADMIN_DOCUMENT_ALERT'; membersToFix: number; documentsToFix: number; expiringSoon: number }
   | { type: 'ADMIN_DOCUMENT_UPLOADED'; memberName: string; documentName: string; expiresAt: Date | null }
   | { type: 'ADMIN_NEW_ENROLMENT'; memberName: string; teamName: string | null }
+  | { type: 'ADMIN_INVITATION_ACCEPTED'; personName: string; role: Role }
   | { type: 'ADMIN_SPONSOR_EXPIRING'; sponsorName: string; daysLeft: number };
+
+const COLLABORATOR_LABELS: Record<Role, string> = {
+  ADMIN: 'amministratore',
+  SEGRETERIA: 'segreteria',
+  ALLENATORE: 'allenatore',
+  STAFF: 'staff',
+  ATLETA: 'atleta',
+  GENITORE: 'genitore',
+};
 
 const TIMEZONE = 'Europe/Rome';
 const DAY_MS = 86_400_000;
@@ -144,6 +156,11 @@ export function renderNotification(template: NotificationTemplate): RenderedNoti
       return {
         title: 'Nuova iscrizione',
         body: `${template.memberName}${template.teamName ? ` · ${template.teamName}` : ''}`,
+      };
+    case 'ADMIN_INVITATION_ACCEPTED':
+      return {
+        title: 'Nuovo collaboratore',
+        body: `${template.personName} ha accettato l'invito come ${COLLABORATOR_LABELS[template.role]}`,
       };
     case 'ADMIN_SPONSOR_EXPIRING':
       return {

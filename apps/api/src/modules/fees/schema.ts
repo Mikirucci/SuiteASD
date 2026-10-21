@@ -145,6 +145,58 @@ export const feesSummarySchema = z.object({
   overdueCount: z.number().int(),
 });
 
+// ---------------------------------------------------------------------------
+// Plan report (the Pagamenti page: one card per plan, people inside)
+// ---------------------------------------------------------------------------
+
+export const personPaymentStatusSchema = z
+  .enum(['PAID', 'PENDING', 'OVERDUE'])
+  .describe('PAID: nothing left to pay; PENDING: something to pay, nothing late; OVERDUE: at least one fee is late');
+
+export const planStatsSchema = z.object({
+  incassatoCents: z.number().int().describe('Sum of the paid fees of the plan'),
+  daIncassareCents: z.number().int().describe('Sum of pending and overdue fees of the plan'),
+  scadutoCents: z.number().int().describe('Part of daIncassareCents already past its due date'),
+  paidPeople: z.number().int().describe('People with nothing left to pay'),
+  pendingPeople: z.number().int().describe('People with fees to pay, none of them late'),
+  overduePeople: z.number().int().describe('People with at least one late fee'),
+});
+
+export const planReportSchema = z.object({
+  data: z.array(planStatsSchema.extend({ feePlanId: z.string() })).describe('Plans that have at least one fee'),
+});
+
+export const planPeopleQuerySchema = z.object({
+  q: z.string().trim().min(1).max(80).optional().describe('Substring of the member name'),
+  teamId: idRef.optional(),
+  status: personPaymentStatusSchema.optional(),
+});
+
+export const planPersonSchema = z.object({
+  memberId: z.string(),
+  memberName: z.string(),
+  teams: z.array(z.object({ id: z.string(), name: z.string() })),
+  totalDueCents: z.number().int().describe('What the person still has to pay in this plan; 0 when settled'),
+  allPlansDueCents: z
+    .number()
+    .int()
+    .describe('What the person still has to pay across every fee plan of the society; 0 when settled'),
+  paidCents: z.number().int(),
+  status: personPaymentStatusSchema,
+  feesCount: z.number().int(),
+  nextDueDate: z.iso.date().nullable().describe('Earliest due date among the unpaid fees'),
+});
+
+export const planPeopleSchema = z.object({
+  stats: planStatsSchema.describe('Figures of the whole plan, whatever the filters'),
+  people: z.array(planPersonSchema).describe('Ordered by name'),
+});
+
+export type PlanStats = z.infer<typeof planStatsSchema>;
+export type PlanReportDto = z.infer<typeof planReportSchema>;
+export type PlanPeopleQuery = z.infer<typeof planPeopleQuerySchema>;
+export type PlanPerson = z.infer<typeof planPersonSchema>;
+export type PlanPeopleDto = z.infer<typeof planPeopleSchema>;
 export type CreateFeePlanBody = z.infer<typeof createFeePlanBodySchema>;
 export type UpdateFeePlanBody = z.infer<typeof updateFeePlanBodySchema>;
 export type ListFeePlansQuery = z.infer<typeof listFeePlansQuerySchema>;

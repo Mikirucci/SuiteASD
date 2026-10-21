@@ -30,7 +30,7 @@ export async function loadDocumentStates(
       ? []
       : await db.document.findMany({
           where: { memberId: { in: [...memberIds] }, documentTypeId: { in: types.map((type) => type.id) } },
-          select: { id: true, memberId: true, documentTypeId: true, expiresAt: true },
+          select: { id: true, memberId: true, documentTypeId: true, expiresAt: true, fileKey: true },
         });
 
   const byKey = new Map<string, typeof documents>();

@@ -40,14 +40,18 @@ export function statusForExpiry(expiresAt: Date, now: Date): Exclude<DocumentSta
 
 interface DocumentLike {
   expiresAt: Date | null;
+  fileKey: string | null;
 }
 
 // The "current" document of a (member, type) pair: the one valid the longest. Documents of a type without
 // expiry only need to exist; for expiring types a record without a date cannot prove validity and is ignored.
+// A record with its file always wins over one without: the file is what proves the document was handed in.
 export function pickCurrentDocument<T extends DocumentLike>(documents: readonly T[], requiresExpiry: boolean): T | null {
-  if (!requiresExpiry) return documents[0] ?? null;
+  const withFile = documents.filter((document) => document.fileKey !== null);
+  const candidates = withFile.length > 0 ? withFile : documents;
+  if (!requiresExpiry) return candidates[0] ?? null;
   let current: T | null = null;
-  for (const document of documents) {
+  for (const document of candidates) {
     if (!document.expiresAt) continue;
     if (!current?.expiresAt || document.expiresAt > current.expiresAt) current = document;
   }
@@ -55,7 +59,8 @@ export function pickCurrentDocument<T extends DocumentLike>(documents: readonly 
 }
 
 export function statusOfDocument(document: DocumentLike | null, requiresExpiry: boolean, now: Date): DocumentStatus {
-  if (!document) return 'MISSING';
+  // A record with no attached file is a promise, not a document: it stays MISSING until the file arrives
+  if (document?.fileKey == null) return 'MISSING';
   if (!requiresExpiry) return 'OK';
   return document.expiresAt ? statusForExpiry(document.expiresAt, now) : 'MISSING';
 }

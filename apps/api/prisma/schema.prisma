@@ -23,61 +23,61 @@ datasource db {
 // ---------------------------------------------------------------------------
 
 model Society {
-  id        String   @id @default(cuid())
-  name      String
-  slug      String   @unique
-  sport     String   @default("VOLLEY")
-  email     String?
-  phone     String?
-  address   String?
-  city      String?
+  id         String   @id @default(cuid())
+  name       String
+  slug       String   @unique
+  sport      String   @default("VOLLEY")
+  email      String?
+  phone      String?
+  address    String?
+  city       String?
   fiscalCode String?
-  timezone  String   @default("Europe/Rome")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  timezone   String   @default("Europe/Rome")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  memberships            Membership[]
-  invitations            Invitation[]
-  joinLinks              JoinLink[]
-  members                Member[]
-  guardianLinks          GuardianLink[]
-  teams                  Team[]
-  teamMemberships        TeamMembership[]
-  teamStaff              TeamStaff[]
-  documentTypes          DocumentType[]
-  documents              Document[]
-  attachments            Attachment[]
-  feePlans               FeePlan[]
-  payments               Payment[]
-  receipts               Receipt[]
-  receiptSequences       ReceiptSequence[]
-  idempotencyKeys        IdempotencyKey[]
-  events                 Event[]
-  convocations           Convocation[]
-  attendances            Attendance[]
-  seasons                Season[]
-  competitions           Competition[]
-  groups                 Group[]
-  groupTeams             GroupTeam[]
-  matches                Match[]
-  playerEvaluations      PlayerEvaluation[]
-  playerMatchStats       PlayerMatchStats[]
-  notifications          Notification[]
-  notificationLogs       NotificationLog[]
+  memberships             Membership[]
+  invitations             Invitation[]
+  joinLinks               JoinLink[]
+  members                 Member[]
+  guardianLinks           GuardianLink[]
+  teams                   Team[]
+  teamMemberships         TeamMembership[]
+  teamStaff               TeamStaff[]
+  documentTypes           DocumentType[]
+  documents               Document[]
+  attachments             Attachment[]
+  feePlans                FeePlan[]
+  payments                Payment[]
+  receipts                Receipt[]
+  receiptSequences        ReceiptSequence[]
+  idempotencyKeys         IdempotencyKey[]
+  events                  Event[]
+  convocations            Convocation[]
+  attendances             Attendance[]
+  seasons                 Season[]
+  competitions            Competition[]
+  groups                  Group[]
+  groupTeams              GroupTeam[]
+  matches                 Match[]
+  playerEvaluations       PlayerEvaluation[]
+  playerMatchStats        PlayerMatchStats[]
+  notifications           Notification[]
+  notificationLogs        NotificationLog[]
   notificationPreferences NotificationPreference[]
-  deviceTokens           DeviceToken[]
-  automations            Automation[]
-  automationRuns         AutomationRun[]
-  venues                 Venue[]
-  trips                  Trip[]
-  kits                   Kit[]
-  sponsors               Sponsor[]
-  ledgerEntries          LedgerEntry[]
-  announcements          Announcement[]
-  referees               Referee[]
-  refereeAssignments     RefereeAssignment[]
-  staffMembers           StaffMember[]
-  refreshTokens          RefreshToken[]
+  deviceTokens            DeviceToken[]
+  automations             Automation[]
+  automationRuns          AutomationRun[]
+  venues                  Venue[]
+  trips                   Trip[]
+  kits                    Kit[]
+  sponsors                Sponsor[]
+  ledgerEntries           LedgerEntry[]
+  announcements           Announcement[]
+  referees                Referee[]
+  refereeAssignments      RefereeAssignment[]
+  staffMembers            StaffMember[]
+  refreshTokens           RefreshToken[]
 }
 
 // Global identity (an email can belong to several societies through Membership).
@@ -93,27 +93,27 @@ model User {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  memberships   Membership[]
-  refreshTokens RefreshToken[]
-  loginTokens   LoginToken[]
-  guardianLinks GuardianLink[] @relation("GuardianUser")
-  members       Member[]
-  notifications Notification[]
+  memberships             Membership[]
+  refreshTokens           RefreshToken[]
+  loginTokens             LoginToken[]
+  guardianLinks           GuardianLink[]           @relation("GuardianUser")
+  members                 Member[]
+  notifications           Notification[]
   notificationPreferences NotificationPreference[]
-  deviceTokens  DeviceToken[]
-  invitationsSent Invitation[] @relation("InvitedBy")
-  staffMembers  StaffMember[]
+  deviceTokens            DeviceToken[]
+  invitationsSent         Invitation[]             @relation("InvitedBy")
+  staffMembers            StaffMember[]
 }
 
 // One row per (user, society, role): a user may hold several roles in a society.
 // role: ADMIN | SEGRETERIA | ALLENATORE | STAFF | ATLETA | GENITORE
 model Membership {
-  id         String   @id @default(cuid())
-  societyId  String
-  userId     String
-  role       String
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id        String   @id @default(cuid())
+  societyId String
+  userId    String
+  role      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -128,7 +128,10 @@ model Membership {
 model Invitation {
   id          String    @id @default(cuid())
   societyId   String
-  email       String
+  // Optional: a link is not sent by the platform (no email delivery yet), so the invited person gives the email when joining.
+  email       String?
+  // Free note of who the link is for, shown in the list of pending invitations.
+  label       String?
   role        String
   memberId    String?
   tokenHash   String    @unique
@@ -217,41 +220,41 @@ model LoginToken {
 // Tesserato. `userId` links an athlete account; guardians are linked via GuardianLink.
 // status: ACTIVE | INACTIVE
 model Member {
-  id           String    @id @default(cuid())
-  societyId    String
-  userId       String?
-  firstName    String
-  lastName     String
-  birthDate    DateTime?
-  birthPlace   String?
-  gender       String?
-  fiscalCode   String?
-  email        String?
-  phone        String?
-  address      String?
-  city         String?
-  postalCode   String?
-  fieldRole    String?
-  kitSize      String?
-  status       String    @default("ACTIVE")
-  joinedAt     DateTime?
-  notes        String?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id         String    @id @default(cuid())
+  societyId  String
+  userId     String?
+  firstName  String
+  lastName   String
+  birthDate  DateTime?
+  birthPlace String?
+  gender     String?
+  fiscalCode String?
+  email      String?
+  phone      String?
+  address    String?
+  city       String?
+  postalCode String?
+  fieldRole  String?
+  kitSize    String?
+  status     String    @default("ACTIVE")
+  joinedAt   DateTime?
+  notes      String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
-  society  Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
-  user     User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  user    User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
 
-  guardianLinks      GuardianLink[]
-  teamMemberships    TeamMembership[]
-  documents          Document[]
-  payments           Payment[]
-  convocations       Convocation[]
-  attendances        Attendance[]
-  evaluations        PlayerEvaluation[]
-  matchStats         PlayerMatchStats[]
-  kits               Kit[]
-  invitations        Invitation[]
+  guardianLinks   GuardianLink[]
+  teamMemberships TeamMembership[]
+  documents       Document[]
+  payments        Payment[]
+  convocations    Convocation[]
+  attendances     Attendance[]
+  evaluations     PlayerEvaluation[]
+  matchStats      PlayerMatchStats[]
+  kits            Kit[]
+  invitations     Invitation[]
 
   @@unique([societyId, userId])
   @@unique([societyId, fiscalCode])
@@ -294,11 +297,11 @@ model Team {
   society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
   season  Season? @relation(fields: [seasonId], references: [id], onDelete: SetNull)
 
-  memberships TeamMembership[]
-  staff       TeamStaff[]
-  feePlans    FeePlan[]
-  events      Event[]
-  groupTeams  GroupTeam[]
+  memberships   TeamMembership[]
+  staff         TeamStaff[]
+  feePlans      FeePlan[]
+  events        Event[]
+  groupTeams    GroupTeam[]
   announcements Announcement[]
   joinLinks     JoinLink[]
 
@@ -349,15 +352,15 @@ model TeamStaff {
 
 // key examples: MEDICAL_CERTIFICATE | MEMBERSHIP_FORM | PRIVACY_CONSENT | INSURANCE
 model DocumentType {
-  id            String   @id @default(cuid())
-  societyId     String
-  key           String
-  name          String
-  requiresExpiry Boolean @default(false)
-  isRequired    Boolean  @default(true)
-  validityDays  Int?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id             String   @id @default(cuid())
+  societyId      String
+  key            String
+  name           String
+  requiresExpiry Boolean  @default(false)
+  isRequired     Boolean  @default(true)
+  validityDays   Int?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   society   Society    @relation(fields: [societyId], references: [id], onDelete: Cascade)
   documents Document[]
@@ -440,19 +443,19 @@ model Season {
 
 // kind: ENROLLMENT | MONTHLY | EXTRA
 model FeePlan {
-  id          String    @id @default(cuid())
-  societyId   String
-  seasonId    String?
-  teamId      String?
-  name        String
-  kind        String    @default("MONTHLY")
-  amountCents Int
-  currency    String    @default("EUR")
+  id           String   @id @default(cuid())
+  societyId    String
+  seasonId     String?
+  teamId       String?
+  name         String
+  kind         String   @default("MONTHLY")
+  amountCents  Int
+  currency     String   @default("EUR")
   installments Int?
-  dueDay      Int?
-  isActive    Boolean   @default(true)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  dueDay       Int?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   society  Society   @relation(fields: [societyId], references: [id], onDelete: Cascade)
   season   Season?   @relation(fields: [seasonId], references: [id], onDelete: SetNull)
@@ -465,32 +468,32 @@ model FeePlan {
 
 // status: PENDING | PAID | OVERDUE | CANCELLED     method: CASH | BANK_TRANSFER | CARD | OTHER
 model Payment {
-  id           String    @id @default(cuid())
-  societyId    String
-  memberId     String
-  feePlanId    String?
-  description  String
-  amountCents  Int
-  currency     String    @default("EUR")
-  dueDate      DateTime
-  status       String    @default("PENDING")
-  paidAt       DateTime?
-  method       String?
-  payerName    String?
-  payerEmail   String?
-  reference    String?
-  recordedById String?
+  id             String    @id @default(cuid())
+  societyId      String
+  memberId       String
+  feePlanId      String?
+  description    String
+  amountCents    Int
+  currency       String    @default("EUR")
+  dueDate        DateTime
+  status         String    @default("PENDING")
+  paidAt         DateTime?
+  method         String?
+  payerName      String?
+  payerEmail     String?
+  reference      String?
+  recordedById   String?
   // Set when the payer says "ho pagato" (SPEC 03 / D-33); the administration checks the bank and registers the payment.
-  claimedAt    DateTime?
-  reminderCount Int      @default(0)
+  claimedAt      DateTime?
+  reminderCount  Int       @default(0)
   lastReminderAt DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  society Society  @relation(fields: [societyId], references: [id], onDelete: Cascade)
-  member  Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  feePlan FeePlan? @relation(fields: [feePlanId], references: [id], onDelete: SetNull)
-  receipt Receipt?
+  society       Society       @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  member        Member        @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  feePlan       FeePlan?      @relation(fields: [feePlanId], references: [id], onDelete: SetNull)
+  receipt       Receipt?
   ledgerEntries LedgerEntry[]
 
   @@unique([feePlanId, memberId, dueDate])
@@ -563,6 +566,10 @@ model LedgerEntry {
   occurredOn  DateTime
   paymentId   String?
   sponsorId   String?
+  // Expense generated by the cost of a venue, kit or trip: one entry per source, deleted with it
+  venueId     String?  @unique
+  kitId       String?  @unique
+  tripId      String?  @unique
   createdById String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -570,6 +577,9 @@ model LedgerEntry {
   society Society  @relation(fields: [societyId], references: [id], onDelete: Cascade)
   payment Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
   sponsor Sponsor? @relation(fields: [sponsorId], references: [id], onDelete: SetNull)
+  venue   Venue?   @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  kit     Kit?     @relation(fields: [kitId], references: [id], onDelete: Cascade)
+  trip    Trip?    @relation(fields: [tripId], references: [id], onDelete: Cascade)
 
   @@index([societyId])
   @@index([societyId, occurredOn])
@@ -578,19 +588,19 @@ model LedgerEntry {
 
 // status: ACTIVE | EXPIRED | PROSPECT
 model Sponsor {
-  id           String    @id @default(cuid())
-  societyId    String
-  name         String
-  contactName  String?
-  email        String?
-  phone        String?
-  amountCents  Int       @default(0)
+  id            String    @id @default(cuid())
+  societyId     String
+  name          String
+  contactName   String?
+  email         String?
+  phone         String?
+  amountCents   Int       @default(0)
   contractStart DateTime?
-  contractEnd  DateTime?
-  status       String    @default("ACTIVE")
-  notes        String?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  contractEnd   DateTime?
+  status        String    @default("ACTIVE")
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   society       Society       @relation(fields: [societyId], references: [id], onDelete: Cascade)
   ledgerEntries LedgerEntry[]
@@ -604,7 +614,7 @@ model Sponsor {
 // ---------------------------------------------------------------------------
 
 model Venue {
-  id           String   @id @default(cuid())
+  id           String    @id @default(cuid())
   societyId    String
   name         String
   address      String?
@@ -612,11 +622,14 @@ model Venue {
   capacity     Int?
   availability String?
   notes        String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  costCents    Int?
+  costDate     DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
-  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
-  events  Event[]
+  society     Society      @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  events      Event[]
+  ledgerEntry LedgerEntry?
 
   @@index([societyId])
 }
@@ -624,22 +637,22 @@ model Venue {
 // type: MATCH | TRAINING | TOURNAMENT | MEETING     status: SCHEDULED | POSTPONED | CANCELLED | COMPLETED
 // recurrenceRule: iCal RRULE (training series); occurrences point to the series via recurrenceParentId.
 model Event {
-  id                String    @id @default(cuid())
-  societyId         String
-  type              String
-  title             String
-  startsAt          DateTime
-  endsAt            DateTime?
-  teamId            String?
-  venueId           String?
-  status            String    @default("SCHEDULED")
-  notes             String?
-  recurrenceRule    String?
+  id                 String    @id @default(cuid())
+  societyId          String
+  type               String
+  title              String
+  startsAt           DateTime
+  endsAt             DateTime?
+  teamId             String?
+  venueId            String?
+  status             String    @default("SCHEDULED")
+  notes              String?
+  recurrenceRule     String?
   recurrenceParentId String?
   convocationsSentAt DateTime?
-  maxConvocations   Int?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  maxConvocations    Int?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
   team    Team?   @relation(fields: [teamId], references: [id], onDelete: SetNull)
@@ -716,8 +729,9 @@ model Trip {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
-  event   Event?  @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  society     Society      @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  event       Event?       @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  ledgerEntry LedgerEntry?
 
   @@index([societyId])
   @@index([societyId, departAt])
@@ -764,7 +778,6 @@ model Group {
 
   @@unique([competitionId, name])
   @@index([societyId])
-
   @@map("competition_groups")
 }
 
@@ -792,20 +805,20 @@ model GroupTeam {
 // status: SCHEDULED | PLAYED | POSTPONED | CANCELLED
 // setScores: JSON array, e.g. [[25,20],[22,25],...]. Standings are derived, never stored.
 model Match {
-  id          String    @id @default(cuid())
-  societyId   String
-  groupId     String
-  eventId     String?   @unique
-  round       Int?
-  homeTeamId  String
-  awayTeamId  String
-  homeSets    Int?
-  awaySets    Int?
-  setScores   Json?
-  status      String    @default("SCHEDULED")
-  playedAt    DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id         String    @id @default(cuid())
+  societyId  String
+  groupId    String
+  eventId    String?   @unique
+  round      Int?
+  homeTeamId String
+  awayTeamId String
+  homeSets   Int?
+  awaySets   Int?
+  setScores  Json?
+  status     String    @default("SCHEDULED")
+  playedAt   DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
   society  Society   @relation(fields: [societyId], references: [id], onDelete: Cascade)
   group    Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
@@ -813,8 +826,8 @@ model Match {
   homeTeam GroupTeam @relation("MatchHome", fields: [homeTeamId], references: [id], onDelete: Restrict)
   awayTeam GroupTeam @relation("MatchAway", fields: [awayTeamId], references: [id], onDelete: Restrict)
 
-  evaluations PlayerEvaluation[]
-  stats       PlayerMatchStats[]
+  evaluations        PlayerEvaluation[]
+  stats              PlayerMatchStats[]
   refereeAssignments RefereeAssignment[]
 
   @@index([societyId])
@@ -872,25 +885,25 @@ model PlayerMatchStats {
 // channel: IN_APP | EMAIL | PUSH          status: PENDING | SENT | FAILED
 // dedupeKey makes sending idempotent per (user, channel).
 model Notification {
-  id        String    @id @default(cuid())
-  societyId String
-  userId    String
-  type      String
-  channel   String    @default("IN_APP")
-  title     String
-  body      String
-  data      Json?
-  status    String    @default("PENDING")
-  dedupeKey String?
-  attempts  Int       @default(0)
+  id          String    @id @default(cuid())
+  societyId   String
+  userId      String
+  type        String
+  channel     String    @default("IN_APP")
+  title       String
+  body        String
+  data        Json?
+  status      String    @default("PENDING")
+  dedupeKey   String?
+  attempts    Int       @default(0)
   scheduledAt DateTime?
-  sentAt    DateTime?
-  readAt    DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  sentAt      DateTime?
+  readAt      DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  society Society           @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  user    User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   logs    NotificationLog[]
 
   @@unique([userId, channel, dedupeKey])
@@ -1012,11 +1025,14 @@ model Kit {
   memberId   String?
   assignedAt DateTime?
   notes      String?
+  costCents  Int?
+  costDate   DateTime?
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
-  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
-  member  Member? @relation(fields: [memberId], references: [id], onDelete: SetNull)
+  society     Society      @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  member      Member?      @relation(fields: [memberId], references: [id], onDelete: SetNull)
+  ledgerEntry LedgerEntry?
 
   @@index([societyId])
   @@index([memberId])
@@ -1060,14 +1076,14 @@ model Referee {
 }
 
 model RefereeAssignment {
-  id             String    @id @default(cuid())
-  societyId      String
-  refereeId      String
-  matchId        String
-  feeCents       Int?
-  reimbursedAt   DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  id           String    @id @default(cuid())
+  societyId    String
+  refereeId    String
+  matchId      String
+  feeCents     Int?
+  reimbursedAt DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
   referee Referee @relation(fields: [refereeId], references: [id], onDelete: Cascade)

@@ -18,8 +18,12 @@ import {
   listFeePlansQuerySchema,
   listFeesQuerySchema,
   payFeeBodySchema,
+  planPeopleQuerySchema,
+  planPeopleSchema,
+  planReportSchema,
   updateFeePlanBodySchema,
 } from './schema.js';
+import { planPeople, planReport } from './plan-report.js';
 import {
   alertPaymentClaimed,
   claimPayment,
@@ -53,6 +57,36 @@ export const feeRoutes: FastifyPluginAsyncZod = async (app) => {
     },
     service: feePlanService,
   });
+
+  app.get(
+    '/fee-plans/report',
+    {
+      onRequest: [app.requirePermission('payments:read')],
+      schema: {
+        tags: ['Fees'],
+        summary: 'Per plan: collected, to collect and how many people are settled, waiting or late',
+        security: bearerSecurity,
+        response: { 200: planReportSchema, ...problemResponses(401, 403) },
+      },
+    },
+    async (request) => planReport(tenantOf(request)),
+  );
+
+  app.get(
+    '/fee-plans/:id/people',
+    {
+      onRequest: [app.requirePermission('payments:read')],
+      schema: {
+        tags: ['Fees'],
+        summary: 'People of a plan with what each still has to pay, plus the figures of the whole plan',
+        security: bearerSecurity,
+        params: idParamsSchema,
+        querystring: planPeopleQuerySchema,
+        response: { 200: planPeopleSchema, ...problemResponses(401, 403, 404, 422) },
+      },
+    },
+    async (request) => planPeople(tenantOf(request), request.params.id, request.query),
+  );
 
   app.post(
     '/fee-plans/:id/generate',

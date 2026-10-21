@@ -8,10 +8,13 @@ import {
   createDocumentBodySchema,
   createDocumentTypeBodySchema,
   documentSchema,
+  documentTypeReportSchema,
   documentTypeSchema,
   expirationsQuerySchema,
   expirationsSchema,
   updateDocumentBodySchema,
+  typePeopleQuerySchema,
+  typePeopleSchema,
   updateDocumentTypeBodySchema,
   uploadDocumentQuerySchema,
   uploadQuerySchema,
@@ -32,6 +35,7 @@ import {
   uploadDocumentFile,
   uploadMemberDocument,
 } from './service.js';
+import { documentTypePeople, documentTypeReport } from './type-report.js';
 import { ALLOWED_MIME_TYPES, MAX_UPLOAD_BYTES, createFileStorage, isAllowedMimeType } from './storage.js';
 
 export const documentRoutes: FastifyPluginAsyncZod = async (app) => {
@@ -57,6 +61,36 @@ export const documentRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     async (request) => listDocumentTypes(tenantOf(request), request.query),
+  );
+
+  app.get(
+    '/document-types/report',
+    {
+      onRequest: [app.requirePermission('documents:read')],
+      schema: {
+        tags: ['Documents'],
+        summary: 'Per document type: how many active members are in order, expiring, expired or missing',
+        security: bearerSecurity,
+        response: { 200: documentTypeReportSchema, ...problemResponses(401, 403) },
+      },
+    },
+    async (request) => documentTypeReport(tenantOf(request)),
+  );
+
+  app.get(
+    '/document-types/:id/people',
+    {
+      onRequest: [app.requirePermission('documents:read')],
+      schema: {
+        tags: ['Documents'],
+        summary: 'People of a document type with the state of their current document, plus the figures of the whole type',
+        security: bearerSecurity,
+        params: idParamsSchema,
+        querystring: typePeopleQuerySchema,
+        response: { 200: typePeopleSchema, ...problemResponses(401, 403, 404, 422) },
+      },
+    },
+    async (request) => documentTypePeople(tenantOf(request), request.params.id, request.query),
   );
 
   app.post(

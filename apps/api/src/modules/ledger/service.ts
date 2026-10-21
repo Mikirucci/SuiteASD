@@ -1,7 +1,7 @@
 import type { LedgerEntry, Prisma } from '@prisma/client';
 import type { CrudService } from '../../lib/crud-routes.js';
 import { fromDateOnly, toDateOnly } from '../../lib/date-only.js';
-import { notFound } from '../../lib/errors.js';
+import { conflict, notFound } from '../../lib/errors.js';
 import { cursorArgs, toPage } from '../../lib/pagination.js';
 import { toIso } from '../../lib/schemas.js';
 import type { TenantRequestContext } from '../../plugins/auth.js';
@@ -16,6 +16,14 @@ import type {
   UpdateLedgerEntryBody,
 } from './schema.js';
 
+function sourceOf(entry: LedgerEntry): LedgerEntryDto['source'] {
+  if (entry.paymentId) return 'PAYMENT';
+  if (entry.venueId) return 'VENUE';
+  if (entry.kitId) return 'KIT';
+  if (entry.tripId) return 'TRIP';
+  return null;
+}
+
 function toDto(entry: LedgerEntry): LedgerEntryDto {
   return {
     id: entry.id,
@@ -26,6 +34,7 @@ function toDto(entry: LedgerEntry): LedgerEntryDto {
     occurredOn: toDateOnly(entry.occurredOn),
     sponsorId: entry.sponsorId,
     paymentId: entry.paymentId,
+    source: sourceOf(entry),
     createdAt: toIso(entry.createdAt),
     updatedAt: toIso(entry.updatedAt),
   };
@@ -35,6 +44,14 @@ function toDto(entry: LedgerEntry): LedgerEntryDto {
 async function assertSponsorExists({ db }: TenantRequestContext, sponsorId: string | null | undefined): Promise<void> {
   if (!sponsorId) return;
   if (!(await db.sponsor.findFirst({ where: { id: sponsorId }, select: { id: true } }))) throw notFound('Sponsor');
+}
+
+// Entries born from a payment or from the cost of a venue, kit or trip follow their source: changing them here would
+// put the balance out of step with it.
+async function assertOwnEntry({ db }: TenantRequestContext, id: string): Promise<void> {
+  const entry = await db.ledgerEntry.findFirst({ where: { id } });
+  if (!entry) throw notFound('Ledger entry');
+  if (sourceOf(entry)) throw conflict('ledger_entry_linked', 'The entry follows its source: change it there');
 }
 
 export const ledgerService: CrudService<
@@ -82,6 +99,7 @@ export const ledgerService: CrudService<
   },
 
   async update(ctx, id, body) {
+    await assertOwnEntry(ctx, id);
     await assertSponsorExists(ctx, body.sponsorId);
     const { occurredOn, ...rest } = body;
     const entry = await ctx.db.ledgerEntry.update({
@@ -91,7 +109,9 @@ export const ledgerService: CrudService<
     return toDto(entry);
   },
 
-  async remove({ db }, id) {
+  async remove(ctx, id) {
+    await assertOwnEntry(ctx, id);
+    const { db } = ctx;
     const result = await db.ledgerEntry.deleteMany({ where: { id } });
     if (result.count === 0) throw notFound('Ledger entry');
   },

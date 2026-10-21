@@ -74,6 +74,25 @@ describeCrudModule(
         expect(await items('')).toHaveLength(2);
       });
 
+      it('searches by item, by size and by the name of who holds the piece', async () => {
+        const { ctx, actors, societyId } = get();
+        const holder = await createMember(ctx, societyId, { firstName: 'Ludovica', lastName: 'Zanetti', fiscalCode: 'ZNTLVC00A41H501K' });
+        await ctx.prisma.kit.createMany({
+          data: [
+            { societyId, item: 'Pantaloncini ricerca', size: 'XXL' },
+            { societyId, item: 'Calze ricerca', size: 'S', memberId: holder.id, assignedAt: new Date() },
+          ],
+        });
+        const found = async (query: string) =>
+          (await ctx.app.inject({ method: 'GET', url: `${API}/kits?${query}`, headers: actors.ALLENATORE.headers }))
+            .json<{ data: { item: string }[] }>()
+            .data.map((kit) => kit.item);
+        expect(await found('q=XXL')).toEqual(['Pantaloncini ricerca']);
+        expect(await found('q=Zanetti')).toEqual(['Calze ricerca']);
+        expect(await found('q=ricerca&assigned=true')).toEqual(['Calze ricerca']);
+        expect(await found('item=Calze%20ricerca')).toEqual(['Calze ricerca']);
+      });
+
       it('refuses to assign to a member of another society', async () => {
         const { ctx, actors, societyId, outsider } = get();
         const member = await createMember(ctx, societyId, { fiscalCode: 'FRRNNA00A41H501Y' });

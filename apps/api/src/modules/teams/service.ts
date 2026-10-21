@@ -5,7 +5,15 @@ import { isUniqueViolation } from '../../lib/prisma-errors.js';
 import { toIso } from '../../lib/schemas.js';
 import type { TenantRequestContext } from '../../plugins/auth.js';
 import { sportSchema, teamGenderSchema } from '../../shared/enums.js';
-import type { CreateTeamBody, ListTeamsQuery, TeamDto, UpdateTeamBody } from './schema.js';
+import { syncMemberConvocations } from '../convocations/auto.js';
+import type {
+  AddTeamMembersBody,
+  AddTeamMembersResult,
+  CreateTeamBody,
+  ListTeamsQuery,
+  TeamDto,
+  UpdateTeamBody,
+} from './schema.js';
 
 // Services receive the tenant context ({ db, auth }): `db` is already limited to the caller's society.
 // They throw AppError for expected failures; the error plugin turns them into RFC 7807 responses.
@@ -90,4 +98,34 @@ export async function updateTeam(ctx: TenantRequestContext, id: string, body: Up
 export async function deleteTeam({ db }: TenantRequestContext, id: string): Promise<void> {
   const result = await db.team.deleteMany({ where: { id } });
   if (result.count === 0) throw notFound('Team');
+}
+
+// Adds many members at once. Leaving a team keeps its row (history), so joining again reopens it.
+export async function addTeamMembers(
+  ctx: TenantRequestContext,
+  teamId: string,
+  body: AddTeamMembersBody,
+): Promise<AddTeamMembersResult> {
+  const { db } = ctx;
+  if (!(await db.team.findFirst({ where: { id: teamId }, select: { id: true } }))) throw notFound('Team');
+  const wanted = [...new Set(body.memberIds)];
+  const found = await db.member.findMany({ where: { id: { in: wanted } }, select: { id: true } });
+  if (found.length !== wanted.length) throw notFound('Member');
+  const inside = await db.teamMembership.findMany({
+    where: { teamId, memberId: { in: wanted }, leftAt: null },
+    select: { memberId: true },
+  });
+  const already = new Set(inside.map((membership) => membership.memberId));
+  const entering = wanted.filter((memberId) => !already.has(memberId));
+  const now = new Date();
+  for (const memberId of entering) {
+    await db.teamMembership.upsert({
+      where: { teamId_memberId: { teamId, memberId } },
+      create: { societyId: ctx.auth.societyId, teamId, memberId, joinedAt: now },
+      update: { leftAt: null, joinedAt: now },
+    });
+    // Entering a team changes which upcoming events the member is convocated to
+    await syncMemberConvocations(db, ctx.auth.societyId, memberId, now);
+  }
+  return { added: entering.length, alreadyInTeam: already.size };
 }

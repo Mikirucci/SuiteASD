@@ -192,6 +192,11 @@ describe('notification templates (Italian)', () => {
       body: 'Sara Conti · U16',
     });
     expect(renderNotification({ type: 'ADMIN_NEW_ENROLMENT', memberName: 'Sara Conti', teamName: null }).body).toBe('Sara Conti');
+    expect(renderNotification({ type: 'ADMIN_INVITATION_ACCEPTED', personName: 'Marco Rossi', role: 'ALLENATORE' })).toEqual({
+      title: 'Nuovo collaboratore',
+      body: "Marco Rossi ha accettato l'invito come allenatore",
+    });
+    expect(renderNotification({ type: 'ADMIN_INVITATION_ACCEPTED', personName: 'Anna Bianchi', role: 'SEGRETERIA' }).body).toBe("Anna Bianchi ha accettato l'invito come segreteria");
     expect(renderNotification({ type: 'ADMIN_SPONSOR_EXPIRING', sponsorName: 'Ottica Rossi', daysLeft: 15 })).toEqual({
       title: 'Contratto sponsor in scadenza',
       body: 'Ottica Rossi — scade tra 15 giorni',

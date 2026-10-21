@@ -50,3 +50,15 @@ export type CreateTeamBody = z.infer<typeof createTeamBodySchema>;
 export type UpdateTeamBody = z.infer<typeof updateTeamBodySchema>;
 export type ListTeamsQuery = z.infer<typeof listTeamsQuerySchema>;
 export type TeamDto = z.infer<typeof teamSchema>;
+
+export const addTeamMembersBodySchema = z.object({
+  memberIds: z.array(idRef).min(1).max(100).describe('Members to add; those already in the team are left as they are'),
+});
+
+export const addTeamMembersResultSchema = z.object({
+  added: z.number().int().describe('Members who entered the team with this request'),
+  alreadyInTeam: z.number().int().describe('Members who were already in the team'),
+});
+
+export type AddTeamMembersBody = z.infer<typeof addTeamMembersBodySchema>;
+export type AddTeamMembersResult = z.infer<typeof addTeamMembersResultSchema>;

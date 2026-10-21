@@ -255,6 +255,7 @@ describe('notifications (SPEC 07)', () => {
           'ADMIN_DOCUMENT_ALERT',
           'ADMIN_DOCUMENT_UPLOADED',
           'ADMIN_FEE_OVERDUE',
+          'ADMIN_INVITATION_ACCEPTED',
           'ADMIN_NEW_ENROLMENT',
           'ADMIN_PAYMENT_CLAIMED',
           'ADMIN_PAYMENT_RECEIVED',
@@ -275,7 +276,7 @@ describe('notifications (SPEC 07)', () => {
     it('offers both audiences to somebody who is administrator and athlete at once', async () => {
       const both = await createActor(ctx, societyId, 'ADMIN', 'ATLETA');
       const response = await get(both, '/notifications/preferences');
-      expect(response.json().preferences).toHaveLength(30);
+      expect(response.json().preferences).toHaveLength(32);
     });
 
     it('switches a channel off for a type and back on, and then stops creating that channel', async () => {
