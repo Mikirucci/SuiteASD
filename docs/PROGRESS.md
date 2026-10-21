@@ -3,7 +3,7 @@
 > Leggere questo file all'inizio di ogni conversazione. Va aggiornato a ogni tappa e **obbligatoriamente prima di esaurire i token**.
 > Regole del team: `CLAUDE.md`. Specifica: `docs/SPEC.md`. Decisioni: `docs/DECISIONS.md`. Guide: `docs/API.md`, `docs/FRONTEND.md`.
 
-Ultimo aggiornamento: 2026-10-21 (fine giornata). Branch di lavoro: `feature/collaudo-giro-2` (committato e pushato, non ancora fuso in `develop`). Ultimo giro: refactoring delle schermate a gruppi e card minimali (Tesserati D-41, Squadre D-42/D-43, Staff e liste "Altro" D-44), inviti senza email con scheda Staff e avviso all'amministrazione (D-45), prima Pagamenti/Scadenze/Divise (D-37..D-40). Prodotto completo secondo SPEC + riordino UX (D-26..D-31) + collaudo dell'utente (D-32..D-36). Verifica a fine giornata: lint e typecheck puliti; api 1035 test, web 1113 unit; E2E mock su build di produzione 133/133; E2E su backend reale 37/37. Falle e collaudo a persone: `tasks/findings.md`; piano: `tasks/plan.md`. In attesa per scelta dell'utente: home admin, tornei, pagelle, classifiche.
+Ultimo aggiornamento: 2026-10-21 (fine giornata). Branch di lavoro: `feature/collaudo-giro-2` (pushato) già fuso in `develop` in locale (merge c515e31); `develop` sul remoto non è ancora stato pushato. Ultimo giro: refactoring delle schermate a gruppi e card minimali (Tesserati D-41, Squadre D-42/D-43, Staff e liste "Altro" D-44), inviti senza email con scheda Staff e avviso all'amministrazione (D-45), prima Pagamenti/Scadenze/Divise (D-37..D-40). Prodotto completo secondo SPEC + riordino UX (D-26..D-31) + collaudo dell'utente (D-32..D-36). Verifica a fine giornata: lint e typecheck puliti; api 1035 test, web 1113 unit; E2E mock su build di produzione 133/133; E2E su backend reale 37/37. Falle e collaudo a persone: `tasks/findings.md`; piano: `tasks/plan.md`. In attesa per scelta dell'utente: home admin, tornei, pagelle, classifiche.
 
 ## Obiettivo originale (/goal dell'utente)
 Consegnare SuiteASD finita e testata: backend API-first + web app, lavorando "da team di ingegneria" con agenti specializzati, senza chiedere conferme.
@@ -81,7 +81,7 @@ Da riprendere alla prossima sessione (in ordine):
 2. Squadra: "Vedi tutti gli appuntamenti" porta al calendario senza filtro per squadra; l'utente ha detto "a quella cosa penseremo dopo".
 3. Inviti: l'invio automatico di una email ben formattata resta da fare con la gestione delle email (oggi senza chiave Resend le email sono `SKIPPED`); fino ad allora il link lo manda chi invita (D-45).
 4. Foto dei tesserati: nella SPEC non c'è un campo foto, le card usano l'avatar con le iniziali. Aggiungerla solo se l'utente lo chiede.
-5. Fusione del branch `feature/collaudo-giro-2` in `develop` (PR) quando l'utente lo decide; `develop` sul remoto è indietro di molti commit.
+5. Push di `develop` sul remoto (è avanti di 13 commit) quando l'utente lo decide; per nuovo lavoro creare un branch da `develop`.
 6. Dopo il 14 novembre 2026: aggiornare date del seed e E2E reali di calendario/ruoli.
 7. Decidere se togliere la vista "solo i propri dati" per atleta/genitore nelle pagine admin (Tesserati, Scadenze, Pagelle), che ora serve solo ai ruoli misti, insieme alle pagelle (decisione dell'utente).
 8. Raccomandazioni di claude-automation-recommender: presentate, NON applicate.
