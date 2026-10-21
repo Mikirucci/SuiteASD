@@ -74,6 +74,64 @@ describe("AcceptInvitationPage", () => {
     expect(await screen.findByRole("heading", { level: 1, name: `Sei stato invitato da Aquile Volley come ${label}.` })).toBeInTheDocument();
   });
 
+  describe("a link that names nobody", () => {
+    const NAMELESS = { ...INFO, maskedEmail: null };
+
+    it("asks for the email and explains that it is the one of the new access", async () => {
+      stubApi({ "GET /invitations/tok": () => json(200, NAMELESS) });
+      const { container } = await openPage("tok");
+      expect(screen.getByLabelText(/^Email/)).toBeInTheDocument();
+      expect(screen.getByText(/Scrivi la tua email e scegli una password/)).toBeInTheDocument();
+      expect(screen.queryByText(/L'invito è per/)).not.toBeInTheDocument();
+      await expectNoA11yViolations(container);
+    });
+
+    it("sends the email with the name and the password, and signs the person in", async () => {
+      const api = stubApi({ "GET /invitations/tok": () => json(200, NAMELESS), "POST /invitations/accept": () => json(200, SESSION) });
+      await openPage("tok");
+      await userEvent.type(screen.getByLabelText(/^Email/), " marco@example.test ");
+      await fill();
+      await submit();
+      await vi.waitFor(() => expect(mocks.replace).toHaveBeenCalledWith("/"));
+      expect(api.calls.find((call) => call.method === "POST")?.body).toEqual({
+        token: "tok",
+        password: "Sup3rSegreta!",
+        email: "marco@example.test",
+        firstName: "Marco",
+        lastName: "Bianchi",
+      });
+    });
+
+    it("checks the email before calling the API", async () => {
+      const api = stubApi({ "GET /invitations/tok": () => json(200, NAMELESS) });
+      await openPage("tok");
+      await userEvent.type(screen.getByLabelText(/^Email/), "non-una-email");
+      await fill();
+      await submit();
+      expect(await screen.findByText("Inserisci un'email valida")).toBeInTheDocument();
+      expect(api.calls.some((call) => call.method === "POST")).toBe(false);
+    });
+
+    it("shows the error of the email when the server asks for it", async () => {
+      stubApi({ "GET /invitations/tok": () => json(200, NAMELESS), "POST /invitations/accept": () => problem(422, "email_required") });
+      await openPage("tok");
+      await userEvent.type(screen.getByLabelText(/^Email/), "marco@example.test");
+      await fill();
+      await submit();
+      expect(await screen.findByText("Scrivi la tua email: serve per creare il tuo accesso.")).toBeInTheDocument();
+    });
+
+    it("does not ask for the email, nor send one, when the invitation already names it", async () => {
+      const api = stubApi({ "GET /invitations/tok": info, "POST /invitations/accept": () => json(200, SESSION) });
+      await openPage("tok");
+      expect(screen.queryByLabelText(/^Email/)).not.toBeInTheDocument();
+      await fill();
+      await submit();
+      await vi.waitFor(() => expect(mocks.replace).toHaveBeenCalled());
+      expect(api.calls.find((call) => call.method === "POST")?.body).not.toHaveProperty("email");
+    });
+  });
+
   it("shows a loading state while the invitation is read, without the form", () => {
     stubApi({ "GET /invitations/tok": () => new Promise<Response>(() => undefined) });
     renderWithProviders(<AcceptInvitationPage token="tok" />);

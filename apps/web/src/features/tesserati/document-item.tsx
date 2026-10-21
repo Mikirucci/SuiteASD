@@ -1,8 +1,9 @@
 "use client";
 
-import { Download, Eye, Paperclip } from "lucide-react";
+import { Download, Eye, MoreHorizontal, Paperclip } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import { Button } from "@/components/ui/button";
+import { Button, IconButton } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { FilePreviewDialog } from "@/components/ui/file-preview-dialog";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
@@ -30,10 +31,14 @@ export interface DocumentItemProps {
   daysRemaining: number | null;
   /** Second line when there is no expiry to show ("Non ancora consegnato", "Rilasciato il ..."). */
   note: string;
-  /** The record with its file: gives the file line and the open and download actions. Absent for a missing document. */
+  /** The record with its file: gives the file line, "Apri" and the download. Absent for a missing document. */
   document?: MemberDocument;
-  /** Actions of the screen (upload, edit, delete...), placed after open and download. */
+  /** The one action the screen puts forward (upload, add...), next to "Apri". */
   actions?: ReactNode;
+  /** The other actions of the screen (replace the file, edit, delete...) as menu items, after the download. */
+  menuItems?: ReactNode;
+  /** Invisible parts of the row that must outlive the menu, such as the file input behind "Carica file". */
+  aside?: ReactNode;
 }
 
 function FileLine({ document }: { document: MemberDocument }) {
@@ -51,37 +56,52 @@ function FileLine({ document }: { document: MemberDocument }) {
   );
 }
 
-function FileActions({ document, heading, typeName }: { document: MemberDocument; heading: string; typeName: string }) {
+/**
+ * "Apri" shows the file in the platform, then the action the screen puts forward (`children`), then the menu with the
+ * download and every other action: a row never shows a wall of buttons.
+ */
+function FileActions({
+  document,
+  heading,
+  typeName,
+  menuItems,
+  children,
+}: {
+  document: MemberDocument;
+  heading: string;
+  typeName: string;
+  menuItems: ReactNode;
+  children: ReactNode;
+}) {
   const { toast } = useToast();
   const download = useDownloadDocument();
   const load = useDocumentFile(document.downloadUrl ?? "");
   const [previewOpen, setPreviewOpen] = useState(false);
-  if (!document.downloadUrl) return null;
   return (
     <>
-      <Button
-        variant="secondary"
-        size="sm"
-        leftIcon={<Eye />}
-        aria-label={`Apri ${typeName}`}
-        onClick={() => setPreviewOpen(true)}
-      >
+      <Button variant="secondary" size="sm" leftIcon={<Eye />} aria-label={`Apri ${typeName}`} onClick={() => setPreviewOpen(true)}>
         Apri
       </Button>
-      <Button
-        variant="ghost"
-        size="sm"
-        leftIcon={<Download />}
-        loading={download.isPending}
-        aria-label={`Scarica ${typeName}`}
-        onClick={() =>
-          download.mutate(document, {
-            onError: (error) => toast({ title: "Download non riuscito", description: describeError(error), tone: "danger" }),
-          })
-        }
-      >
-        Scarica
-      </Button>
+      {children}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <IconButton size="sm" aria-label={`Altre azioni di ${typeName}`} icon={<MoreHorizontal />} />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent>
+          <DropdownMenuItem
+            icon={<Download />}
+            aria-label={`Scarica ${typeName}`}
+            onSelect={() =>
+              download.mutate(document, {
+                onError: (error) => toast({ title: "Download non riuscito", description: describeError(error), tone: "danger" }),
+              })
+            }
+          >
+            Scarica
+          </DropdownMenuItem>
+          {menuItems}
+        </DropdownMenuContent>
+      </DropdownMenu>
       <FilePreviewDialog
         open={previewOpen}
         onOpenChange={setPreviewOpen}
@@ -94,9 +114,21 @@ function FileActions({ document, heading, typeName }: { document: MemberDocument
   );
 }
 
+/** Menu of a row that has no file to open: only the actions the screen puts there (edit, delete...). */
+function ActionsMenu({ typeName, children }: { typeName: string; children: ReactNode }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <IconButton size="sm" aria-label={`Altre azioni di ${typeName}`} icon={<MoreHorizontal />} />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent>{children}</DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 /**
  * One document of a member, the same on the admin card and in the personal area: title, status chip, expiry in
- * coloured text, a quiet file line, then open and download followed by the actions the screen allows.
+ * coloured text, a quiet file line, then "Apri", the action the screen puts forward and a menu with the rest.
  */
 export function DocumentItem({
   heading,
@@ -107,10 +139,14 @@ export function DocumentItem({
   note,
   document,
   actions,
+  menuItems,
+  aside,
 }: DocumentItemProps) {
-  const hasExpiry = expiresAt !== null;
+  // A document that is missing (or whose file has not arrived) has no valid expiry to put forward
+  const hasExpiry = expiresAt !== null && status !== "MISSING";
   const tone: ExpiryTone = hasExpiry ? expiryTone(daysRemaining) : "neutral";
-  const hasActions = Boolean(document?.downloadUrl) || Boolean(actions);
+  const hasFileActions = Boolean(document?.downloadUrl);
+  const hasActions = hasFileActions || Boolean(actions) || Boolean(menuItems);
   return (
     <li className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0">
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
@@ -124,11 +160,20 @@ export function DocumentItem({
         <DocumentStatusChip status={status} />
       </div>
       {hasActions ? (
-        <div className="flex flex-wrap gap-2">
-          {document ? <FileActions document={document} heading={heading} typeName={typeName} /> : null}
-          {actions}
+        <div className="flex flex-wrap items-center gap-2">
+          {document && hasFileActions ? (
+            <FileActions document={document} heading={heading} typeName={typeName} menuItems={menuItems}>
+              {actions}
+            </FileActions>
+          ) : (
+            <>
+              {actions}
+              {menuItems ? <ActionsMenu typeName={typeName}>{menuItems}</ActionsMenu> : null}
+            </>
+          )}
         </div>
       ) : null}
+      {aside}
     </li>
   );
 }

@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { expectNoA11yViolations } from "@/test/a11y";
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { DocumentItem } from "./document-item";
 import { documentOf, mockApi, problem, renderScreen } from "./test-support";
 
@@ -95,12 +96,47 @@ describe("DocumentItem content", () => {
     expect(within(item).getByRole("button", { name: "Aggiungi Certificato medico" })).toBeInTheDocument();
   });
 
-  it("puts open and download first and the caller's actions after them", () => {
-    renderItem({ actions: <button type="button" aria-label="Modifica Certificato medico">Modifica</button> });
+  it("puts Apri first, then the action of the screen, and keeps the rest in one menu", async () => {
+    renderItem({
+      actions: <button type="button" aria-label="Carica file di Certificato medico">Carica</button>,
+      menuItems: <DropdownMenuItem onSelect={() => undefined}>Modifica</DropdownMenuItem>,
+    });
     const names = within(screen.getByRole("listitem"))
       .getAllByRole("button")
       .map((button) => button.getAttribute("aria-label"));
-    expect(names).toEqual(["Apri Certificato medico", "Scarica Certificato medico", "Modifica Certificato medico"]);
+    expect(names).toEqual(["Apri Certificato medico", "Carica file di Certificato medico", "Altre azioni di Certificato medico"]);
+
+    await userEvent.click(screen.getByRole("button", { name: "Altre azioni di Certificato medico" }));
+    const items = (await screen.findAllByRole("menuitem")).map((item) => item.textContent);
+    expect(items).toEqual(["Scarica", "Modifica"]);
+  });
+
+  it("has no menu when the row has no file and the screen offers nothing more", () => {
+    renderItem({ document: documentOf({ hasFile: false, fileName: null, sizeBytes: null, downloadUrl: null }) });
+    expect(screen.queryByRole("button", { name: /Altre azioni/ })).not.toBeInTheDocument();
+  });
+
+  it("keeps the menu of a row without file for the actions of the screen", async () => {
+    renderItem({
+      document: documentOf({ hasFile: false, fileName: null, sizeBytes: null, downloadUrl: null }),
+      menuItems: <DropdownMenuItem onSelect={() => undefined}>Elimina</DropdownMenuItem>,
+    });
+    await userEvent.click(screen.getByRole("button", { name: "Altre azioni di Certificato medico" }));
+    expect(await screen.findAllByRole("menuitem")).toHaveLength(1);
+    expect(screen.queryByRole("menuitem", { name: "Scarica Certificato medico" })).not.toBeInTheDocument();
+  });
+
+  it("does not show the expiry of a document whose file has not arrived", () => {
+    renderItem({
+      status: "MISSING",
+      note: "File non ancora caricato",
+      expiresAt: "2027-10-17",
+      daysRemaining: 365,
+      document: documentOf({ hasFile: false, fileName: null, sizeBytes: null, downloadUrl: null, status: "MISSING" }),
+    });
+    expect(screen.getByText("File non ancora caricato")).toBeInTheDocument();
+    expect(screen.queryByText(/Scade il/)).not.toBeInTheDocument();
+    expect(screen.getByText("Mancante")).toBeInTheDocument();
   });
 
   it("has no detectable accessibility violations", async () => {
@@ -163,7 +199,8 @@ describe("DocumentItem file actions", () => {
     const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
     mockApi({ "GET /documents/doc-1/file": pdfResponse });
     renderItem();
-    await userEvent.click(screen.getByRole("button", { name: "Scarica Certificato medico" }));
+    await userEvent.click(screen.getByRole("button", { name: "Altre azioni di Certificato medico" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Scarica Certificato medico" }));
     await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
   });
 });

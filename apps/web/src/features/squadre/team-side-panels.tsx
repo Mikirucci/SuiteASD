@@ -1,13 +1,27 @@
 "use client";
 
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, ArrowRight } from "lucide-react";
+import Link from "next/link";
 import { useId, type ReactNode } from "react";
-import { Alert, Button, ButtonLink, Card, Skeleton } from "@/components/ui";
+import { Alert, Button, Card, Skeleton } from "@/components/ui";
 import { EVENT_TYPE_LABELS } from "@/features/calendario/format";
 import { describeError } from "@/lib/api";
 import { formatEuro } from "@/lib/format";
 import { useTeamAppointments, useTeamFeesSummary } from "./api";
 import { formatEventStart } from "./team-format";
+
+/** The way out of a panel: a quiet text link, not a button, so that the panels stay light. */
+function PanelLink({ href, children }: { href: string; children: ReactNode }) {
+  return (
+    <Link
+      href={href}
+      className="touch-target group inline-flex items-center gap-1.5 rounded-sm text-sm font-semibold text-brand-700 underline-offset-4 hover:underline"
+    >
+      {children}
+      <ArrowRight aria-hidden="true" className="size-4 transition-transform duration-150 ease-soft group-hover:translate-x-0.5" />
+    </Link>
+  );
+}
 
 function Panel({ title, children, footer }: { title: string; children: ReactNode; footer: ReactNode }) {
   const headingId = useId();
@@ -17,7 +31,7 @@ function Panel({ title, children, footer }: { title: string; children: ReactNode
         {title}
       </h2>
       {children}
-      <div>{footer}</div>
+      <div className="mt-auto">{footer}</div>
     </Card>
   );
 }
@@ -43,18 +57,14 @@ function PanelError({ error, onRetry }: { error: unknown; onRetry: () => void })
   );
 }
 
-/** Up to five scheduled events of the team, soonest first. */
+/** The next three scheduled events of the team from now on, soonest first. */
 export function TeamAppointments({ teamId }: { teamId: string }) {
   const query = useTeamAppointments(teamId, true);
   const events = query.data?.data ?? [];
   return (
     <Panel
       title="Prossimi appuntamenti"
-      footer={
-        <ButtonLink href="/calendario" variant="secondary" size="sm">
-          Apri il calendario
-        </ButtonLink>
-      }
+      footer={<PanelLink href="/calendario">Vedi tutti gli appuntamenti</PanelLink>}
     >
       {query.isPending ? (
         <PanelSkeleton label="Caricamento degli appuntamenti" />
@@ -65,10 +75,11 @@ export function TeamAppointments({ teamId }: { teamId: string }) {
       ) : (
         <ul className="divide-y divide-line">
           {events.map((event) => (
-            <li key={event.id} className="flex flex-col gap-0.5 py-3 first:pt-0 last:pb-0">
-              <p className="text-sm font-bold text-fg">{formatEventStart(event.startsAt)}</p>
-              <p className="break-words text-sm text-fg">{event.title}</p>
-              <p className="break-words text-xs text-fg-muted">
+            <li key={event.id} className="flex flex-col gap-0.5 py-2.5 first:pt-0 last:pb-0">
+              <p className="truncate text-sm text-fg">
+                <span className="font-bold">{formatEventStart(event.startsAt)}</span> {event.title}
+              </p>
+              <p className="truncate text-xs text-fg-muted">
                 {[EVENT_TYPE_LABELS[event.type], event.venue?.name].filter(Boolean).join(", ")}
               </p>
             </li>
@@ -87,32 +98,24 @@ export function TeamFees({ teamId }: { teamId: string }) {
   return (
     <Panel
       title="Quote della squadra"
-      footer={
-        <ButtonLink href="/quote" variant="secondary" size="sm">
-          Apri le quote
-        </ButtonLink>
-      }
+      footer={<PanelLink href="/quote">Apri le quote</PanelLink>}
     >
       {query.isPending ? (
         <PanelSkeleton label="Caricamento delle quote" />
       ) : query.error ? (
         <PanelError error={query.error} onRetry={() => void query.refetch()} />
       ) : summary && hasFees ? (
-        <dl className="grid grid-cols-2 gap-4">
-          <div>
-            <dt className="text-xs font-semibold text-fg-muted">Incassato</dt>
-            <dd className="mt-0.5 text-xl font-extrabold tracking-title text-success">
-              {formatEuro(summary.incassatoCents)}
-            </dd>
+        <dl className="divide-y divide-line">
+          <div className="pb-3">
+            <dt className="text-sm font-semibold text-fg-muted">Incassato</dt>
+            <dd className="mt-1 text-2xl font-extrabold tracking-title text-success">{formatEuro(summary.incassatoCents)}</dd>
           </div>
-          <div>
-            <dt className="text-xs font-semibold text-fg-muted">Da incassare</dt>
-            <dd className="mt-0.5 text-xl font-extrabold tracking-title text-fg">
-              {formatEuro(summary.daIncassareCents)}
-            </dd>
+          <div className="pt-3">
+            <dt className="text-sm font-semibold text-fg-muted">Da incassare</dt>
+            <dd className="mt-1 text-2xl font-extrabold tracking-title text-fg">{formatEuro(summary.daIncassareCents)}</dd>
             {summary.scadutoCents > 0 ? (
-              <dd className="mt-1 flex items-center gap-1 text-xs font-semibold text-danger">
-                <AlertTriangle aria-hidden="true" className="size-3.5 shrink-0" />
+              <dd className="mt-1.5 flex items-center gap-1.5 text-sm font-semibold text-danger">
+                <AlertTriangle aria-hidden="true" className="size-4 shrink-0" />
                 di cui scaduto {formatEuro(summary.scadutoCents)}
               </dd>
             ) : null}

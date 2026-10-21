@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { MailX } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { Alert, Button, EmptyState, ErrorState, Input, SectionHeading, Skeleton } from "@/components/ui";
@@ -17,13 +17,21 @@ import { acceptInvitation, useInvitationInfo, type InvitationInfo } from "./api"
 
 const name = z.string().trim().max(80, "Massimo 80 caratteri");
 
-const acceptSchema = z.object({
+const baseSchema = z.object({
   firstName: name,
   lastName: name,
+  email: z.string().trim(),
   password: z.string().min(8, "La password deve avere almeno 8 caratteri").max(128, "Massimo 128 caratteri"),
 });
 
-type AcceptValues = z.infer<typeof acceptSchema>;
+/** A link that names nobody asks for the email: the account is made with it. */
+function schemaFor(needsEmail: boolean) {
+  return needsEmail
+    ? baseSchema.extend({ email: z.email("Inserisci un'email valida").max(254, "L'email è troppo lunga") })
+    : baseSchema;
+}
+
+type AcceptValues = z.infer<typeof baseSchema>;
 
 const PROFILE_MESSAGE = "Scrivilo: serve per creare il tuo accesso.";
 
@@ -59,14 +67,16 @@ function AcceptForm({ token, info }: { token: string; info: InvitationInfo }) {
   const { adoptSession } = useAuth();
   const [formError, setFormError] = useState<string | null>(null);
   const [unusable, setUnusable] = useState(false);
+  const needsEmail = info.maskedEmail === null;
+  const schema = useMemo(() => schemaFor(needsEmail), [needsEmail]);
   const {
     register,
     handleSubmit,
     setError,
     formState: { errors, isSubmitting },
   } = useForm<AcceptValues>({
-    resolver: zodResolver(acceptSchema),
-    defaultValues: { firstName: "", lastName: "", password: "" },
+    resolver: zodResolver(schema),
+    defaultValues: { firstName: "", lastName: "", email: "", password: "" },
   });
 
   const onSubmit = handleSubmit(async (values) => {
@@ -75,6 +85,7 @@ function AcceptForm({ token, info }: { token: string; info: InvitationInfo }) {
       const session = await acceptInvitation({
         token,
         password: values.password,
+        ...(needsEmail ? { email: values.email } : {}),
         ...(values.firstName ? { firstName: values.firstName } : {}),
         ...(values.lastName ? { lastName: values.lastName } : {}),
       });
@@ -84,6 +95,10 @@ function AcceptForm({ token, info }: { token: string; info: InvitationInfo }) {
       if (error instanceof ApiError) {
         if (error.code === "invalid_invitation") {
           setUnusable(true);
+          return;
+        }
+        if (error.code === "email_required") {
+          setError("email", { message: "Scrivi la tua email: serve per creare il tuo accesso." });
           return;
         }
         if (error.code === "profile_required") {
@@ -110,10 +125,26 @@ function AcceptForm({ token, info }: { token: string; info: InvitationInfo }) {
         label="Invito"
         title={`Sei stato invitato da ${info.society.name} come ${ROLE_LABELS[info.role].toLowerCase()}.`}
         highlight={info.society.name}
-        description={`L'invito è per ${info.maskedEmail}. Scegli una password per entrare. Se hai già un account, scrivi la password che usi di solito.`}
+        description={
+          info.maskedEmail
+            ? `L'invito è per ${info.maskedEmail}. Scegli una password per entrare. Se hai già un account, scrivi la password che usi di solito.`
+            : "Scrivi la tua email e scegli una password per entrare. Se hai già un account con quell'email, scrivi la password che usi di solito."
+        }
       />
       <form onSubmit={onSubmit} noValidate aria-label="Accetta l'invito" className="flex flex-col gap-4">
         {formError ? <Alert tone="danger">{formError}</Alert> : null}
+        {needsEmail ? (
+          <Input
+            label="Email"
+            type="email"
+            inputMode="email"
+            required
+            autoComplete="email"
+            hint="Con questa email entrerai nella piattaforma."
+            error={errors.email?.message}
+            {...register("email")}
+          />
+        ) : null}
         <fieldset className="flex flex-col gap-4">
           <legend className="mb-3 text-xs font-bold uppercase tracking-label text-fg-muted">Chi sei</legend>
           <p className="-mt-1 text-sm text-fg-muted">Solo se non hai ancora un account.</p>

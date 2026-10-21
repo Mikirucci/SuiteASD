@@ -1,16 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { teamMeta } from "./team-format";
+import { genderLabelOf, toneOfGender } from "./team-format";
 
-describe("teamMeta", () => {
-  it("joins category and gender", () => {
-    expect(teamMeta({ name: "Under 16", category: "U16", gender: "FEMALE" })).toBe("U16, Femminile");
+describe("toneOfGender", () => {
+  it("gives each gender its own colour and a neutral one to the rest", () => {
+    const tiles = [toneOfGender("FEMALE"), toneOfGender("MALE"), toneOfGender("MIXED"), toneOfGender(null)].map((tone) => tone.tile);
+    expect(new Set(tiles).size).toBe(4);
+    expect(toneOfGender("anything")).toEqual(toneOfGender(null));
   });
+});
 
-  it("leaves the category out when it repeats the name", () => {
-    expect(teamMeta({ name: "Serie D", category: "Serie D", gender: "MIXED" })).toBe("Mista");
-  });
-
-  it("is empty when nothing is known", () => {
-    expect(teamMeta({ name: "Open", category: null, gender: null })).toBe("");
+describe("genderLabelOf", () => {
+  it("writes the gender in Italian and says nothing when it is unknown", () => {
+    expect(genderLabelOf({ gender: "FEMALE" })).toBe("Femminile");
+    expect(genderLabelOf({ gender: "MIXED" })).toBe("Mista");
+    expect(genderLabelOf({ gender: null })).toBeNull();
   });
 });

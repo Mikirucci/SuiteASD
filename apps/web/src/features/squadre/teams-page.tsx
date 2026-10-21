@@ -6,11 +6,12 @@ import { Button, DataBoundary, EmptyState, Input, SectionHeading, Select } from 
 import type { Team } from "@/features/tesserati/types";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { usePermission } from "@/hooks/use-permission";
+import { cn } from "@/lib/cn";
 import { pluralize } from "@/lib/format";
-import { useAllTeams, useNextEventByTeam } from "./api";
+import { useAllTeams, useWeekLoadByTeam } from "./api";
 import { DeleteTeamDialog } from "./delete-team-dialog";
 import { TeamCard } from "./team-card";
-import { EMPTY_TEAM_FILTERS, categoryOptions, filterTeams, hasActiveFilters, type TeamFilters } from "./team-filters";
+import { EMPTY_TEAM_FILTERS, filterTeams, hasActiveFilters, type TeamFilters } from "./team-filters";
 import { TeamFormDialog } from "./team-form-dialog";
 import { TEAM_GENDER_OPTIONS, type TeamGender } from "./team-schema";
 
@@ -22,25 +23,26 @@ function countLabel(shown: number, total: number): string {
   return shown === total ? teams : `${shown} di ${teams}`;
 }
 
-/** The teams of the society: cards to open, filters to find one, create, edit, delete. */
+/**
+ * The teams of the society, on two levels: the title, then one row with search, gender and the new-team button, then
+ * the cards, all of the same size and striped with the colour of the gender.
+ */
 export function TeamsPage() {
   const canWrite = usePermission("teams:write");
   const list = useAllTeams();
-  const nextEvents = useNextEventByTeam();
+  const week = useWeekLoadByTeam();
   const [formOpen, setFormOpen] = useState(false);
   // Kept after the dialog closes so that its closing animation does not flash the "new team" form
   const [editing, setEditing] = useState<Team | undefined>(undefined);
   const [deleting, setDeleting] = useState<Team | null>(null);
   const [search, setSearch] = useState(EMPTY_TEAM_FILTERS.q);
-  const [category, setCategory] = useState(EMPTY_TEAM_FILTERS.category);
   const [gender, setGender] = useState(EMPTY_TEAM_FILTERS.gender);
   const debouncedSearch = useDebouncedValue(search);
 
   // Emptying the box applies at once; typing waits for a pause so that the counter is not read at every key
-  const filters: TeamFilters = { q: search === "" ? "" : debouncedSearch, category, gender };
+  const filters: TeamFilters = { q: search === "" ? "" : debouncedSearch, gender };
   const teams = useMemo(() => list.data ?? [], [list.data]);
   const visible = filterTeams(teams, filters);
-  const categories = useMemo(() => categoryOptions(teams), [teams]);
   const filtering = hasActiveFilters(filters);
 
   function openForm(team?: Team) {
@@ -50,12 +52,11 @@ export function TeamsPage() {
 
   function resetFilters() {
     setSearch(EMPTY_TEAM_FILTERS.q);
-    setCategory(EMPTY_TEAM_FILTERS.category);
     setGender(EMPTY_TEAM_FILTERS.gender);
   }
 
   const newButton = canWrite ? (
-    <Button leftIcon={<Plus />} onClick={() => openForm()}>
+    <Button leftIcon={<Plus />} onClick={() => openForm()} className="shrink-0">
       Nuova squadra
     </Button>
   ) : undefined;
@@ -96,48 +97,44 @@ export function TeamsPage() {
       />
 
       {teams.length > 0 ? (
-        <div className="flex flex-col gap-4">
-          {teams.length >= MIN_TEAMS_FOR_FILTERS ? (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <Input
-                label="Cerca squadra"
-                hideLabel
-                type="search"
-                placeholder="Cerca per nome o categoria"
-                leadingIcon={<Search />}
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                className="sm:col-span-2"
-              />
-              <Select
-                label="Categoria"
-                placeholder="Tutte"
-                options={categories.map((value) => ({ value, label: value }))}
-                value={category}
-                onChange={(event) => setCategory(event.target.value)}
-              />
-              <Select
-                label="Genere"
-                placeholder="Tutti"
-                options={TEAM_GENDER_OPTIONS}
-                value={gender}
-                onChange={(event) => setGender(event.target.value as TeamGender | "")}
-              />
-            </div>
-          ) : null}
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p aria-live="polite" className="text-sm font-semibold text-fg-muted">
-              {countLabel(visible.length, teams.length)}
-            </p>
-            <div className="flex flex-wrap items-center gap-2">
-              {filtering && visible.length > 0 ? (
-                <Button variant="ghost" onClick={resetFilters}>
-                  Azzera i filtri
-                </Button>
-              ) : null}
-              {newButton}
-            </div>
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            {teams.length >= MIN_TEAMS_FOR_FILTERS ? (
+              <>
+                <Input
+                  label="Cerca squadra"
+                  hideLabel
+                  type="search"
+                  placeholder="Cerca per nome"
+                  leadingIcon={<Search />}
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  className="sm:flex-1"
+                />
+                <Select
+                  label="Genere"
+                  hideLabel
+                  placeholder="Tutti i generi"
+                  options={TEAM_GENDER_OPTIONS}
+                  value={gender}
+                  onChange={(event) => setGender(event.target.value as TeamGender | "")}
+                  className="sm:w-48"
+                />
+              </>
+            ) : (
+              <div className="sm:flex-1" />
+            )}
+            {newButton}
           </div>
+          {/* Said to screen readers whenever the list changes, shown only when a filter narrows it */}
+          <p aria-live="polite" className={cn("flex items-center gap-3 text-sm font-semibold text-fg-muted", !filtering && "sr-only")}>
+            {countLabel(visible.length, teams.length)}
+            {filtering && visible.length > 0 ? (
+              <Button variant="ghost" size="sm" onClick={resetFilters}>
+                Azzera i filtri
+              </Button>
+            ) : null}
+          </p>
         </div>
       ) : null}
 
@@ -150,12 +147,12 @@ export function TeamsPage() {
         loadingLabel="Caricamento delle squadre"
         skeletonRows={4}
       >
-        <ul aria-label="Squadre" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <ul aria-label="Squadre" className="grid auto-rows-fr gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {visible.map((team) => (
             <li key={team.id}>
               <TeamCard
                 team={team}
-                next={nextEvents}
+                week={week}
                 onEdit={canWrite ? () => openForm(team) : undefined}
                 onDelete={canWrite ? () => setDeleting(team) : undefined}
               />

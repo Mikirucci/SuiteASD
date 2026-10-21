@@ -1,9 +1,9 @@
 import { Shirt } from "lucide-react";
 import { z } from "zod";
 import { Badge } from "@/components/ui";
-import { formatDay } from "@/lib/format";
+import { formatDay, formatEuro } from "@/lib/format";
 import type { ResourceConfig } from "../crud/types";
-import { bodyReader, numberToInput, optionalInteger, optionalText, requiredText } from "../crud/values";
+import { amountToInput, bodyReader, numberToInput, optionalDay, optionalInteger, optionalPositiveAmount, optionalText, requiredText } from "../crud/values";
 import { joinParts } from "../format";
 import type { Kit } from "../types";
 
@@ -15,9 +15,11 @@ const schema = z.object({
   memberId: z.string(),
   memberLabel: z.string(),
   notes: optionalText(500),
+  cost: optionalPositiveAmount(),
+  costDate: optionalDay(),
 });
 
-function kitName(kit: Kit): string {
+export function kitName(kit: Pick<Kit, "item" | "size" | "number">): string {
   return joinParts([kit.item, kit.size, kit.number !== null ? `n. ${kit.number}` : null]);
 }
 
@@ -27,7 +29,8 @@ export const kitsConfig: ResourceConfig<Kit> = {
   writePermission: "kits:write",
   attachmentType: "KIT",
   icon: Shirt,
-  searchLabel: "Cerca per nome del capo",
+  fieldAliases: { costCents: "cost" },
+  searchLabel: "Cerca per capo, taglia o assegnatario",
   copy: {
     plural: "Divise",
     loadingLabel: "Caricamento delle divise",
@@ -50,7 +53,7 @@ export const kitsConfig: ResourceConfig<Kit> = {
     label: "Filtra per assegnazione",
     param: "assigned",
     options: [
-      { value: "", label: "Tutti" },
+      { value: "", label: "Tutte le assegnazioni" },
       { value: "false", label: "In magazzino" },
       { value: "true", label: "Assegnati" },
     ],
@@ -61,6 +64,8 @@ export const kitsConfig: ResourceConfig<Kit> = {
     { name: "number", label: "Numero di maglia", kind: "integer", hint: "Da 0 a 99.", half: true },
     { name: "condition", label: "Condizione", kind: "text", hint: "Per esempio: nuovo, usato." },
     { name: "memberId", label: "Assegnato a", kind: "member", labelName: "memberLabel", hint: "Scegli “Nessuno” per tenerlo in magazzino." },
+    { name: "cost", label: "Costo in euro", kind: "money", hint: "Facoltativo: finisce tra le uscite del bilancio.", half: true },
+    { name: "costDate", label: "Data del costo", kind: "date", hint: "Se la lasci vuota vale oggi.", half: true },
     { name: "notes", label: "Note", kind: "textarea" },
   ],
   schema,
@@ -72,6 +77,8 @@ export const kitsConfig: ResourceConfig<Kit> = {
     memberId: kit?.memberId ?? "",
     memberLabel: kit?.member ? `${kit.member.firstName} ${kit.member.lastName}` : "",
     notes: kit?.notes ?? "",
+    cost: amountToInput(kit?.costCents ?? null),
+    costDate: kit?.costDate ?? "",
   }),
   toBody: (values, mode) => {
     const read = bodyReader(values, mode);
@@ -82,6 +89,8 @@ export const kitsConfig: ResourceConfig<Kit> = {
       condition: read.text("condition"),
       memberId: read.text("memberId"),
       notes: read.text("notes"),
+      costCents: read.amount("cost"),
+      costDate: read.day("costDate"),
     };
   },
   nameOf: kitName,
@@ -92,6 +101,7 @@ export const kitsConfig: ResourceConfig<Kit> = {
         ? `Assegnato a ${kit.member.firstName} ${kit.member.lastName}${kit.assignedAt ? ` dal ${formatDay(kit.assignedAt.slice(0, 10))}` : ""}`
         : "In magazzino",
       kit.condition ? `Condizione: ${kit.condition}` : null,
+      kit.costCents !== null ? `Costo: ${formatEuro(kit.costCents)}${kit.costDate ? ` del ${formatDay(kit.costDate)}` : ""}` : null,
       kit.notes,
     ],
     status: <Badge variant={kit.member ? "brand" : "neutral"}>{kit.member ? "Assegnato" : "In magazzino"}</Badge>,

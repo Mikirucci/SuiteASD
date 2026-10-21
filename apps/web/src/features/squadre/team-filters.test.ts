@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { team } from "@/features/tesserati/test-support";
 import type { Team } from "@/features/tesserati/types";
-import { EMPTY_TEAM_FILTERS, categoryOptions, filterTeams, hasActiveFilters } from "./team-filters";
+import { EMPTY_TEAM_FILTERS, filterTeams, hasActiveFilters } from "./team-filters";
 
 const U14: Team = { ...team("t14", "Under 14", "U14"), gender: "MALE" };
 const U16: Team = { ...team("t16", "Under 16", "U16"), gender: "FEMALE" };
@@ -19,28 +19,18 @@ describe("filterTeams", () => {
     expect(filterTeams(TEAMS, { ...EMPTY_TEAM_FILTERS, q: "  UNDER 16 " })).toEqual([U16, U16_BIS]);
   });
 
-  it("also finds a team by its category", () => {
-    expect(filterTeams(TEAMS, { ...EMPTY_TEAM_FILTERS, q: "u14" })).toEqual([U14]);
-  });
-
-  it("keeps only the chosen category", () => {
-    expect(filterTeams(TEAMS, { ...EMPTY_TEAM_FILTERS, category: "U16" })).toEqual([U16, U16_BIS]);
+  it("looks at the name only, not at the category", () => {
+    expect(filterTeams(TEAMS, { ...EMPTY_TEAM_FILTERS, q: "u14" })).toEqual([]);
+    expect(filterTeams(TEAMS, { ...EMPTY_TEAM_FILTERS, q: "serie" })).toEqual([SERIE_D]);
   });
 
   it("keeps only the chosen gender", () => {
     expect(filterTeams(TEAMS, { ...EMPTY_TEAM_FILTERS, gender: "MIXED" })).toEqual([SERIE_D]);
   });
 
-  it("combines search, category and gender", () => {
-    expect(filterTeams(TEAMS, { q: "blu", category: "U16", gender: "FEMALE" })).toEqual([U16_BIS]);
-    expect(filterTeams(TEAMS, { q: "blu", category: "U14", gender: "FEMALE" })).toEqual([]);
-  });
-});
-
-describe("categoryOptions", () => {
-  it("lists each category once, in natural order, leaving out teams without one", () => {
-    expect(categoryOptions(TEAMS)).toEqual(["Serie D", "U14", "U16"]);
-    expect(categoryOptions([team("a", "A", "U9"), team("b", "B", "U10")])).toEqual(["U9", "U10"]);
+  it("combines search and gender", () => {
+    expect(filterTeams(TEAMS, { q: "blu", gender: "FEMALE" })).toEqual([U16_BIS]);
+    expect(filterTeams(TEAMS, { q: "blu", gender: "MALE" })).toEqual([]);
   });
 });
 
@@ -48,7 +38,6 @@ describe("hasActiveFilters", () => {
   it("is false only when every filter is empty", () => {
     expect(hasActiveFilters(EMPTY_TEAM_FILTERS)).toBe(false);
     expect(hasActiveFilters({ ...EMPTY_TEAM_FILTERS, q: "x" })).toBe(true);
-    expect(hasActiveFilters({ ...EMPTY_TEAM_FILTERS, category: "U14" })).toBe(true);
     expect(hasActiveFilters({ ...EMPTY_TEAM_FILTERS, gender: "MALE" })).toBe(true);
   });
 });

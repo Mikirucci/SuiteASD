@@ -8,6 +8,7 @@ import {
   Handshake,
   Megaphone,
   Receipt,
+  UserCheck,
   UserPlus,
   Wallet,
   type LucideIcon,
@@ -39,6 +40,7 @@ export const NOTIFICATION_TYPES: readonly NotificationType[] = [
   "ADMIN_DOCUMENT_ALERT",
   "ADMIN_DOCUMENT_UPLOADED",
   "ADMIN_NEW_ENROLMENT",
+  "ADMIN_INVITATION_ACCEPTED",
   "ADMIN_SPONSOR_EXPIRING",
 ];
 
@@ -112,6 +114,11 @@ export const TYPE_INFO: Record<NotificationType, NotificationTypeInfo> = {
     label: "Nuove iscrizioni",
     description: "Quando qualcuno si iscrive con il link della società.",
     icon: UserPlus,
+  },
+  ADMIN_INVITATION_ACCEPTED: {
+    label: "Nuovi collaboratori",
+    description: "Quando qualcuno accetta un invito ed entra nella società come allenatore, segreteria o staff.",
+    icon: UserCheck,
   },
   ADMIN_SPONSOR_EXPIRING: {
     label: "Sponsor in scadenza",

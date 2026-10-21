@@ -2,57 +2,81 @@ import { expect, test, type Page } from "@playwright/test";
 import { auditAccessibility } from "./support/axe";
 import { mockQuoteApi } from "./support/quote-fixtures";
 
-/** Lets enter animations (tab content, dialogs) finish so the colour contrast check reads the final colours. */
+/** Lets enter animations (dialogs) finish so the colour contrast check reads the final colours. */
 async function settle(page: Page): Promise<void> {
   await page.waitForTimeout(600);
 }
 
-test.describe("quote e pagamenti, segreteria", () => {
-  test("shows the summary and the status of every member, without accessibility violations", async ({ page }) => {
+test.describe("pagamenti, segreteria", () => {
+  test("shows the report and one card per plan with the three previews, without accessibility violations", async ({ page }) => {
     await mockQuoteApi(page);
     await page.goto("/quote");
 
-    await expect(page.getByRole("heading", { level: 1, name: /Quote incassate, senza rincorrere/ })).toBeVisible();
-    const summary = page.getByText("Incassato", { exact: true }).locator("..");
-    await expect(summary).toContainText(/€\s60/);
-    await expect(page.getByText("Promemoria inviati", { exact: true }).locator("..")).toContainText("2");
+    await expect(page.getByRole("heading", { level: 1, name: /Incassi chiari, piano per piano/ })).toBeVisible();
+    const report = page.getByRole("region", { name: "Rendiconto" });
+    await expect(report.getByText("Incassato", { exact: true }).locator("../..")).toContainText(/€\s60/);
+    await expect(report.getByText("Da incassare", { exact: true }).locator("../..")).toContainText(/€\s180/);
+    await expect(page.getByText("Promemoria inviati")).toHaveCount(0);
 
-    const list = page.getByRole("list", { name: "Quote", exact: true });
-    await expect(list.getByRole("listitem")).toHaveCount(4);
-    await expect(list.getByRole("listitem").filter({ hasText: "Anna Ferri" })).toContainText("Pagato");
-    await expect(list.getByRole("listitem").filter({ hasText: "Anna Ferri" })).toContainText("Ricevuta n. 0146");
-    await expect(list.getByRole("listitem").filter({ hasText: "Chiara Neri" })).toContainText("In attesa");
-    await expect(list.getByRole("listitem").filter({ hasText: "Marta Bianchi" })).toContainText("Scaduto");
+    const card = page.getByRole("list", { name: "Piani", exact: true }).getByRole("listitem");
+    await expect(card).toHaveCount(1);
+    await expect(card.getByRole("link", { name: "Quota novembre" })).toHaveAttribute("href", "/quote/p-nov");
+    await expect(card.getByText("persone in regola").locator("xpath=preceding-sibling::span[1]")).toHaveText("1");
+    await expect(card.getByText("persone in attesa").locator("xpath=preceding-sibling::span[1]")).toHaveText("2");
+    await expect(card.getByText("persone con quote scadute").locator("xpath=preceding-sibling::span[1]")).toHaveText("1");
+
+    // the main page is only the overview: no list of names, no filters
+    await expect(page.getByRole("list", { name: "Quote", exact: true })).toHaveCount(0);
+    await expect(page.getByLabel("Cerca un tesserato")).toHaveCount(0);
+    await expect(page.getByLabel("Squadra")).toHaveCount(0);
 
     await settle(page);
     expect(await auditAccessibility(page)).toEqual([]);
   });
 
-  test("filters by status and by team", async ({ page }) => {
+  test("opens a plan: report, people ordered by name with what they owe, search and filters inside", async ({ page }) => {
     await mockQuoteApi(page);
     await page.goto("/quote");
-    const list = page.getByRole("list", { name: "Quote", exact: true });
-    await expect(list.getByRole("listitem")).toHaveCount(4);
+    await page.getByRole("link", { name: "Quota novembre" }).click();
 
-    await page.getByRole("button", { name: "Scaduto", exact: true }).click();
-    await expect(list.getByRole("listitem")).toHaveCount(1);
-    await expect(list).toContainText("Marta Bianchi");
+    await expect(page.getByRole("heading", { level: 1, name: "Quota novembre" })).toBeVisible();
+    const report = page.getByRole("region", { name: "Rendiconto del piano" });
+    await expect(report.getByText("Incassato", { exact: true }).locator("../..")).toContainText(/€\s60/);
+    await expect(report.getByText("Quote scadute", { exact: true }).locator("../..")).toContainText("1 persona");
 
-    await page.getByRole("button", { name: "Tutte", exact: true }).click();
+    const people = page.getByRole("list", { name: "Persone del piano" }).getByRole("listitem");
+    await expect(people).toHaveCount(4);
+    await expect(people.nth(0)).toContainText("Anna Ferri");
+    await expect(people.nth(0)).toContainText(/€\s0/);
+    await expect(people.nth(0)).toContainText("In regola");
+    await expect(people.filter({ hasText: "Chiara Neri" })).toContainText("In attesa");
+    await expect(people.filter({ hasText: "Marta Bianchi" })).toContainText("Scaduta");
+
+    await page.getByRole("button", { name: "Scaduta", exact: true }).click();
+    await expect(people).toHaveCount(1);
+    await expect(people).toContainText("Marta Bianchi");
+    await expect(report.getByText("In attesa", { exact: true }).locator("../..")).toContainText("2 persone");
+
+    await page.getByRole("button", { name: "Tutti", exact: true }).click();
     await page.getByLabel("Squadra").selectOption({ label: "U16" });
-    await expect(list.getByRole("listitem")).toHaveCount(2);
-    await expect(list).not.toContainText("Anna Ferri");
+    await expect(people).toHaveCount(2);
+    await expect(page.getByRole("list", { name: "Persone del piano" })).not.toContainText("Anna Ferri");
 
     await page.getByLabel("Cerca un tesserato").fill("sara");
-    await expect(list.getByRole("listitem")).toHaveCount(1);
-    await expect(list).toContainText("Sara Conti");
+    await expect(people).toHaveCount(1);
+    await expect(people).toContainText("Sara Conti");
+
+    await settle(page);
+    expect(await auditAccessibility(page)).toEqual([]);
   });
 
-  test("registers a payment with an idempotency key, issues the receipt and downloads it", async ({ page }) => {
+  test("registers a payment with an idempotency key, issues the receipt and updates the plan", async ({ page }) => {
     const api = await mockQuoteApi(page);
-    await page.goto("/quote");
+    await page.goto("/quote/p-nov");
 
     await page.getByRole("button", { name: /Chiara Neri/ }).click();
+    const fees = page.getByRole("dialog", { name: "Quote di Chiara Neri" });
+    await fees.getByRole("button", { name: /^Chiara Neri/ }).click();
     const card = page.getByRole("dialog", { name: "Chiara Neri" });
     await settle(page);
     expect(await auditAccessibility(page)).toEqual([]);
@@ -79,17 +103,16 @@ test.describe("quote e pagamenti, segreteria", () => {
     expect((await download).suggestedFilename()).toBe("ricevuta-0147.pdf");
 
     await page.keyboard.press("Escape");
-    await expect(page.getByText("Incassato", { exact: true }).locator("..")).toContainText(/€\s120/);
-    await expect(page.getByRole("list", { name: "Quote", exact: true }).getByRole("listitem").filter({ hasText: "Chiara Neri" })).toContainText("Pagato");
+    await page.keyboard.press("Escape");
+    const report = page.getByRole("region", { name: "Rendiconto del piano" });
+    await expect(report.getByText("Incassato", { exact: true }).locator("../..")).toContainText(/€\s120/);
+    await expect(page.getByRole("list", { name: "Persone del piano" }).getByRole("listitem").filter({ hasText: "Chiara Neri" })).toContainText("In regola");
   });
 
-  test("creates a fee plan from the plans tab", async ({ page }) => {
+  test("creates a fee plan from the overview", async ({ page }) => {
     await mockQuoteApi(page);
     await page.goto("/quote");
-    await page.getByRole("tab", { name: "Piani quota" }).click();
-    await expect(page.getByRole("list", { name: "Piani quota" })).toContainText("Quota novembre");
     await settle(page);
-    expect(await auditAccessibility(page)).toEqual([]);
 
     await page.getByRole("button", { name: "Nuovo piano" }).click();
     const dialog = page.getByRole("dialog", { name: "Nuovo piano quota" });
@@ -100,12 +123,12 @@ test.describe("quote e pagamenti, segreteria", () => {
   });
 });
 
-test.describe("quote e pagamenti, genitore", () => {
+test.describe("pagamenti, genitore", () => {
   test("sees only the own fees and can download receipts, without staff tools", async ({ page }) => {
     await mockQuoteApi(page, "athlete");
     await page.goto("/area-personale/pagamenti");
 
-    await expect(page.getByRole("heading", { level: 1, name: /Quote incassate/ })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: /Incassi chiari/ })).toBeVisible();
     const list = page.getByRole("list", { name: "Quote", exact: true });
     await expect(list.getByRole("listitem")).toHaveCount(2);
     await expect(list).not.toContainText("Marta Bianchi");
@@ -130,17 +153,23 @@ test.describe("quote e pagamenti, genitore", () => {
   });
 });
 
-test.describe("quote e pagamenti su telefono", () => {
+test.describe("pagamenti su telefono", () => {
   test.use({ viewport: { width: 320, height: 640 } });
 
-  test("fits a 320px screen and has no accessibility violations", async ({ page }) => {
+  test("fits a 320px screen and has no accessibility violations, on the overview and inside a plan", async ({ page }) => {
     await mockQuoteApi(page);
     await page.goto("/quote");
-    await expect(page.getByRole("list", { name: "Quote", exact: true }).getByRole("listitem")).toHaveCount(4);
+    await expect(page.getByRole("link", { name: "Quota novembre" })).toBeVisible();
     await settle(page);
 
-    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
-    expect(overflow).toBeLessThanOrEqual(0);
+    const overflow = () => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(await overflow()).toBeLessThanOrEqual(0);
+    expect(await auditAccessibility(page)).toEqual([]);
+
+    await page.getByRole("link", { name: "Quota novembre" }).click();
+    await expect(page.getByRole("list", { name: "Persone del piano" }).getByRole("listitem")).toHaveCount(4);
+    await settle(page);
+    expect(await overflow()).toBeLessThanOrEqual(0);
     expect(await auditAccessibility(page)).toEqual([]);
 
     const row = page.getByRole("button", { name: /Marta Bianchi/ });

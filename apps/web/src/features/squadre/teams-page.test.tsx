@@ -77,7 +77,7 @@ async function openFilteredPage(teams: Team[] = [U16, SERIE_D, OPEN, U14]) {
 }
 
 describe("TeamsPage", () => {
-  it("shows a loading state, then the teams with category, gender, members and description", async () => {
+  it("shows a loading state, then the teams with name, gender, members and commitments of the week", async () => {
     stubApi(routes());
     const { container } = renderWithProviders(<TeamsPage />);
     expect(screen.getByRole("status", { name: "Caricamento delle squadre" })).toBeInTheDocument();
@@ -85,15 +85,17 @@ describe("TeamsPage", () => {
     const list = await screen.findByRole("list", { name: "Squadre" });
     const [first, second, third] = within(list).getAllByRole("listitem");
     expect(first).toHaveTextContent("Under 16");
-    expect(first).toHaveTextContent("U16");
+    // Only the name identifies a team on the card: no category, no monogram
+    expect(first).not.toHaveTextContent("U16");
     expect(first).toHaveTextContent("Femminile");
     expect(first).toHaveTextContent("14 tesserati");
-    expect(first).toHaveTextContent("Martedì e giovedì, palestra comunale");
+    // The long description is left to the team page: every card keeps the same three bands
+    expect(first).not.toHaveTextContent("Martedì e giovedì, palestra comunale");
     expect(second).toHaveTextContent("Mista");
     expect(second).toHaveTextContent("1 tesserato");
-    // The category is left out when it repeats the name
     expect(within(second as HTMLElement).getAllByText("Serie D")).toHaveLength(1);
     expect(third).toHaveTextContent("0 tesserati");
+    await waitFor(() => expect(third).toHaveTextContent("0 impegni questa settimana"));
     expect(screen.getByText("3 squadre")).toBeInTheDocument();
     await expectNoA11yViolations(container);
   });
@@ -119,20 +121,30 @@ describe("TeamsPage", () => {
     expect(await screen.findByRole("dialog", { name: "Modifica squadra" })).toBeInTheDocument();
   });
 
-  it("shows the next event of each team and says when there is none", async () => {
+  it("counts the commitments of the current week for each team, with a single request", async () => {
     const api = stubApi(routes({ "GET /events": () => json(200, page([NEXT_MATCH, LATER_TRAINING])) }));
     renderWithProviders(<TeamsPage />);
     const list = await screen.findByRole("list", { name: "Squadre" });
     const [first, second] = within(list).getAllByRole("listitem");
-    await waitFor(() => expect(first).toHaveTextContent("Aquile contro Delfini"));
-    // The first event of the team wins, the later training does not replace it
-    expect(first).not.toHaveTextContent("Allenamento del giovedì");
-    expect(first).toHaveTextContent("14 nov");
-    expect(second).toHaveTextContent("Nessun evento nei prossimi 30 giorni");
-    const request = api.calls.find((call) => call.path === "/events");
-    expect(request?.query.get("status")).toBe("SCHEDULED");
-    expect(request?.query.get("from")).toBeTruthy();
-    expect(request?.query.get("to")).toBeTruthy();
+    await waitFor(() => expect(first).toHaveTextContent("2 impegni questa settimana"));
+    // Only the total: neither the title nor the day of the events is repeated on the card
+    expect(first).not.toHaveTextContent("Aquile contro Delfini");
+    expect(second).toHaveTextContent("0 impegni questa settimana");
+    const requests = api.calls.filter((call) => call.path === "/events");
+    expect(requests).toHaveLength(1);
+    expect(requests[0]?.query.get("status")).toBe("SCHEDULED");
+    const from = new Date(requests[0]?.query.get("from") ?? "");
+    const to = new Date(requests[0]?.query.get("to") ?? "");
+    // From Monday to the next Monday, in local time
+    expect(from.getDay()).toBe(1);
+    expect(Math.round((to.getTime() - from.getTime()) / 86_400_000)).toBe(7);
+  });
+
+  it("writes the singular for a single commitment", async () => {
+    stubApi(routes({ "GET /events": () => json(200, page([NEXT_MATCH])) }));
+    renderWithProviders(<TeamsPage />);
+    const list = await screen.findByRole("list", { name: "Squadre" });
+    await waitFor(() => expect(within(list).getAllByRole("listitem")[0]).toHaveTextContent("1 impegno questa settimana"));
   });
 
   it("still lists the teams when the events cannot be loaded, without claiming there are none", async () => {
@@ -304,25 +316,38 @@ describe("TeamsPage filters", () => {
     expect(list).not.toHaveTextContent("Serie D");
   });
 
-  it("filters by category", async () => {
+  it("searches by name only: there is no category filter and the category is not searched", async () => {
     await openFilteredPage();
-    const category = screen.getByLabelText("Categoria");
-    expect(within(category).getAllByRole("option").map((option) => option.textContent)).toEqual([
-      "Tutte",
-      "Serie D",
-      "U14",
-      "U16",
+    expect(screen.queryByLabelText("Categoria")).not.toBeInTheDocument();
+    await userEvent.type(screen.getByRole("searchbox", { name: "Cerca squadra" }), "U14");
+    expect(await screen.findByRole("heading", { name: "Nessuna squadra trovata" })).toBeInTheDocument();
+  });
+
+  it("puts search, gender and the new-team button on one row, the gender as a menu", async () => {
+    await openFilteredPage();
+    const search = screen.getByRole("searchbox", { name: "Cerca squadra" });
+    const gender = screen.getByLabelText("Genere");
+    const create = screen.getByRole("button", { name: "Nuova squadra" });
+    expect(gender.tagName).toBe("SELECT");
+    expect(within(gender).getAllByRole("option").map((option) => option.textContent)).toEqual([
+      "Tutti i generi",
+      "Femminile",
+      "Maschile",
+      "Mista",
     ]);
-    await userEvent.selectOptions(category, "U14");
-    expect(await screen.findByText("1 di 4 squadre")).toBeInTheDocument();
-    expect(within(screen.getByRole("list", { name: "Squadre" })).getByRole("link")).toHaveAccessibleName("Under 14");
+    // The button is a direct child of the row that also holds the other two controls
+    const row = create.parentElement as HTMLElement;
+    expect(row).toContainElement(search);
+    expect(row).toContainElement(gender);
+    expect(search.compareDocumentPosition(gender) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(gender.compareDocumentPosition(create) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("filters by gender", async () => {
     await openFilteredPage();
     await userEvent.selectOptions(screen.getByLabelText("Genere"), "MIXED");
     expect(await screen.findByText("1 di 4 squadre")).toBeInTheDocument();
-    expect(screen.getByRole("list", { name: "Squadre" })).toHaveTextContent("Serie D");
+    expect(within(screen.getByRole("list", { name: "Squadre" })).getByRole("link")).toHaveAccessibleName("Serie D");
   });
 
   it("tells a search with no result apart from having no teams, and resets from there", async () => {
@@ -335,7 +360,6 @@ describe("TeamsPage filters", () => {
     await userEvent.click(screen.getByRole("button", { name: "Azzera i filtri" }));
     expect(await screen.findByText("4 squadre")).toBeInTheDocument();
     expect(screen.getByRole("searchbox", { name: "Cerca squadra" })).toHaveValue("");
-    expect(screen.getByLabelText("Categoria")).toHaveValue("");
     expect(screen.getByLabelText("Genere")).toHaveValue("");
   });
 

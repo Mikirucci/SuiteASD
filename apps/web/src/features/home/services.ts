@@ -31,7 +31,7 @@ export const SERVICES: readonly ServiceDefinition[] = [
   },
   {
     id: "quote",
-    title: "Quote e pagamenti",
+    title: "Pagamenti",
     purpose: "Cosa è stato pagato, cosa manca e il bilancio.",
     mainId: "quote",
     linkIds: ["quote", "bilancio"],

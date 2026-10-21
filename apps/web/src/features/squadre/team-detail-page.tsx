@@ -64,7 +64,6 @@ export function TeamDetailPage({ id }: { id: string }) {
   const router = useRouter();
   const canWrite = usePermission("teams:write");
   const canReadMembers = usePermission("members:read");
-  const canWriteMembers = usePermission("members:write");
   const canReadEvents = usePermission("events:read");
   const canReadFees = usePermission("payments:read");
   const query = useTeam(id);
@@ -112,19 +111,14 @@ export function TeamDetailPage({ id }: { id: string }) {
               ) : null}
             </div>
 
-            <div className={cn("grid items-start gap-6", canReadMembers && hasSidePanels && "lg:grid-cols-3")}>
-              {canReadMembers ? (
-                <div className="min-w-0 lg:col-span-2">
-                  <TeamRoster team={team} showFees={canReadFees} canAddMembers={canWriteMembers} />
-                </div>
-              ) : null}
-              {hasSidePanels ? (
-                <div className="flex min-w-0 flex-col gap-6">
-                  {canReadEvents ? <TeamAppointments teamId={team.id} /> : null}
-                  {canReadFees ? <TeamFees teamId={team.id} /> : null}
-                </div>
-              ) : null}
-            </div>
+            {hasSidePanels ? (
+              <div className={cn("grid gap-4", canReadEvents && canReadFees && "md:grid-cols-2")}>
+                {canReadEvents ? <TeamAppointments teamId={team.id} /> : null}
+                {canReadFees ? <TeamFees teamId={team.id} /> : null}
+              </div>
+            ) : null}
+
+            {canReadMembers ? <TeamRoster team={team} showFees={canReadFees} canAddMembers={canWrite} /> : null}
 
             {canWrite ? (
               <>

@@ -6,15 +6,14 @@ import type { CalendarEvent } from "@/features/calendario/types";
 import type { Fee, FeesSummary } from "@/features/quote/types";
 import type { CursorPage, MemberListItem, Team } from "@/features/tesserati/types";
 import { useApiMutation, useApiQuery } from "@/lib/api";
-import { addDays, toDayKey } from "@/lib/dates";
+import { addDays, startOfWeek, toDayKey } from "@/lib/dates";
 import { useAllPages } from "@/lib/use-all-pages";
 import { useCursorQuery } from "@/lib/use-cursor-query";
 import type { CreateTeamBody, UpdateTeamBody } from "./team-schema";
 
 const ROSTER_PAGE_SIZE = 25;
-const NEXT_APPOINTMENTS = 5;
-/** How far ahead the cards look for the next event of each team. */
-export const UPCOMING_DAYS = 30;
+const NEXT_APPOINTMENTS = 3;
+const PICKER_PAGE_SIZE = 25;
 
 /** Every team of the society (a club has tens, not thousands): filters and counters work on the whole list. */
 export function useAllTeams() {
@@ -25,30 +24,29 @@ export function useTeam(id: string) {
   return useApiQuery<Team>(["teams", "detail", id], `/teams/${id}`);
 }
 
-export type NextEventState =
+export type WeekLoadState =
   | { status: "pending" }
   /** The events could not be loaded: the cards say nothing rather than claiming there are none. */
   | { status: "unavailable" }
-  | { status: "ready"; byTeam: ReadonlyMap<string, CalendarEvent> };
+  | { status: "ready"; byTeam: ReadonlyMap<string, number> };
 
-/** The first scheduled event of each team in the coming days, from a single request. */
-export function useNextEventByTeam(): NextEventState {
+/** How many events each team has this week (Monday to Sunday), from a single request. */
+export function useWeekLoadByTeam(): WeekLoadState {
   // Fixed when the page opens: a new instant on every render would change the request forever
   const [span] = useState(() => {
-    const now = new Date();
-    return { day: toDayKey(now), from: now.toISOString(), to: addDays(now, UPCOMING_DAYS).toISOString() };
+    const monday = startOfWeek(new Date());
+    return { day: toDayKey(monday), from: monday.toISOString(), to: addDays(monday, 7).toISOString() };
   });
-  const events = useAllPages<CalendarEvent>(["events", "next-by-team", span.day], "/events", {
+  const events = useAllPages<CalendarEvent>(["events", "week-by-team", span.day], "/events", {
     from: span.from,
     to: span.to,
     status: "SCHEDULED",
   });
-  return useMemo<NextEventState>(() => {
+  return useMemo<WeekLoadState>(() => {
     if (events.isPending) return { status: "pending" };
     if (events.error || !events.data) return { status: "unavailable" };
-    const byTeam = new Map<string, CalendarEvent>();
-    // The API answers by start time: the first event met for a team is its next one
-    for (const event of events.data) if (event.team && !byTeam.has(event.team.id)) byTeam.set(event.team.id, event);
+    const byTeam = new Map<string, number>();
+    for (const event of events.data) if (event.team) byTeam.set(event.team.id, (byTeam.get(event.team.id) ?? 0) + 1);
     return { status: "ready", byTeam };
   }, [events.isPending, events.error, events.data]);
 }
@@ -65,7 +63,7 @@ export function useTeamRoster(teamId: string, search: string, enabled: boolean) 
 
 /** The next appointments of a team. */
 export function useTeamAppointments(teamId: string, enabled: boolean) {
-  // Fixed when the page opens, see useNextEventByTeam
+  // Fixed when the page opens, see useWeekLoadByTeam
   const [opened] = useState(() => {
     const now = new Date();
     return { day: toDayKey(now), from: now.toISOString() };
@@ -157,4 +155,28 @@ export function useDeleteTeam() {
       return invalidate();
     },
   });
+}
+
+/** Members to choose from when filling a team: the first page of the society, narrowed by a search on the name. */
+export function useMemberPicker(search: string, enabled: boolean) {
+  return useCursorQuery<MemberListItem>(
+    ["members", "team-picker", search],
+    "/members",
+    { q: search, limit: PICKER_PAGE_SIZE },
+    { enabled },
+  );
+}
+
+export interface AddTeamMembersResult {
+  added: number;
+  alreadyInTeam: number;
+}
+
+/** Puts several members in a team with one request. */
+export function useAddTeamMembers(teamId: string) {
+  const invalidate = useInvalidateTeams();
+  return useApiMutation(
+    (memberIds: string[], client) => client.post<AddTeamMembersResult>(`/teams/${teamId}/members`, { memberIds }),
+    { onSuccess: invalidate },
+  );
 }

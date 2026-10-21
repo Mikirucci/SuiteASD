@@ -22,7 +22,7 @@ import {
 const FORM_ID = "invite-form";
 
 const inviteSchema = z.object({
-  email: z.email("Inserisci un'email valida").max(254, "L'email è troppo lunga"),
+  label: z.string().trim().max(80, "Massimo 80 caratteri"),
   role: z.enum(COLLABORATOR_ROLES),
 });
 
@@ -46,7 +46,7 @@ function InviteForm({ roles, onCreated, onBusyChange }: InviteFormProps) {
   } = useForm<InviteValues>({
     resolver: zodResolver(inviteSchema),
     // The role with the fewest powers is the safe default
-    defaultValues: { email: "", role: roles.includes("ALLENATORE") ? "ALLENATORE" : (roles[0] ?? "ALLENATORE") },
+    defaultValues: { label: "", role: roles.includes("ALLENATORE") ? "ALLENATORE" : (roles[0] ?? "ALLENATORE") },
   });
   const role = useWatch({ control, name: "role" });
 
@@ -54,12 +54,12 @@ function InviteForm({ roles, onCreated, onBusyChange }: InviteFormProps) {
     setFormError(null);
     onBusyChange(true);
     try {
-      onCreated(await create.mutateAsync({ email: values.email.trim(), role: values.role }));
+      onCreated(await create.mutateAsync({ role: values.role, ...(values.label ? { label: values.label } : {}) }));
     } catch (error) {
       setFormError(
         error instanceof ApiError && error.status === 403
           ? "Non puoi invitare una persona con questo ruolo."
-          : applyServerErrors(error, setError, ["email", "role"]),
+          : applyServerErrors(error, setError, ["label", "role"]),
       );
     } finally {
       onBusyChange(false);
@@ -69,16 +69,6 @@ function InviteForm({ roles, onCreated, onBusyChange }: InviteFormProps) {
   return (
     <form id={FORM_ID} onSubmit={onSubmit} noValidate aria-label="Nuovo invito" className="flex flex-col gap-4 p-1">
       {formError ? <Alert tone="danger">{formError}</Alert> : null}
-      <Input
-        label="Email della persona"
-        type="email"
-        inputMode="email"
-        required
-        autoComplete="off"
-        hint="Con questa email creerà il suo accesso."
-        error={errors.email?.message}
-        {...register("email")}
-      />
       <Select
         label="Ruolo"
         required
@@ -86,6 +76,15 @@ function InviteForm({ roles, onCreated, onBusyChange }: InviteFormProps) {
         hint={ROLE_HINT[role]}
         error={errors.role?.message}
         {...register("role")}
+      />
+      <Input
+        label="Per chi è"
+        maxLength={80}
+        autoComplete="off"
+        placeholder="Ad esempio Marco, nuovo allenatore U14"
+        hint="Facoltativo: serve a te per riconoscere l'invito nell'elenco."
+        error={errors.label?.message}
+        {...register("label")}
       />
     </form>
   );
@@ -98,7 +97,7 @@ function InviteResult({ invitation }: { invitation: CreatedInvitation }) {
   async function copy() {
     try {
       await navigator.clipboard.writeText(link);
-      toast({ title: "Link copiato", description: "Incollalo in un messaggio o in una mail.", tone: "success" });
+      toast({ title: "Link copiato", description: "Incollalo in un messaggio.", tone: "success" });
     } catch {
       toast({ title: "Non sono riuscito a copiarlo", description: "Selezionalo e copialo a mano.", tone: "danger" });
     }
@@ -106,8 +105,8 @@ function InviteResult({ invitation }: { invitation: CreatedInvitation }) {
 
   return (
     <div className="flex flex-col gap-4 p-1">
-      <Alert tone="success" title="Invito creato">
-        {invitation.email} entrerà come {ROLE_LABEL[invitation.role].toLowerCase()}.
+      <Alert tone="success" title="Link pronto">
+        {invitation.label ? `${invitation.label}: ` : ""}entrerà come {ROLE_LABEL[invitation.role].toLowerCase()}.
       </Alert>
       <div className="flex flex-col gap-2">
         <p className="text-sm font-bold text-fg">Il link da mandare</p>
@@ -119,9 +118,9 @@ function InviteResult({ invitation }: { invitation: CreatedInvitation }) {
         </div>
       </div>
       <Alert tone="info">
-        L&apos;app non invia l&apos;invito da sola: mandalo tu, per esempio su WhatsApp o per email. Il link vale fino
-        al {formatDateTime(invitation.expiresAt)} e si vede solo adesso; se lo perdi, revoca l&apos;invito e creane uno
-        nuovo.
+        Per ora l&apos;app non invia email: copia il link e mandalo tu, per esempio su WhatsApp. Chi lo apre scrive nome,
+        email e password ed entra. Il link vale fino al {formatDateTime(invitation.expiresAt)} e si vede solo adesso; se
+        lo perdi, revoca l&apos;invito e creane uno nuovo.
       </Alert>
     </div>
   );
@@ -142,11 +141,11 @@ export function InviteDialog({ open, onOpenChange, roles }: InviteDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        title={created ? "Invito pronto" : "Invita una persona"}
+        title={created ? "Link pronto" : "Invita una persona"}
         description={
           created
             ? undefined
-            : "Sceglie la password quando apre il link; tu decidi il ruolo, cioè cosa potrà vedere e fare."
+            : "Crei un link per un ruolo e lo mandi tu. Chi lo apre sceglie nome, email e password; tu decidi cosa potrà vedere e fare."
         }
         footer={
           created ? (
@@ -159,7 +158,7 @@ export function InviteDialog({ open, onOpenChange, roles }: InviteDialogProps) {
                 <Button variant="secondary">Annulla</Button>
               </DialogClose>
               <Button type="submit" form={FORM_ID} loading={busy}>
-                Crea l&apos;invito
+                Crea il link
               </Button>
             </>
           )

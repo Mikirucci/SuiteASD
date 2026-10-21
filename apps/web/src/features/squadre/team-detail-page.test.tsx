@@ -155,19 +155,20 @@ describe("TeamDetailPage", () => {
     expect(api.calls.find((call) => call.path === "/members")?.query.get("teamId")).toBe("t16");
   });
 
-  it("explains an empty roster and points to the Tesserati page to fill it", async () => {
+  it("explains an empty roster and offers to add athletes right here", async () => {
     stubApi(routes({ "GET /members": () => json(200, page([])) }));
     renderWithProviders(<TeamDetailPage id="t16" />);
     expect(await screen.findByRole("heading", { name: "Nessun tesserato in questa squadra" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Vai ai tesserati" })).toHaveAttribute("href", "/tesserati");
+    await userEvent.click(screen.getByRole("button", { name: "Aggiungi atleti" }));
+    expect(await screen.findByRole("dialog", { name: "Aggiungi atleti a Under 16" })).toBeInTheDocument();
   });
 
-  it("does not offer the Tesserati link to who cannot write members", async () => {
+  it("does not offer to add athletes to who cannot write teams", async () => {
     mocks.permissions = ["teams:read", "members:read"];
     stubApi(routes({ "GET /members": () => json(200, page([])) }));
     renderWithProviders(<TeamDetailPage id="t16" />);
     expect(await screen.findByRole("heading", { name: "Nessun tesserato in questa squadra" })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Vai ai tesserati" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Aggiungi atleti" })).not.toBeInTheDocument();
   });
 
   it("searches the roster by name and tells when nobody matches", async () => {
@@ -265,7 +266,7 @@ describe("TeamDetailPage", () => {
     expect(api.calls.some((call) => call.path === "/members")).toBe(false);
   });
 
-  it("lists the next appointments (at most five) with a link to the calendar", async () => {
+  it("lists the next three appointments with a quiet link to the whole calendar", async () => {
     const api = stubApi(
       routes({
         "GET /events": () =>
@@ -283,12 +284,14 @@ describe("TeamDetailPage", () => {
     await waitFor(() => expect(block).toHaveTextContent("Allenamento del martedì"));
     expect(block).toHaveTextContent("Allenamento del giovedì");
     expect(block).toHaveTextContent("Palestra comunale");
-    expect(within(block).getByRole("link", { name: "Apri il calendario" })).toHaveAttribute("href", "/calendario");
+    expect(within(block).getByRole("link", { name: "Vedi tutti gli appuntamenti" })).toHaveAttribute("href", "/calendario");
+    expect(within(block).queryByRole("button")).not.toBeInTheDocument();
     const request = api.calls.find((call) => call.path === "/events");
     expect(request?.query.get("teamId")).toBe("t16");
     expect(request?.query.get("status")).toBe("SCHEDULED");
-    expect(request?.query.get("limit")).toBe("5");
-    expect(request?.query.get("from")).toBeTruthy();
+    expect(request?.query.get("limit")).toBe("3");
+    // "Next" means from this moment on, so past events never take a place
+    expect(Math.abs(new Date(request?.query.get("from") ?? "").getTime() - Date.now())).toBeLessThan(60_000);
   });
 
   it("says there is nothing scheduled when the team has no appointments", async () => {

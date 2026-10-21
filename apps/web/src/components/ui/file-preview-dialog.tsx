@@ -77,7 +77,7 @@ function PreviewContent({ title, fileName, mimeType, load }: Omit<FilePreviewDia
     <DialogContent
       className="max-w-3xl"
       title={title}
-      description={fileName}
+      description={fileName === title ? undefined : fileName}
       footer={
         state.status === "ready" ? (
           <Button

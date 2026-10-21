@@ -263,14 +263,16 @@ describe("NotifichePage, preferenze", () => {
     });
     renderWithQuery(<NotifichePage />);
     const filter = await screen.findByLabelText("Tipo di notifica");
-    await waitFor(() => expect(within(filter).getAllByRole("option")).toHaveLength(8));
+    await waitFor(() => expect(within(filter).getAllByRole("option")).toHaveLength(9));
     expect(within(filter).getByRole("option", { name: "Pagamenti ricevuti" })).toBeInTheDocument();
+    expect(within(filter).getByRole("option", { name: "Nuovi collaboratori" })).toBeInTheDocument();
     expect(within(filter).queryByRole("option", { name: "Convocazioni" })).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("tab", { name: "Preferenze" }));
     const list = await screen.findByRole("list", { name: "Preferenze per tipo di avviso" });
-    expect(within(list).getAllByRole("listitem")).toHaveLength(7);
+    expect(within(list).getAllByRole("listitem")).toHaveLength(8);
     expect(within(list).getByText("Nuove iscrizioni")).toBeInTheDocument();
+    expect(within(list).getByText("Nuovi collaboratori")).toBeInTheDocument();
     expect(within(list).queryByText("Convocazioni")).not.toBeInTheDocument();
   });
 

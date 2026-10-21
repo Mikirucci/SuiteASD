@@ -69,7 +69,7 @@ describe("PersonalDocuments", () => {
     expect(certificate).toHaveTextContent("In scadenza");
     expect(certificate).toHaveTextContent("certificato-conti.pdf · 240 KB");
     expect(within(certificate as HTMLElement).getByRole("button", { name: "Carica la nuova versione di Certificato medico" })).toBeInTheDocument();
-    expect(within(certificate as HTMLElement).getByRole("button", { name: "Scarica Certificato medico" })).toBeInTheDocument();
+    expect(within(certificate as HTMLElement).getByRole("button", { name: "Altre azioni di Certificato medico" })).toBeInTheDocument();
     expect(within(certificate as HTMLElement).getByRole("button", { name: "Apri Certificato medico" })).toBeInTheDocument();
     expect(form).toHaveTextContent("In regola");
     expect(privacy).toHaveTextContent("Privacy e liberatoria");
@@ -210,7 +210,8 @@ describe("PersonalDocuments", () => {
       "GET /documents/doc-MEDICAL_CERTIFICATE/file": () => ({ body: "%PDF-1.4", headers: { "content-type": "application/pdf" } }),
     });
     renderScreen(<PersonalDocuments />);
-    await userEvent.click(await screen.findByRole("button", { name: "Scarica Certificato medico" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Altre azioni di Certificato medico" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Scarica Certificato medico" }));
     await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
     expect(api.calls.some((call) => call.path === "/documents/doc-MEDICAL_CERTIFICATE/file")).toBe(true);
   });

@@ -51,7 +51,7 @@ export const staffConfig: ResourceConfig<StaffMember> = {
     label: "Filtra per ruolo",
     param: "role",
     options: [
-      { value: "", label: "Tutti" },
+      { value: "", label: "Tutti i ruoli" },
       { value: "COACH", label: "Allenatori" },
       { value: "MANAGER", label: "Dirigenti" },
       { value: "OTHER", label: "Altro" },

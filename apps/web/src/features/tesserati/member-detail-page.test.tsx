@@ -166,7 +166,8 @@ describe("MemberDetailPage", () => {
       }),
     });
     renderScreen(<MemberDetailPage id="m-sara" />);
-    await userEvent.click(await screen.findByRole("button", { name: "Scarica Certificato medico" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Altre azioni di Certificato medico" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Scarica Certificato medico" }));
     await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
     expect(calls.some((call) => call.path === "/documents/doc-1/file")).toBe(true);
   });
@@ -201,7 +202,8 @@ describe("MemberDetailPage", () => {
   it("deletes a document after confirmation", async () => {
     const { calls } = baseApi({ "DELETE /documents/doc-1": () => ({ status: 204 }) });
     renderScreen(<MemberDetailPage id="m-sara" />);
-    await userEvent.click(await screen.findByRole("button", { name: "Elimina Certificato medico" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Altre azioni di Certificato medico" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Elimina Certificato medico" }));
     const dialog = await screen.findByRole("dialog", { name: "Eliminare Certificato medico?" });
     await userEvent.click(within(dialog).getByRole("button", { name: "Elimina documento" }));
     await waitFor(() => expect(calls.some((call) => call.method === "DELETE")).toBe(true));
@@ -253,9 +255,13 @@ describe("MemberDetailPage", () => {
     mocks.permissions = ATHLETE_PERMISSIONS;
     baseApi();
     renderScreen(<MemberDetailPage id="m-sara" />);
-    expect(await screen.findByRole("button", { name: "Scarica Certificato medico" })).toBeInTheDocument();
-    for (const name of ["Modifica", "Elimina", "Aggiungi documento", "Sostituisci file di Certificato medico"]) {
+    await userEvent.click(await screen.findByRole("button", { name: "Altre azioni di Certificato medico" }));
+    expect(await screen.findByRole("menuitem", { name: "Scarica Certificato medico" })).toBeInTheDocument();
+    for (const name of ["Modifica", "Elimina", "Aggiungi documento", "Carica file di Certificato medico"]) {
       expect(screen.queryByRole("button", { name })).not.toBeInTheDocument();
+    }
+    for (const name of ["Modifica Certificato medico", "Elimina Certificato medico", "Sostituisci file di Certificato medico"]) {
+      expect(screen.queryByRole("menuitem", { name })).not.toBeInTheDocument();
     }
   });
 

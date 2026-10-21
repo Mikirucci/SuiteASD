@@ -1,14 +1,29 @@
 import type { Team } from "@/features/tesserati/types";
-import { TEAM_GENDER_LABEL, isTeamGender } from "./team-schema";
+import { TEAM_GENDER_LABEL, isTeamGender, type TeamGender } from "./team-schema";
 
 export function genderLabelOf(team: Pick<Team, "gender">): string | null {
   return isTeamGender(team.gender) ? TEAM_GENDER_LABEL[team.gender] : null;
 }
 
-/** The quiet line under a team name: category (unless it repeats the name) and gender, "U16, Femminile". */
-export function teamMeta(team: Pick<Team, "name" | "category" | "gender">): string {
-  const category = team.category && team.category !== team.name ? team.category : null;
-  return [category, genderLabelOf(team)].filter((part): part is string => Boolean(part)).join(", ");
+/** Colour of a team in the cards and in the gender filter; the gender is always written next to it. */
+export interface TeamTone {
+  /** Solid background of the stripe on the card. */
+  tile: string;
+  /** Tinted chip with the gender label. */
+  chip: string;
+  /** Small dot of the filter pill. */
+  dot: string;
+}
+
+const TEAM_TONES: Record<TeamGender | "NONE", TeamTone> = {
+  FEMALE: { tile: "bg-avatar-rose", chip: "bg-avatar-rose/10 text-avatar-rose", dot: "bg-avatar-rose" },
+  MALE: { tile: "bg-avatar-blue", chip: "bg-avatar-blue/10 text-avatar-blue", dot: "bg-avatar-blue" },
+  MIXED: { tile: "bg-avatar-emerald", chip: "bg-avatar-emerald/10 text-avatar-emerald", dot: "bg-avatar-emerald" },
+  NONE: { tile: "bg-ink-700", chip: "bg-ink-100 text-ink-700", dot: "bg-ink-700" },
+};
+
+export function toneOfGender(gender: string | null): TeamTone {
+  return isTeamGender(gender) ? TEAM_TONES[gender] : TEAM_TONES.NONE;
 }
 
 const startFormat = new Intl.DateTimeFormat("it-IT", {

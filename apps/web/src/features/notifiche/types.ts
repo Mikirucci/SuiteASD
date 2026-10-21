@@ -15,6 +15,7 @@ export type NotificationType =
   | "ADMIN_DOCUMENT_ALERT"
   | "ADMIN_DOCUMENT_UPLOADED"
   | "ADMIN_NEW_ENROLMENT"
+  | "ADMIN_INVITATION_ACCEPTED"
   | "ADMIN_SPONSOR_EXPIRING";
 
 export type NotificationChannel = "IN_APP" | "EMAIL";

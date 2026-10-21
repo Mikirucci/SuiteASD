@@ -19,6 +19,7 @@ function invitation(overrides: Partial<Invitation> = {}): Invitation {
   return {
     id: "inv-1",
     email: "marco.allenatore@example.test",
+    label: null,
     role: "ALLENATORE",
     memberId: null,
     expiresAt: inDays(5),
@@ -28,6 +29,7 @@ function invitation(overrides: Partial<Invitation> = {}): Invitation {
 }
 
 const COACH = invitation();
+const LINK = invitation({ id: "inv-4", email: null, label: "Marco, nuovo allenatore U14", expiresAt: inDays(7) });
 const SECRETARY = invitation({ id: "inv-2", email: "luca@example.test", role: "SEGRETERIA", expiresAt: inDays(1) });
 
 function setUser(roles: Role[], permissions: string[]) {
@@ -63,6 +65,25 @@ describe("InvitationsPage", () => {
     await expectNoA11yViolations(container);
   });
 
+  it("names a link by its note, or by its role when it has none, and never shows an email it does not have", async () => {
+    const bare = invitation({ id: "inv-5", email: null, label: null, role: "STAFF" });
+    stubApi(routes({ "GET /invitations": () => json(200, page([LINK, bare])) }));
+    renderWithProviders(<InvitationsPage />);
+    const list = await screen.findByRole("list", { name: "Inviti in attesa" });
+    const [noted, plain] = within(list).getAllByRole("listitem");
+    expect(noted).toHaveTextContent("Marco, nuovo allenatore U14");
+    expect(noted).toHaveTextContent("Allenatore · Scade tra 7 giorni");
+    expect(plain).toHaveTextContent("Invito come staff");
+    expect(within(noted as HTMLElement).getByRole("button", { name: "Revoca l'invito: Marco, nuovo allenatore U14" })).toBeInTheDocument();
+    expect(list).not.toHaveTextContent("null");
+  });
+
+  it("says what happens when the link is used: it leaves the list, the person is in Staff and an alert arrives", async () => {
+    stubApi(routes());
+    renderWithProviders(<InvitationsPage />);
+    expect(await screen.findByText(/la persona compare in Staff e ricevi un avviso/)).toBeInTheDocument();
+  });
+
   it("invites the first collaborator when there are no invitations", async () => {
     stubApi(routes({ "GET /invitations": () => json(200, page([])) }));
     renderWithProviders(<InvitationsPage />);
@@ -79,14 +100,16 @@ describe("InvitationsPage", () => {
     expect(await screen.findByText("marco.allenatore@example.test")).toBeInTheDocument();
   });
 
-  it("creates an invitation and shows the one-time link to copy", async () => {
+  it("creates a link without asking for an email, and shows the one-time link to copy", async () => {
     const writeText = vi.fn<(text: string) => Promise<void>>().mockResolvedValue(undefined);
-    const created: CreatedInvitation = { ...invitation({ id: "inv-3", email: "nuova@example.test", role: "STAFF" }), token: "tok_ABC-123" };
+    const created: CreatedInvitation = { ...LINK, role: "STAFF", token: "tok_ABC-123" };
     const api = stubApi(routes({ "POST /invitations": () => json(201, created) }));
     renderWithProviders(<InvitationsPage />);
     await userEvent.click(await screen.findByRole("button", { name: "Invita una persona" }));
 
     const dialog = await screen.findByRole("dialog", { name: "Invita una persona" });
+    // Nothing is sent by email, so nobody is asked for one
+    expect(within(dialog).queryByLabelText(/Email/)).not.toBeInTheDocument();
     const select = within(dialog).getByLabelText(/^Ruolo/);
     expect(select).toHaveValue("ALLENATORE");
     expect(within(select).getAllByRole("option").map((option) => option.textContent)).toEqual([
@@ -95,16 +118,18 @@ describe("InvitationsPage", () => {
       "Allenatore",
       "Staff",
     ]);
-    await userEvent.type(within(dialog).getByLabelText(/^Email/), " nuova@example.test ");
+    await userEvent.type(within(dialog).getByLabelText("Per chi è"), " Marco, nuovo allenatore U14 ");
     await userEvent.selectOptions(select, "STAFF");
     expect(dialog).toHaveTextContent("Vede tesserati e documenti");
-    await userEvent.click(within(dialog).getByRole("button", { name: "Crea l'invito" }));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Crea il link" }));
 
-    const result = await screen.findByRole("dialog", { name: "Invito pronto" });
-    expect(api.calls.find((call) => call.method === "POST")?.body).toEqual({ email: "nuova@example.test", role: "STAFF" });
-    expect(result).toHaveTextContent("nuova@example.test entrerà come staff.");
+    const result = await screen.findByRole("dialog", { name: "Link pronto" });
+    expect(api.calls.find((call) => call.method === "POST")?.body).toEqual({ role: "STAFF", label: "Marco, nuovo allenatore U14" });
+    expect(result).toHaveTextContent("Marco, nuovo allenatore U14: entrerà come staff.");
     expect(result).toHaveTextContent(`${window.location.origin}/invito/tok_ABC-123`);
-    expect(result).toHaveTextContent("L'app non invia l'invito da sola");
+    // The truth about the delivery: the platform does not send emails yet
+    expect(result).toHaveTextContent("Per ora l'app non invia email");
+    expect(result).toHaveTextContent("Chi lo apre scrive nome, email e password ed entra");
 
     Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
     await userEvent.click(within(result).getByRole("button", { name: "Copia il link" }));
@@ -115,31 +140,38 @@ describe("InvitationsPage", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
 
+  it("sends the note only when it is written", async () => {
+    const api = stubApi(routes({ "POST /invitations": () => json(201, { ...LINK, label: null, token: "tok_X" }) }));
+    renderWithProviders(<InvitationsPage />);
+    await userEvent.click(await screen.findByRole("button", { name: "Invita una persona" }));
+    const dialog = await screen.findByRole("dialog", { name: "Invita una persona" });
+    await userEvent.click(within(dialog).getByRole("button", { name: "Crea il link" }));
+    await screen.findByRole("dialog", { name: "Link pronto" });
+    expect(api.calls.find((call) => call.method === "POST")?.body).toEqual({ role: "ALLENATORE" });
+  });
+
   it("never shows the link of a previous invitation when the dialog is opened again", async () => {
-    const created: CreatedInvitation = { ...invitation({ id: "inv-3", email: "nuova@example.test" }), token: "tok_ONCE" };
+    const created: CreatedInvitation = { ...LINK, token: "tok_ONCE" };
     stubApi(routes({ "POST /invitations": () => json(201, created) }));
     renderWithProviders(<InvitationsPage />);
     await userEvent.click(await screen.findByRole("button", { name: "Invita una persona" }));
-    await userEvent.type(await screen.findByLabelText(/^Email/), "nuova@example.test");
-    await userEvent.click(screen.getByRole("button", { name: "Crea l'invito" }));
+    await userEvent.type(await screen.findByLabelText("Per chi è"), "Marco");
+    await userEvent.click(screen.getByRole("button", { name: "Crea il link" }));
     await userEvent.click(await screen.findByRole("button", { name: "Fatto" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
 
     await userEvent.click(screen.getByRole("button", { name: "Invita una persona" }));
     const dialog = await screen.findByRole("dialog", { name: "Invita una persona" });
-    expect(within(dialog).getByLabelText(/^Email/)).toHaveValue("");
+    expect(within(dialog).getByLabelText("Per chi è")).toHaveValue("");
     expect(dialog).not.toHaveTextContent("tok_ONCE");
   });
 
-  it("checks the email before calling the API", async () => {
-    const api = stubApi(routes());
+  it("limits the note to 80 characters in the field itself", async () => {
+    stubApi(routes());
     renderWithProviders(<InvitationsPage />);
     await userEvent.click(await screen.findByRole("button", { name: "Invita una persona" }));
     const dialog = await screen.findByRole("dialog", { name: "Invita una persona" });
-    await userEvent.type(within(dialog).getByLabelText(/^Email/), "non-una-email");
-    await userEvent.click(within(dialog).getByRole("button", { name: "Crea l'invito" }));
-    expect(await within(dialog).findByText("Inserisci un'email valida")).toBeInTheDocument();
-    expect(api.calls.some((call) => call.method === "POST")).toBe(false);
+    expect(within(dialog).getByLabelText("Per chi è")).toHaveAttribute("maxlength", "80");
   });
 
   it.each([
@@ -151,8 +183,7 @@ describe("InvitationsPage", () => {
     renderWithProviders(<InvitationsPage />);
     await userEvent.click(await screen.findByRole("button", { name: "Invita una persona" }));
     const dialog = await screen.findByRole("dialog", { name: "Invita una persona" });
-    await userEvent.type(within(dialog).getByLabelText(/^Email/), "nuova@example.test");
-    await userEvent.click(within(dialog).getByRole("button", { name: "Crea l'invito" }));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Crea il link" }));
     expect(await within(dialog).findByRole("alert")).toHaveTextContent(message);
   });
 
@@ -175,14 +206,14 @@ describe("InvitationsPage", () => {
       },
     });
     renderWithProviders(<InvitationsPage />);
-    await userEvent.click(await screen.findByRole("button", { name: "Revoca l'invito a marco.allenatore@example.test" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Revoca l'invito: marco.allenatore@example.test" }));
     const confirm = await screen.findByRole("dialog", { name: "Revocare l'invito?" });
-    expect(confirm).toHaveTextContent("Il link mandato a marco.allenatore@example.test smette di funzionare subito.");
+    expect(confirm).toHaveTextContent("Il link «marco.allenatore@example.test» smette di funzionare subito.");
     await userEvent.click(within(confirm).getByRole("button", { name: "Revoca" }));
 
     expect(await screen.findByText("Invito revocato")).toBeInTheDocument();
     expect(api.calls.some((call) => call.method === "DELETE" && call.path === "/invitations/inv-1")).toBe(true);
-    // The toast also names the email: the list is what must have lost the row
+    // The toast also names the invitation: the list is what must have lost the row
     await waitFor(() =>
       expect(within(screen.getByRole("list", { name: "Inviti in attesa" })).queryByText("marco.allenatore@example.test")).not.toBeInTheDocument(),
     );
@@ -191,7 +222,7 @@ describe("InvitationsPage", () => {
   it("explains an invitation that is no longer pending when revoking it fails", async () => {
     stubApi(routes({ "DELETE /invitations/inv-1": () => problem(404, "not_found") }));
     renderWithProviders(<InvitationsPage />);
-    await userEvent.click(await screen.findByRole("button", { name: "Revoca l'invito a marco.allenatore@example.test" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Revoca l'invito: marco.allenatore@example.test" }));
     const confirm = await screen.findByRole("dialog", { name: "Revocare l'invito?" });
     await userEvent.click(within(confirm).getByRole("button", { name: "Revoca" }));
     expect(await within(confirm).findByRole("alert")).toHaveTextContent("L'invito non è più in attesa");

@@ -1,10 +1,11 @@
 "use client";
 
-import { Download, Link2, Search, SearchX, SlidersHorizontal, Upload, UserPlus, Users } from "lucide-react";
+import { Download, Link2, MoreHorizontal, Search, SearchX, SlidersHorizontal, Upload, UserPlus, Users } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { DataList } from "@/components/ui/data-list";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { PillFilter } from "@/components/ui/pill-filter";
@@ -16,9 +17,9 @@ import { useExportMembers, useMembersList, useTeams } from "./api";
 import { teamLabel } from "./document-format";
 import { JoinLinksDialog } from "@/features/iscrizioni/join-links-dialog";
 import { ImportDialog } from "./import-dialog";
+import { MemberCard } from "./member-card";
 import { MemberFormDialog } from "./member-form-dialog";
-import { MemberRow } from "./member-row";
-import { MembersSummaryBar } from "./members-summary-bar";
+import { MembersSummary } from "./members-summary";
 import { EMPTY_MEMBERS_FILTERS, type MemberGender, type MembersFilters, type OverallDocumentStatus } from "./types";
 import { usePermission } from "@/hooks/use-permission";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
@@ -40,7 +41,10 @@ const GENDER_OPTIONS = [
 
 const BIRTH_YEAR = /^\d{4}$/;
 
-/** Module 01: the roster with team filters, search, document indicators and a live summary. */
+/**
+ * Module 01. From top to bottom: the title, the figures of the roster, the people with the one action that matters
+ * (new member) and the rest in a menu, then search and filters, then the members as cards ordered by name.
+ */
 export function MembersPage() {
   const { toast } = useToast();
   const canWrite = usePermission("members:write");
@@ -155,41 +159,53 @@ export function MembersPage() {
         }
       />
 
-      {canReadAll ? (
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-end">
-            <Input
-              label="Cerca tesserato"
-              hideLabel
-              type="search"
-              placeholder="Cerca per nome, cognome o codice fiscale"
-              leadingIcon={<Search />}
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              className="xl:flex-1"
-            />
+      {canReadAll ? <MembersSummary /> : null}
+
+      <div className="flex flex-col gap-4">
+        {canReadAll ? (
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-lg font-bold tracking-title text-fg">Persone</h2>
             {canWrite ? (
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="secondary" leftIcon={<MoreHorizontal />}>
+                      Altre azioni
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem icon={<Link2 />} onSelect={() => setLinksOpen(true)}>
+                      Link di iscrizione
+                    </DropdownMenuItem>
+                    <DropdownMenuItem icon={<Upload />} onSelect={() => setImportOpen(true)}>
+                      Importa CSV
+                    </DropdownMenuItem>
+                    <DropdownMenuItem icon={<Download />} disabled={exporter.isPending} onSelect={exportCsv}>
+                      Esporta CSV
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
                 <Button leftIcon={<UserPlus />} onClick={() => setFormOpen(true)}>
                   Nuovo tesserato
-                </Button>
-                <Button variant="secondary" leftIcon={<Link2 />} onClick={() => setLinksOpen(true)}>
-                  Link di iscrizione
-                </Button>
-                <Button variant="secondary" leftIcon={<Upload />} onClick={() => setImportOpen(true)}>
-                  Importa CSV
-                </Button>
-                <Button variant="secondary" leftIcon={<Download />} loading={exporter.isPending} onClick={exportCsv}>
-                  Esporta CSV
                 </Button>
               </div>
             ) : null}
           </div>
-          {teamList.length > 0 ? (
-            <PillFilter label="Filtra per squadra" options={teamOptions} value={teamChoice} onChange={setTeamChoice} />
-          ) : null}
+        ) : null}
+
+        {canReadAll ? (
           <div className="flex flex-col gap-3">
-            <div>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <Input
+                label="Cerca tesserato"
+                hideLabel
+                type="search"
+                placeholder="Cerca per nome, cognome o codice fiscale"
+                leadingIcon={<Search />}
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                className="sm:flex-1"
+              />
               <Button
                 variant="secondary"
                 leftIcon={<SlidersHorizontal />}
@@ -200,6 +216,9 @@ export function MembersPage() {
                 {extraFilters > 0 ? `Più filtri (${extraFilters})` : "Più filtri"}
               </Button>
             </div>
+            {teamList.length > 0 ? (
+              <PillFilter label="Filtra per squadra" options={teamOptions} value={teamChoice} onChange={setTeamChoice} />
+            ) : null}
             {moreOpen ? (
               <div id="members-more-filters" className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <Select
@@ -234,34 +253,33 @@ export function MembersPage() {
               </div>
             ) : null}
           </div>
-        </div>
-      ) : null}
+        ) : null}
 
-      <DataList
-        label="Tesserati"
-        items={members}
-        getKey={(member) => member.id}
-        renderItem={(member) => <MemberRow member={member} />}
-        isLoading={list.isPending}
-        error={members ? null : list.error}
-        onRetry={() => void list.refetch()}
-        loadingLabel="Caricamento dei tesserati"
-        skeletonRows={6}
-        empty={empty}
-      />
+        <DataList
+          label="Tesserati"
+          items={members}
+          getKey={(member) => member.id}
+          renderItem={(member) => <MemberCard member={member} />}
+          isLoading={list.isPending}
+          error={members ? null : list.error}
+          onRetry={() => void list.refetch()}
+          loadingLabel="Caricamento dei tesserati"
+          skeletonRows={6}
+          empty={empty}
+          className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3"
+        />
 
-      {list.isFetchNextPageError ? (
-        <Alert tone="danger">Non siamo riusciti a caricare altri tesserati. {describeError(list.error)}</Alert>
-      ) : null}
-      {list.hasNextPage ? (
-        <div className="flex justify-center">
-          <Button variant="secondary" loading={list.isFetchingNextPage} onClick={() => void list.fetchNextPage()}>
-            Carica altri
-          </Button>
-        </div>
-      ) : null}
-
-      {canReadAll ? <MembersSummaryBar /> : null}
+        {list.isFetchNextPageError ? (
+          <Alert tone="danger">Non siamo riusciti a caricare altri tesserati. {describeError(list.error)}</Alert>
+        ) : null}
+        {list.hasNextPage ? (
+          <div className="flex justify-center">
+            <Button variant="secondary" loading={list.isFetchingNextPage} onClick={() => void list.fetchNextPage()}>
+              Carica altri
+            </Button>
+          </div>
+        ) : null}
+      </div>
 
       {canWrite ? (
         <>

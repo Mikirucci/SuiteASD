@@ -3,16 +3,17 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Plus, Search, SearchX } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import { Button, ConfirmDialog, DataList, EmptyState, Input, LoadMore, PillFilter, useToast } from "@/components/ui";
+import { Button, ConfirmDialog, DataList, EmptyState, Input, LoadMore, Select, useToast } from "@/components/ui";
 import { AttachmentsDialog, type AttachmentsTarget } from "@/features/attachments/attachments-dialog";
 import { usePermission } from "@/hooks/use-permission";
+import { cn } from "@/lib/cn";
 import { useCursorQuery } from "@/lib/use-cursor-query";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { describeError, useApiMutation, type QueryParams } from "@/lib/api";
 import type { AttachmentEntityType } from "@/features/attachments/api";
 import { ResourceFormDialog, type ResourceDialogState } from "./resource-form-dialog";
 import { ResourceRow } from "./resource-row";
-import type { ResourceConfig } from "./types";
+import type { FormValues, ResourceConfig } from "./types";
 
 const PAGE_SIZE = 25;
 
@@ -25,15 +26,27 @@ export interface ResourceViewProps<T extends { id: string }> {
   /** True when `toolbarExtra` narrows the list: the empty state then offers to clear the filters. */
   extraFiltersActive?: boolean;
   onResetExtraFilters?: () => void;
+  /** `grid` lays the records out as cards side by side instead of a stack of rows. */
+  layout?: "list" | "grid";
+  /** Cards per row from the `xl` breakpoint up, for a grid whose cards carry long lines (emails). */
+  columns?: 2 | 3;
+  /** Fields of a new record filled in advance. */
+  createPresets?: FormValues;
 }
 
-/** List with search, filter, create, edit and delete for any resource described by a ResourceConfig. */
+/**
+ * List for any resource described by a ResourceConfig: one row with search, filter menu and the new-record button, then
+ * the records, each with its actions behind a menu. Edit, delete and attachments are all reached from the record.
+ */
 export function ResourceView<T extends { id: string }>({
   config,
   extraQuery,
   toolbarExtra,
   extraFiltersActive = false,
   onResetExtraFilters,
+  layout = "list",
+  columns = 3,
+  createPresets,
 }: ResourceViewProps<T>) {
   const { copy, filter } = config;
   const canWrite = usePermission(config.writePermission);
@@ -71,20 +84,17 @@ export function ResourceView<T extends { id: string }>({
   };
 
   const newButton = canWrite ? (
-    <Button leftIcon={<Plus />} onClick={() => setForm({ mode: "create" })}>
+    <Button leftIcon={<Plus />} onClick={() => setForm({ mode: "create", presets: createPresets })}>
       {copy.newLabel}
     </Button>
   ) : undefined;
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-lg font-bold tracking-title text-fg">{copy.plural}</h2>
-        {list.items && list.items.length > 0 ? newButton : null}
-      </div>
+      <h2 className="sr-only">{copy.plural}</h2>
 
-      {config.searchLabel || filter || toolbarExtra ? (
-        <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           {config.searchLabel ? (
             <Input
               label={config.searchLabel}
@@ -95,15 +105,30 @@ export function ResourceView<T extends { id: string }>({
               autoComplete="off"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
+              className="sm:flex-1"
+            />
+          ) : (
+            <div className="sm:flex-1" />
+          )}
+          {filter ? (
+            <Select
+              label={filter.label}
+              hideLabel
+              placeholder={filter.options.find((option) => option.value === "")?.label}
+              options={filter.options.filter((option) => option.value !== "")}
+              value={filterValue}
+              onChange={(event) => setFilterValue(event.target.value)}
+              className="sm:w-52"
             />
           ) : null}
-          {filter ? <PillFilter label={filter.label} options={filter.options} value={filterValue} onChange={setFilterValue} /> : null}
-          {toolbarExtra}
+          {list.items && list.items.length > 0 ? <div className="shrink-0 [&>button]:w-full">{newButton}</div> : null}
         </div>
-      ) : null}
+        {toolbarExtra}
+      </div>
 
       <DataList
         label={copy.plural}
+        className={layout === "grid" ? cn("grid auto-rows-fr gap-4 sm:grid-cols-2", columns === 3 && "xl:grid-cols-3") : undefined}
         items={list.items}
         getKey={(item) => item.id}
         renderItem={(item) => {
@@ -112,6 +137,7 @@ export function ResourceView<T extends { id: string }>({
             <ResourceRow
               content={config.row(item)}
               name={config.nameOf(item)}
+              stacked={layout === "grid"}
               onEdit={editable ? () => setForm({ mode: "edit", item }) : undefined}
               onDelete={editable ? () => { remove.reset(); setDeleting(item); } : undefined}
               onAttachments={

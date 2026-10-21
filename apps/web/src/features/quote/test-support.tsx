@@ -1,4 +1,4 @@
-import type { Fee, FeePlan, FeesSummary, TeamOption } from "./types";
+import type { Fee, FeePlan, FeesSummary, PlanPerson, PlanReport, PlanStats, TeamOption } from "./types";
 
 /** Fixtures of the quote feature tests. The network stub and the provider wrapper live in src/test/stub-api. */
 
@@ -93,3 +93,62 @@ export const PLAN: FeePlan = {
   createdAt: "2026-10-01T08:00:00.000Z",
   updatedAt: "2026-10-01T08:00:00.000Z",
 };
+
+export const SECOND_PLAN: FeePlan = {
+  ...PLAN,
+  id: "p-iscr",
+  name: "Iscrizione 2026",
+  kind: "ENROLLMENT",
+  amountCents: 15000,
+  teamId: "t-u16",
+  dueDay: null,
+  isActive: false,
+};
+
+export const PLAN_STATS: PlanStats = {
+  incassatoCents: 6000,
+  daIncassareCents: 12000,
+  scadutoCents: 6000,
+  paidPeople: 1,
+  pendingPeople: 1,
+  overduePeople: 1,
+};
+
+export const PLAN_REPORT: PlanReport = { data: [{ feePlanId: "p-nov", ...PLAN_STATS }] };
+
+/** Ordered by name, as the API returns them. */
+export const PLAN_PEOPLE: PlanPerson[] = [
+  {
+    memberId: "m-ferri",
+    memberName: "Anna Ferri",
+    teams: [{ id: "t-u18", name: "U18" }],
+    totalDueCents: 0,
+    allPlansDueCents: 0,
+    paidCents: 6000,
+    status: "PAID",
+    feesCount: 1,
+    nextDueDate: null,
+  },
+  {
+    memberId: "m-neri",
+    memberName: "Chiara Neri",
+    teams: [{ id: "t-u16", name: "U16" }],
+    totalDueCents: 6000,
+    allPlansDueCents: 9000,
+    paidCents: 0,
+    status: "PENDING",
+    feesCount: 1,
+    nextDueDate: "2026-11-10",
+  },
+  {
+    memberId: "m-bianchi",
+    memberName: "Marta Bianchi",
+    teams: [{ id: "t-u18", name: "U18" }],
+    totalDueCents: 6000,
+    allPlansDueCents: 6000,
+    paidCents: 0,
+    status: "OVERDUE",
+    feesCount: 1,
+    nextDueDate: "2026-10-10",
+  },
+];

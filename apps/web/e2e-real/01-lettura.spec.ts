@@ -14,7 +14,7 @@ test.describe("società demo, in sola lettura", () => {
     const topics = {
       Persone: ["Tesserati", "Squadre", "Staff", "Accessi e inviti"],
       "Attività sportiva": ["Calendario", "Presenze", "Classifiche", "Tornei", "Pagelle", "Arbitri", "Statistiche"],
-      Amministrazione: ["Quote", "Scadenze e documenti", "Bilancio", "Sponsor"],
+      Amministrazione: ["Pagamenti", "Scadenze e documenti", "Bilancio", "Sponsor"],
       Logistica: ["Palestre", "Trasferte", "Divise"],
       Comunicazione: ["Notifiche", "Bacheca", "Automazioni"],
     };
@@ -57,9 +57,10 @@ test.describe("società demo, in sola lettura", () => {
 
   test("quote: incassati 240 euro da 4 quote, una scaduta", async ({ page }) => {
     await page.goto("/quote");
-    await expect(page.getByText("Incassato", { exact: true }).locator("..")).toContainText(/€\s240/);
-    await expect(page.getByText("4 quote pagate")).toBeVisible();
-    await expect(page.getByText(/di cui €\s60 scaduti \(1 quota\)/)).toBeVisible();
+    const report = page.getByRole("region", { name: "Rendiconto" });
+    await expect(report.getByText("Incassato", { exact: true }).locator("../..")).toContainText(/€\s240/);
+    await expect(report.getByText("4 quote pagate")).toBeVisible();
+    await expect(report.getByText(/di cui €\s60 scaduti \(1 quota\)/)).toBeVisible();
   });
 
   test("calendario: la partita Aquile-Delfini del 14 novembre con 5/12 confermate", async ({ page }) => {

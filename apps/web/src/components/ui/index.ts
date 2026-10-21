@@ -33,3 +33,6 @@ export { Textarea, type TextareaProps } from "./textarea";
 export { Timeline, type TimelineItem, type TimelineProps } from "./timeline";
 export { ToastProvider, useToast, type ToastInput, type ToastTone } from "./toast";
 export { WeekStrip, type WeekStripProps } from "./week-strip";
+export { StatTile, type StatTileProps } from "./stat-tile";
+export { ToneCount, type CountTone, type ToneCountProps } from "./tone-count";
+export { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, type DropdownMenuItemProps } from "./dropdown-menu";

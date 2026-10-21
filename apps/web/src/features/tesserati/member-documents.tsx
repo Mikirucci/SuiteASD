@@ -4,6 +4,7 @@ import { FilePlus2, FileText, FileUp, Pencil, Trash2 } from "lucide-react";
 import { useMemo, useRef, useState, type ChangeEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { DataBoundary } from "@/components/ui/data-boundary";
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
 import { describeError } from "@/lib/api";
@@ -23,6 +24,7 @@ interface DocumentRowProps {
 }
 
 function noExpiryNote(document: MemberDocument): string {
+  if (!document.hasFile) return "File non ancora caricato";
   if (document.documentType.requiresExpiry) return "Senza data di scadenza";
   return document.issuedAt ? `Rilasciato il ${formatDateOnly(document.issuedAt)}` : "Nessuna scadenza";
 }
@@ -53,6 +55,9 @@ function DocumentRow({ document, canWrite, onEdit, onDelete }: DocumentRowProps)
     );
   }
 
+  const pickFile = () => inputRef.current?.click();
+
+  // Without a file the one thing to do is to upload it; once it is there, "Apri" leads and the rest sits in the menu
   return (
     <DocumentItem
       heading={heading}
@@ -63,46 +68,40 @@ function DocumentRow({ document, canWrite, onEdit, onDelete }: DocumentRowProps)
       note={noExpiryNote(document)}
       document={document}
       actions={
+        canWrite && !document.hasFile ? (
+          <Button variant="secondary" size="sm" leftIcon={<FileUp />} loading={upload.isPending} aria-label={`Carica file di ${name}`} onClick={pickFile}>
+            Carica file
+          </Button>
+        ) : null
+      }
+      menuItems={
         canWrite ? (
           <>
-            <input
-              ref={inputRef}
-              type="file"
-              accept={UPLOAD_ACCEPT}
-              onChange={onFileChange}
-              tabIndex={-1}
-              aria-label={`File di ${heading}`}
-              className="sr-only"
-            />
-            <Button
-              variant="ghost"
-              size="sm"
-              leftIcon={<FileUp />}
-              loading={upload.isPending}
-              aria-label={`${document.hasFile ? "Sostituisci file" : "Carica file"} di ${name}`}
-              onClick={() => inputRef.current?.click()}
-            >
-              {document.hasFile ? "Sostituisci file" : "Carica file"}
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              leftIcon={<Pencil />}
-              aria-label={`Modifica ${name}`}
-              onClick={() => onEdit(document)}
-            >
+            {document.hasFile ? (
+              <DropdownMenuItem icon={<FileUp />} aria-label={`Sostituisci file di ${name}`} onSelect={pickFile}>
+                Sostituisci file
+              </DropdownMenuItem>
+            ) : null}
+            <DropdownMenuItem icon={<Pencil />} aria-label={`Modifica ${name}`} onSelect={() => onEdit(document)}>
               Modifica
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              leftIcon={<Trash2 />}
-              aria-label={`Elimina ${name}`}
-              onClick={() => onDelete(document)}
-            >
+            </DropdownMenuItem>
+            <DropdownMenuItem icon={<Trash2 />} tone="danger" aria-label={`Elimina ${name}`} onSelect={() => onDelete(document)}>
               Elimina
-            </Button>
+            </DropdownMenuItem>
           </>
+        ) : null
+      }
+      aside={
+        canWrite ? (
+          <input
+            ref={inputRef}
+            type="file"
+            accept={UPLOAD_ACCEPT}
+            onChange={onFileChange}
+            tabIndex={-1}
+            aria-label={`File di ${heading}`}
+            className="sr-only"
+          />
         ) : null
       }
     />
@@ -151,8 +150,9 @@ export interface MemberDocumentsProps {
 }
 
 /**
- * Documents of one member: status, expiry, file preview/download/upload, edit and delete. The general "add" button
- * exists only in the empty state: once there are rows (even missing ones) each row carries its own actions.
+ * Documents of one member: status, expiry, file preview/download/upload, edit and delete. Each row puts forward one action
+ * ("Apri", or "Carica file" while the file is missing) and keeps the others in a menu. The general "add" button exists
+ * only in the empty state: once there are rows (even missing ones) each row carries its own actions.
  */
 export function MemberDocuments({ memberId, indicators, canWrite }: MemberDocumentsProps) {
   const { toast } = useToast();

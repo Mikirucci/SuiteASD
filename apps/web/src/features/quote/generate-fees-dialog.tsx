@@ -42,6 +42,7 @@ function GenerateForm({ plan, onDone }: { plan: FeePlan; onDone: () => void }) {
         Promise.all([
           queryClient.invalidateQueries({ queryKey: ["fees"] }),
           queryClient.invalidateQueries({ queryKey: ["fees-summary"] }),
+          queryClient.invalidateQueries({ queryKey: ["fee-plans"] }),
         ]),
     },
   );

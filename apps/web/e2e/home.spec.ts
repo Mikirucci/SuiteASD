@@ -109,7 +109,7 @@ test.describe("home dell'amministrazione", () => {
     await expect(todo.getByRole("link", { name: /Convocati senza risposta/ })).toHaveAttribute("href", "/calendario");
 
     const services = page.getByRole("region", { name: "I tuoi servizi" });
-    await expect(services.getByRole("heading", { level: 3 })).toHaveText(["Persone", "Calendario e partite", "Quote e pagamenti", "Documenti e scadenze"]);
+    await expect(services.getByRole("heading", { level: 3 })).toHaveText(["Persone", "Calendario e partite", "Pagamenti", "Documenti e scadenze"]);
     await expect(services.getByText("118")).toBeVisible();
     await expect(services.getByRole("link", { name: "Accessi e inviti" })).toHaveAttribute("href", "/inviti");
     await expect(services.getByRole("link", { name: "Bilancio" })).toHaveAttribute("href", "/altro/bilancio");
@@ -122,7 +122,7 @@ test.describe("home dell'amministrazione", () => {
     await openHome(page, COACH);
     const services = page.getByRole("region", { name: "I tuoi servizi" });
     await expect(services.getByRole("heading", { level: 3 })).toHaveText(["Persone", "Calendario e partite", "Documenti e scadenze"]);
-    await expect(page.getByRole("heading", { name: "Quote e pagamenti" })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Pagamenti" })).toHaveCount(0);
     await expect(page.getByRole("link", { name: /Quota scaduta/ })).toHaveCount(0);
   });
 

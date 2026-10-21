@@ -107,9 +107,11 @@ test.describe("Tesserati (01)", () => {
     await expect(anna.getByText("1 documento mancante: Certificato medico")).toBeVisible();
     await expect(list.getByRole("listitem").filter({ hasText: "In regola" }).first()).toBeVisible();
 
-    await expect(page.getByRole("group", { name: "Riepilogo" })).toHaveText(
-      "27 tesserati · 4 squadre · 1 documento mancante",
-    );
+    const summary = page.getByRole("group", { name: "Riepilogo" });
+    await expect(summary).toContainText("Tesserati");
+    await expect(summary).toContainText("27");
+    await expect(summary).toContainText("4");
+    await expect(summary).toContainText("1documento mancante");
     const pills = page.getByRole("group", { name: "Filtra per squadra" }).getByRole("button");
     await expect(pills).toHaveText(["Tutte", "U14", "U16", "U18", "Serie D", "Senza squadra"]);
 
@@ -151,7 +153,11 @@ test.describe("Tesserati (01)", () => {
     const documents = page.getByRole("list", { name: "Documenti del tesserato" });
     await expect(documents).toContainText("Certificato medico");
     await expect(documents).toContainText("certificato.pdf · 240 KB");
-    await expect(page.getByRole("button", { name: "Scarica Certificato medico" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Apri Certificato medico" })).toBeVisible();
+    await page.getByRole("button", { name: "Altre azioni di Certificato medico" }).click();
+    await expect(page.getByRole("menuitem", { name: "Scarica Certificato medico" })).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: "Elimina Certificato medico" })).toBeVisible();
+    await page.keyboard.press("Escape");
 
     expect(await auditAccessibility(page)).toEqual([]);
   });
@@ -197,7 +203,8 @@ test.describe("Tesserati (01)", () => {
   test("imports a CSV after checking it", async ({ page }) => {
     const recorded = await membersBackend(page);
     await page.goto("/tesserati");
-    await page.getByRole("button", { name: "Importa CSV" }).click();
+    await page.getByRole("button", { name: "Altre azioni" }).click();
+    await page.getByRole("menuitem", { name: "Importa CSV" }).click();
     const dialog = page.getByRole("dialog", { name: "Importa tesserati da CSV" });
 
     await dialog.getByLabel("File CSV").setInputFiles({

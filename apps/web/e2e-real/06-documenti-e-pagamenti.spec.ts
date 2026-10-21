@@ -59,7 +59,6 @@ test.describe("società nuova: documento, pagamento segnalato, ricevuta", () => 
     await expect(page.getByText("Squadra creata", { exact: true })).toBeVisible();
 
     await page.goto("/quote");
-    await page.getByRole("tab", { name: "Piani quota" }).click();
     await page.getByRole("button", { name: "Nuovo piano" }).first().click();
     const plan = page.getByRole("dialog", { name: "Nuovo piano quota" });
     await plan.getByLabel(/Nome del piano/).fill(PLAN);
@@ -68,7 +67,8 @@ test.describe("società nuova: documento, pagamento segnalato, ricevuta", () => 
     await expect(page.getByText("Piano creato")).toBeVisible();
 
     await page.goto("/tesserati");
-    await page.getByRole("button", { name: "Link di iscrizione" }).click();
+    await page.getByRole("button", { name: "Altre azioni" }).click();
+    await page.getByRole("menuitem", { name: "Link di iscrizione" }).click();
     const dialog = page.getByRole("dialog", { name: "Link di iscrizione" });
     const select = dialog.getByLabel("Squadra");
     const value = await select.locator("option", { hasText: TEAM }).getAttribute("value");
@@ -123,7 +123,7 @@ test.describe("società nuova: documento, pagamento segnalato, ricevuta", () => 
 
   test("Gianni genera la quota, vede il certificato di Marco senza il pulsante Aggiungi documento", async ({ page }) => {
     await signIn(page, gianni, "/quote");
-    await page.getByRole("tab", { name: "Piani quota" }).click();
+    await page.getByRole("link", { name: PLAN }).click();
     await page.getByRole("button", { name: "Genera quote" }).first().click();
     const generate = page.getByRole("dialog", { name: "Genera le quote" });
     await generate.getByLabel("Scadenza delle quote").fill(dayAhead(5));
@@ -155,7 +155,11 @@ test.describe("società nuova: documento, pagamento segnalato, ricevuta", () => 
 
     await page.goto("/quote");
     await expect(page.getByText(/1 quota segnalata dal pagante/)).toBeVisible();
-    await page.getByRole("button", { name: new RegExp(`^Registra pagamento: ${MARCO_NAME}`) }).click();
+    await page.getByRole("button", { name: "Mostra le segnalate" }).click();
+    await page
+      .getByRole("dialog", { name: "Pagamenti segnalati" })
+      .getByRole("button", { name: new RegExp(`^Registra pagamento: ${MARCO_NAME}`) })
+      .click();
     const form = page.getByRole("dialog", { name: "Registra pagamento" });
     await form.getByLabel("Metodo di pagamento").selectOption("BANK_TRANSFER");
     await form.getByLabel("Riferimento").fill("CRO E2E 0606");

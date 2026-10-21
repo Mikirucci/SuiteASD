@@ -8,18 +8,17 @@ import type { CursorPage, Fee } from "./types";
 const COUNT_LIMIT = 100;
 
 export interface ClaimedBannerProps {
-  teamId: string;
-  /** Switches the list to the reported fees. */
+  /** Opens the list of the reported fees. */
   onShow: () => void;
 }
 
 /**
  * Tells the secretariat that payers reported payments still to be checked. Silent while loading, on error and when
- * there is nothing to check: the list below has its own states, and this is only a shortcut to the work waiting.
+ * there is nothing to check: the cards below have their own states, and this is only a shortcut to the work waiting.
  */
-export function ClaimedBanner({ teamId, onShow }: ClaimedBannerProps) {
-  const claimed = useApiQuery<CursorPage<Fee>>(["fees", "claimed-count", { teamId }], "/fees", {
-    query: { claimed: true, teamId, limit: COUNT_LIMIT },
+export function ClaimedBanner({ onShow }: ClaimedBannerProps) {
+  const claimed = useApiQuery<CursorPage<Fee>>(["fees", "claimed-count"], "/fees", {
+    query: { claimed: true, limit: COUNT_LIMIT },
   });
   const count = claimed.data?.data.length ?? 0;
   if (count === 0 || !claimed.data) return null;

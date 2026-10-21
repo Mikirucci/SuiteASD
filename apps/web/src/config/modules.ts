@@ -28,7 +28,7 @@ export interface AppModule {
 export const MODULES: readonly AppModule[] = [
   { id: "tesserati", label: "Tesserati", href: "/tesserati", icon: Users, description: "Anagrafiche, documenti e squadre", tone: "blue" },
   { id: "scadenze", label: "Scadenze", href: "/scadenze", icon: CalendarClock, description: "Certificati e documenti in scadenza", tone: "orange" },
-  { id: "quote", label: "Quote", href: "/quote", icon: Wallet, description: "Quote, pagamenti e ricevute", tone: "emerald" },
+  { id: "quote", label: "Pagamenti", href: "/quote", icon: Wallet, description: "Piani, incassi e ricevute", tone: "emerald" },
   { id: "calendario", label: "Calendario", href: "/calendario", icon: CalendarDays, description: "Partite, allenamenti e convocazioni", tone: "violet" },
   { id: "classifiche", label: "Classifiche", href: "/classifiche", icon: Trophy, description: "Gironi e classifiche", tone: "amber" },
   { id: "pagelle", label: "Pagelle", href: "/pagelle", icon: ClipboardList, description: "Voti e statistiche di gara", tone: "rose" },

@@ -108,3 +108,48 @@ export interface GenerateFeesResult {
   created: number;
   skipped: number;
 }
+
+/** Where a person stands in one plan: late if any fee is late, waiting if something is left to pay, settled otherwise. */
+export type PersonPaymentStatus = "PAID" | "PENDING" | "OVERDUE";
+
+export interface PlanStats {
+  incassatoCents: number;
+  daIncassareCents: number;
+  scadutoCents: number;
+  /** People with nothing left to pay. */
+  paidPeople: number;
+  /** People with fees to pay, none of them late. */
+  pendingPeople: number;
+  /** People with at least one late fee. */
+  overduePeople: number;
+}
+
+/** Row of GET /fee-plans/report: only plans that have at least one fee. */
+export interface PlanReportEntry extends PlanStats {
+  feePlanId: string;
+}
+
+export interface PlanReport {
+  data: PlanReportEntry[];
+}
+
+export interface PlanPerson {
+  memberId: string;
+  memberName: string;
+  teams: TeamRef[];
+  /** What the person still has to pay in the plan; 0 when settled. */
+  totalDueCents: number;
+  /** What the person still has to pay across every plan of the society; 0 when settled. */
+  allPlansDueCents: number;
+  paidCents: number;
+  status: PersonPaymentStatus;
+  feesCount: number;
+  /** Earliest due date among the unpaid fees, "YYYY-MM-DD". */
+  nextDueDate: string | null;
+}
+
+/** GET /fee-plans/:id/people. The stats describe the whole plan whatever the filters; the people are filtered and ordered by name. */
+export interface PlanPeople {
+  stats: PlanStats;
+  people: PlanPerson[];
+}

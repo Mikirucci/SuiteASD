@@ -130,7 +130,7 @@ describe("AppShell", () => {
       for (const closed of ["Attività sportiva", "Amministrazione", "Logistica", "Comunicazione"]) {
         expect(within(nav).getByRole("button", { name: closed })).toHaveAttribute("aria-expanded", "false");
       }
-      expect(within(nav).queryByRole("link", { name: "Quote" })).not.toBeInTheDocument();
+      expect(within(nav).queryByRole("link", { name: "Pagamenti" })).not.toBeInTheDocument();
       expect(within(nav).getAllByRole("link")).toHaveLength(1 + 4);
     });
 
@@ -165,11 +165,11 @@ describe("AppShell", () => {
       const amministrazione = within(nav).getByRole("button", { name: "Amministrazione" });
       await userEvent.click(amministrazione);
       expect(amministrazione).toHaveAttribute("aria-expanded", "true");
-      expect(within(nav).getByRole("link", { name: "Quote" })).toHaveAttribute("href", "/quote");
+      expect(within(nav).getByRole("link", { name: "Pagamenti" })).toHaveAttribute("href", "/quote");
       expect(within(nav).getByRole("link", { name: "Tesserati" })).toBeInTheDocument();
       await userEvent.click(amministrazione);
       expect(amministrazione).toHaveAttribute("aria-expanded", "false");
-      expect(within(nav).queryByRole("link", { name: "Quote" })).not.toBeInTheDocument();
+      expect(within(nav).queryByRole("link", { name: "Pagamenti" })).not.toBeInTheDocument();
     });
 
     it("works from the keyboard: Enter and Space toggle, Tab goes into the items of an open group", async () => {
@@ -194,7 +194,7 @@ describe("AppShell", () => {
       expect(within(nav).getByRole("button", { name: "Persone" })).toHaveAttribute("aria-expanded", "true");
       await userEvent.click(screen.getByRole("button", { name: "Vai alle quote" }));
       expect(within(nav).getByRole("button", { name: "Amministrazione" })).toHaveAttribute("aria-expanded", "true");
-      expect(within(nav).getByRole("link", { name: "Quote" })).toHaveAttribute("aria-current", "page");
+      expect(within(nav).getByRole("link", { name: "Pagamenti" })).toHaveAttribute("aria-current", "page");
       expect(within(nav).getByRole("button", { name: "Persone" })).toHaveAttribute("aria-expanded", "false");
     });
 
@@ -218,7 +218,7 @@ describe("AppShell", () => {
       const nav = sidebar();
       await openEveryGroup(nav);
       expect(within(nav).getAllByRole("link")).toHaveLength(ADMIN_ITEMS.length);
-      for (const label of ["Squadre", "Accessi e inviti", "Quote", "Bilancio", "Sponsor", "Automazioni", "Statistiche"]) {
+      for (const label of ["Squadre", "Accessi e inviti", "Pagamenti", "Bilancio", "Sponsor", "Automazioni", "Statistiche"]) {
         expect(within(nav).getByRole("link", { name: label })).toBeInTheDocument();
       }
     });
@@ -236,7 +236,7 @@ describe("AppShell", () => {
       expect(within(nav).getByRole("link", { name: "Tesserati" })).toHaveAttribute("href", "/tesserati");
       expect(within(nav).getByRole("link", { name: "Scadenze e documenti" })).toHaveAttribute("href", "/scadenze");
       await openEveryGroup(nav);
-      for (const hidden of ["Squadre", "Staff", "Accessi e inviti", "Quote", "Bilancio", "Sponsor", "Arbitri", "Statistiche", "Automazioni"]) {
+      for (const hidden of ["Squadre", "Staff", "Accessi e inviti", "Pagamenti", "Bilancio", "Sponsor", "Arbitri", "Statistiche", "Automazioni"]) {
         expect(within(nav).queryByRole("link", { name: hidden })).not.toBeInTheDocument();
       }
       expect(within(nav).getByRole("link", { name: "Pagelle" })).toBeInTheDocument();

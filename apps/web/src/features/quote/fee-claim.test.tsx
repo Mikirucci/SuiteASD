@@ -11,6 +11,8 @@ import {
   OVERDUE_FEE,
   PAID_FEE,
   PENDING_FEE,
+  PLAN,
+  PLAN_REPORT,
   STAFF_PERMISSIONS,
   SUMMARY,
   makeFee,
@@ -89,12 +91,15 @@ describe("Ho pagato: which fees offer it", () => {
     auth.permissions = [...STAFF_PERMISSIONS, "payments:claim"];
     auth.roles = ["SEGRETERIA"];
     stubApi({
-      "GET /fees": (call) => json(200, page(call.query.get("claimed") === "true" ? [] : [PENDING_FEE])),
+      "GET /fees": () => json(200, page([PENDING_FEE])),
       "GET /fees/summary": () => json(200, SUMMARY),
+      "GET /fee-plans": () => json(200, page([PLAN])),
+      "GET /fee-plans/report": () => json(200, PLAN_REPORT),
       "GET /teams": () => json(200, page([])),
     });
     renderWithProviders(<QuotePage />);
-    await screen.findByText("Chiara Neri");
+    // the secretariat gets the plans overview, where there is no fee row to report
+    await screen.findByRole("link", { name: "Quota novembre" });
     expect(screen.queryByRole("button", { name: /^Ho pagato/ })).not.toBeInTheDocument();
   });
 

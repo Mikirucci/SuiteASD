@@ -106,6 +106,25 @@ describe("DataTable", () => {
     expect(within(table).getAllByRole("cell")[0]).toHaveTextContent("Anna Ferri")
   });
 
+  it("keeps the chosen columns on one line and scrolls sideways instead of clipping, only when asked", () => {
+    const nowrapColumns: DataTableColumn<Row>[] = [
+      { key: "name", header: "Tesserata", cell: (row) => row.name, nowrap: true },
+      { key: "team", header: "Squadra", cell: (row) => row.team },
+    ];
+    const { container, rerender } = render(
+      <DataTable rows={ROWS} columns={nowrapColumns} getKey={(row) => row.id} label="Tesserate" empty={EMPTY} />,
+    );
+    const [nameCell, teamCell] = within(screen.getAllByRole("row")[1] as HTMLElement).getAllByRole("cell");
+    expect(nameCell).toHaveClass("md:whitespace-nowrap");
+    expect(teamCell).not.toHaveClass("md:whitespace-nowrap");
+    expect(screen.getAllByRole("columnheader")[0]).toHaveClass("md:whitespace-nowrap");
+    expect(container.firstElementChild).toHaveClass("md:overflow-hidden");
+
+    rerender(<DataTable rows={ROWS} columns={nowrapColumns} getKey={(row) => row.id} label="Tesserate" empty={EMPTY} scrollX />);
+    expect(container.firstElementChild).toHaveClass("md:overflow-x-auto");
+    expect(container.firstElementChild).not.toHaveClass("md:overflow-hidden");
+  });
+
   it("repeats the column header inside each cell for the stacked mobile layout", () => {
     render(<DataTable rows={ROWS} columns={columns} getKey={(row) => row.id} label="Tesserate" empty={EMPTY} />);
     const firstRow = within(screen.getAllByRole("row")[1] as HTMLElement);

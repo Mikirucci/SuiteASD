@@ -99,7 +99,7 @@ export const ADMIN_ENTRIES: readonly NavEntry[] = [
     label: "Amministrazione",
     icon: Landmark,
     items: [
-      { id: "quote", label: "Quote", href: "/quote", icon: Wallet, permission: "payments:read" },
+      { id: "quote", label: "Pagamenti", href: "/quote", icon: Wallet, permission: "payments:read" },
       { id: "scadenze", label: "Scadenze e documenti", href: "/scadenze", icon: CalendarClock, permission: "documents:read" },
       { id: "bilancio", label: "Bilancio", href: "/altro/bilancio", icon: Banknote, permission: "ledger:read" },
       { id: "sponsor", label: "Sponsor", href: "/altro/sponsor", icon: Handshake, permission: "sponsors:read" },
