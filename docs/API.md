@@ -64,17 +64,18 @@ Il seed crea 6 squadre (U12, U14, U16, U18, Serie D, Prima Divisione) e 118 tess
 | `POST /auth/refresh` | pubblico | ruota il refresh token (monouso; il riuso revoca l'intera famiglia) |
 | `POST /auth/logout` | pubblico | revoca la sessione del refresh token (idempotente, 204) |
 | `GET /me` | autenticato | utente, società, ruoli, permessi, società dell'utente, tesserato collegato, figli |
-| `POST /invitations` | `invitations:write` | invito per ruolo (`memberId` opzionale per ATLETA/GENITORE); il token in chiaro è restituito una sola volta |
+| `POST /invitations` | `invitations:write` | link di invito per ruolo, senza email (`email` e `label`, una nota su per chi è, sono facoltativi; `memberId` per ATLETA/GENITORE); il token in chiaro è restituito una sola volta. La piattaforma non invia email: il link lo manda chi invita (D-45) |
 | `GET /invitations` | `invitations:read` | inviti pendenti |
 | `DELETE /invitations/:id` | `invitations:write` | revoca invito |
-| `GET /invitations/:token` | pubblico, in sola lettura, con rate limit | a cosa serve l'invito: `{ society: { name }, role, maskedEmail }` (email mascherata `m***@example.test`; mai id né token). Token sconosciuto: 404. Invito non più valido: 410 con `invitation_revoked`, `invitation_used` o `invitation_expired` |
-| `POST /invitations/accept` | pubblico | accetta invito (crea l'account o aggiunge la società a un account esistente) e apre la sessione |
+| `GET /invitations/:token` | pubblico, in sola lettura, con rate limit | a cosa serve l'invito: `{ society: { name }, role, maskedEmail }` (email mascherata `m***@example.test`, `null` se il link non nomina nessuno; mai id né token). Token sconosciuto: 404. Invito non più valido: 410 con `invitation_revoked`, `invitation_used` o `invitation_expired` |
+| `POST /invitations/accept` | pubblico | accetta invito (crea l'account o aggiunge la società a un account esistente) e apre la sessione. `email` è obbligatoria se il link non ne nomina una (422 `email_required`). Per i ruoli ADMIN, SEGRETERIA, ALLENATORE e STAFF crea la scheda in Staff (COACH, MANAGER o OTHER) o aggancia quella già scritta con la stessa email, e avvisa l'amministrazione (`ADMIN_INVITATION_ACCEPTED`) |
 | `GET /users` | `users:read` | account della società con ruoli (`q`, `role`) |
 | `POST /guardian-links` | `guardianLinks:write` | collega un account GENITORE a un atleta |
 | `GET /guardian-links` | `guardianLinks:read` | filtri `memberId`, `guardianUserId` |
 | `DELETE /guardian-links/:id` | `guardianLinks:write` | scollega |
 | `POST /devices` | `devices:write` | registra/aggiorna il device token (idempotente) |
 | `GET/POST /teams`, `GET/PATCH/DELETE /teams/:id` | `teams:read` / `teams:write` | modulo di riferimento (CRUD) |
+| `POST /teams/:id/members` | `teams:write` | aggiunge fino a 100 tesserati alla squadra in una chiamata (`{ memberIds }` → `{ added, alreadyInTeam }`); chi è già dentro è ignorato, chi era uscito rientra, 404 se squadra o tesserato non sono della società |
 
 Sessione restituita da register/login/refresh/accept: `{ accessToken, refreshToken, tokenType: "Bearer", expiresIn, user, society, roles }`.
 
@@ -201,8 +202,8 @@ Tutti sotto `/api/v1`, tutti con validazione Zod, schema OpenAPI (`/docs/`), iso
 | Modulo (SPEC) | Endpoint |
 |---|---|
 | Tesserati (01) | `GET/POST /members`, `GET/PATCH/DELETE /members/:id`, `GET /members/summary`, `GET /members/export` (CSV `;` UTF-8 con BOM), `POST /members/import` (CSV, dry run di default) |
-| Certificati e scadenze (02) | `GET/POST/PATCH/DELETE /document-types`, `GET/POST /members/:id/documents`, `GET/PATCH/DELETE /documents/:id`, `PUT/GET /documents/:id/file`, `GET /documents/expirations` (timeline per mese) |
-| Quote e pagamenti (03) | `GET/POST/PATCH/DELETE /fee-plans`, `POST /fee-plans/:id/generate`, `GET/POST /fees`, `GET /fees/summary`, `POST /fees/:id/pay` (richiede `Idempotency-Key`), `POST /fees/:id/claim-payment` ("Ho pagato", permesso `payments:claim`: atleta e genitore, solo quote proprie o dei figli), `GET/POST /fees/:id/receipt` |
+| Certificati e scadenze (02) | `GET/POST/PATCH/DELETE /document-types`, `GET/POST /members/:id/documents`, `GET/PATCH/DELETE /documents/:id`, `PUT/GET /documents/:id/file`, `GET /documents/expirations` (timeline per mese), `GET /document-types/report` e `GET /document-types/:id/people` (persone in regola, in scadenza, scadute o mancanti per tipo, D-39) |
+| Quote e pagamenti (03) | `GET/POST/PATCH/DELETE /fee-plans`, `POST /fee-plans/:id/generate`, `GET /fee-plans/report` e `GET /fee-plans/:id/people` (persone per piano, D-38), `GET/POST /fees`, `GET /fees/summary`, `POST /fees/:id/pay` (richiede `Idempotency-Key`), `POST /fees/:id/claim-payment` ("Ho pagato", permesso `payments:claim`: atleta e genitore, solo quote proprie o dei figli), `GET/POST /fees/:id/receipt` |
 | Calendario e convocazioni (04) | `GET/POST /events`, `GET/PATCH/DELETE /events/:id`, `POST /events/:id/cancel`, `GET /events/export.ics`, `GET /convocations`, `GET/POST /events/:id/convocations`, `POST /events/:id/convocations/send\|remind`, `PUT /convocations/:id/response`, `DELETE /convocations/:id`, `GET/PUT /events/:id/attendance`, `GET /members/:id/attendance`, `GET /teams/:id/attendance` |
 | Gironi e classifiche (05) | `/seasons`, `/competitions`, `/competitions/:id/groups`, `.../groups/:gid/teams`, `.../groups/:gid/matches`, `.../groups/:gid/rounds`, `.../groups/:gid/standings`, `GET/PATCH/DELETE /matches/:id`, `PUT/DELETE /matches/:id/result` |
 | Pagelle e statistiche (06) | `GET /matches/:id/report-cards`, `PUT/DELETE /matches/:id/evaluations/:memberId`, `POST /matches/:id/evaluations/publish`, `PUT/DELETE /matches/:id/stats/:memberId`, `GET /members/:id/evaluations`, `GET /members/:id/evaluation-summary`, `GET /evaluation-summaries` |
@@ -213,7 +214,7 @@ Tutti sotto `/api/v1`, tutti con validazione Zod, schema OpenAPI (`/docs/`), iso
 | Allegati (Fase 2) | `GET/POST /attachments` (per `entityType` + `entityId`), `GET /attachments/:id/file`, `DELETE /attachments/:id` |
 | Report (Fase 2) | `GET /reports/accounting/summary`, `GET /reports/accounting.pdf` (`from`, `to`, `sections`) |
 | Import da file (Fase 2) | `POST /events/import` (iCalendar), `POST /competitions/:id/groups/:gid/matches/import` (CSV); entrambi con `dryRun` per l'anteprima |
-| Moduli secondari | `/venues`, `/trips`, `/kits`, `/sponsors`, `/staff`, `/ledger/entries` + `GET /ledger/report`, `/announcements`, `/referees`, `/referee-assignments`, `GET /statistics/overview`. I tornei sono competizioni con `kind = TOURNAMENT` (`GET /competitions?kind=TOURNAMENT`) |
+| Moduli secondari | `/venues`, `/trips`, `/kits` (+ `GET /kits/groups`; palestre, divise e trasferte portano un costo che diventa una uscita del bilancio, D-40), `/sponsors`, `/staff`, `/ledger/entries` + `GET /ledger/report`, `/announcements`, `/referees`, `/referee-assignments`, `GET /statistics/overview`. I tornei sono competizioni con `kind = TOURNAMENT` (`GET /competitions?kind=TOURNAMENT`) |
 
 ### Operazioni sensibili e idempotenza
 
