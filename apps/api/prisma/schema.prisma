@@ -48,6 +48,7 @@ model Society {
   documents               Document[]
   attachments             Attachment[]
   feePlans                FeePlan[]
+  feePlanTeams            FeePlanTeam[]
   payments                Payment[]
   receipts                Receipt[]
   receiptSequences        ReceiptSequence[]
@@ -299,7 +300,7 @@ model Team {
 
   memberships   TeamMembership[]
   staff         TeamStaff[]
-  feePlans      FeePlan[]
+  feePlanTeams  FeePlanTeam[]
   events        Event[]
   groupTeams    GroupTeam[]
   announcements Announcement[]
@@ -446,24 +447,40 @@ model FeePlan {
   id           String   @id @default(cuid())
   societyId    String
   seasonId     String?
-  teamId       String?
   name         String
   kind         String   @default("MONTHLY")
   amountCents  Int
   currency     String   @default("EUR")
-  installments Int?
-  dueDay       Int?
+  installments Int      @default(1)
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   society  Society   @relation(fields: [societyId], references: [id], onDelete: Cascade)
   season   Season?   @relation(fields: [seasonId], references: [id], onDelete: SetNull)
-  team     Team?     @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  teams    FeePlanTeam[]
   payments Payment[]
 
   @@index([societyId])
   @@index([societyId, seasonId])
+}
+
+// The teams a plan is billed to: no rows = every active member of the society.
+model FeePlanTeam {
+  id        String   @id @default(cuid())
+  societyId String
+  feePlanId String
+  teamId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  plan    FeePlan @relation(fields: [feePlanId], references: [id], onDelete: Cascade)
+  team    Team    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([feePlanId, teamId])
+  @@index([societyId])
+  @@index([teamId])
 }
 
 // status: PENDING | PAID | OVERDUE | CANCELLED     method: CASH | BANK_TRANSFER | CARD | OTHER

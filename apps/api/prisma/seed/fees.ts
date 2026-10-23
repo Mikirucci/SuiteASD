@@ -20,7 +20,7 @@ const PAID = [
 export const seedFees: SeedStep = async (context) => {
   const { prisma, societyId } = context;
   const november = await prisma.feePlan.create({
-    data: { societyId, name: 'Quota novembre', kind: 'MONTHLY', amountCents: FEE_CENTS, dueDay: 10, installments: 1 },
+    data: { societyId, name: 'Quota novembre', kind: 'MONTHLY', amountCents: FEE_CENTS, installments: 1 },
   });
 
   const members = await prisma.member.findMany({ where: { societyId, status: 'ACTIVE' }, orderBy: { id: 'asc' } });

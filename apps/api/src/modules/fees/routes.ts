@@ -13,8 +13,6 @@ import {
   feeSchema,
   feesSummaryQuerySchema,
   feesSummarySchema,
-  generateFeesBodySchema,
-  generateFeesResultSchema,
   listFeePlansQuerySchema,
   listFeesQuerySchema,
   payFeeBodySchema,
@@ -30,7 +28,6 @@ import {
   createFee,
   feePlanService,
   feesSummary,
-  generateFees,
   getFee,
   getReceiptFile,
   issueReceipt,
@@ -86,22 +83,6 @@ export const feeRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     async (request) => planPeople(tenantOf(request), request.params.id, request.query),
-  );
-
-  app.post(
-    '/fee-plans/:id/generate',
-    {
-      onRequest: [app.requirePermission('payments:write')],
-      schema: {
-        tags: ['Fees'],
-        summary: 'Generate the fees of a plan for its members (idempotent per member and due date)',
-        security: bearerSecurity,
-        params: idParamsSchema,
-        body: generateFeesBodySchema,
-        response: { 200: generateFeesResultSchema, ...problemResponses(401, 403, 404, 409, 422) },
-      },
-    },
-    async (request) => generateFees(tenantOf(request), request.params.id, request.body),
   );
 
   // Declared before `/fees/:id` for readability; the router prefers static segments anyway.

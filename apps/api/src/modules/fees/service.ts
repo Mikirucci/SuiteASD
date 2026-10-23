@@ -1,4 +1,4 @@
-import type { FeePlan, Prisma } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 import type { FastifyBaseLogger } from 'fastify';
 import type { CrudService } from '../../lib/crud-routes.js';
 import { isAutomationEnabled, logEventRun } from '../../jobs/event-automations.js';
@@ -24,8 +24,6 @@ import type {
   FeePlanDto,
   FeesSummaryDto,
   FeesSummaryQuery,
-  GenerateFeesBody,
-  GenerateFeesResult,
   ListFeePlansQuery,
   ListFeesQuery,
   PayFeeBody,
@@ -36,17 +34,20 @@ import type {
 // Fee plans
 // ---------------------------------------------------------------------------
 
-function toPlanDto(plan: FeePlan): FeePlanDto {
+const planInclude = { teams: { select: { teamId: true } } } satisfies Prisma.FeePlanInclude;
+
+type PlanRow = Prisma.FeePlanGetPayload<{ include: typeof planInclude }>;
+
+function toPlanDto(plan: PlanRow): FeePlanDto {
   return {
     id: plan.id,
     name: plan.name,
     kind: feeKindSchema.parse(plan.kind),
     amountCents: plan.amountCents,
     currency: plan.currency,
-    teamId: plan.teamId,
+    teamIds: plan.teams.map((team) => team.teamId).sort(),
     seasonId: plan.seasonId,
     installments: plan.installments,
-    dueDay: plan.dueDay,
     isActive: plan.isActive,
     createdAt: toIso(plan.createdAt),
     updatedAt: toIso(plan.updatedAt),
@@ -54,18 +55,18 @@ function toPlanDto(plan: FeePlan): FeePlanDto {
 }
 
 // Ids received from the client are checked through the scoped client: a foreign-tenant id looks "not found".
-async function assertPlanReferences({ db }: TenantRequestContext, teamId?: string | null, seasonId?: string | null) {
-  if (teamId && !(await db.team.findFirst({ where: { id: teamId }, select: { id: true } }))) throw notFound('Team');
+async function assertPlanReferences({ db }: TenantRequestContext, teamIds: readonly string[], seasonId?: string | null) {
+  if (teamIds.length > 0 && (await db.team.count({ where: { id: { in: [...teamIds] } } })) !== teamIds.length) {
+    throw notFound('Team');
+  }
   if (seasonId && !(await db.season.findFirst({ where: { id: seasonId }, select: { id: true } }))) throw notFound('Season');
 }
 
 export const feePlanService: CrudService<FeePlanDto, CreateFeePlanBody, UpdateFeePlanBody, ListFeePlansQuery> = {
   async list({ db }, query) {
     const rows = await db.feePlan.findMany({
-      where: {
-        ...(query.teamId ? { teamId: query.teamId } : {}),
-        ...(query.isActive === undefined ? {} : { isActive: query.isActive }),
-      },
+      where: query.isActive === undefined ? {} : { isActive: query.isActive },
+      include: planInclude,
       orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
       ...cursorArgs(query),
     });
@@ -74,20 +75,54 @@ export const feePlanService: CrudService<FeePlanDto, CreateFeePlanBody, UpdateFe
   },
 
   async get({ db }, id) {
-    const plan = await db.feePlan.findFirst({ where: { id } });
+    const plan = await db.feePlan.findFirst({ where: { id }, include: planInclude });
     if (!plan) throw notFound('Fee plan');
     return toPlanDto(plan);
   },
 
+  // The plan and its fees are written together: a plan never exists half-billed.
   async create(ctx, body) {
-    await assertPlanReferences(ctx, body.teamId, body.seasonId);
-    return toPlanDto(await ctx.db.feePlan.create({ data: { ...body, societyId: ctx.auth.societyId } }));
+    const { teamIds, dueDates, ...planData } = body;
+    await assertPlanReferences(ctx, teamIds, body.seasonId);
+
+    const targets = await ctx.db.member.findMany({
+      where: {
+        status: 'ACTIVE',
+        ...(teamIds.length > 0 ? { teamMemberships: { some: { teamId: { in: teamIds }, leftAt: null } } } : {}),
+      },
+      select: { id: true },
+    });
+
+    return ctx.db.$transaction(async (tx) => {
+      const plan = await tx.feePlan.create({
+        data: { ...planData, societyId: ctx.auth.societyId, installments: dueDates.length },
+      });
+      if (teamIds.length > 0) {
+        await tx.feePlanTeam.createMany({
+          data: teamIds.map((teamId) => ({ societyId: ctx.auth.societyId, feePlanId: plan.id, teamId })),
+        });
+      }
+      const sorted = [...dueDates].sort();
+      await tx.payment.createMany({
+        data: sorted.flatMap((dueDate, index) =>
+          targets.map((member) => ({
+            societyId: ctx.auth.societyId,
+            memberId: member.id,
+            feePlanId: plan.id,
+            description: sorted.length > 1 ? `${plan.name} · rata ${index + 1} di ${sorted.length}` : plan.name,
+            amountCents: plan.amountCents,
+            currency: plan.currency,
+            dueDate: parseDateOnly(dueDate),
+          })),
+        ),
+      });
+      return toPlanDto(await tx.feePlan.findFirstOrThrow({ where: { id: plan.id }, include: planInclude }));
+    });
   },
 
   async update(ctx, id, body) {
-    await assertPlanReferences(ctx, body.teamId, body.seasonId);
     // A missing / foreign-tenant id makes Prisma throw P2025, mapped to 404 by the error plugin.
-    return toPlanDto(await ctx.db.feePlan.update({ where: { id }, data: body }));
+    return toPlanDto(await ctx.db.feePlan.update({ where: { id }, data: body, include: planInclude }));
   },
 
   async remove({ db }, id) {
@@ -98,56 +133,6 @@ export const feePlanService: CrudService<FeePlanDto, CreateFeePlanBody, UpdateFe
     if (result.count === 0) throw notFound('Fee plan');
   },
 };
-
-export async function generateFees(
-  ctx: TenantRequestContext,
-  planId: string,
-  body: GenerateFeesBody,
-): Promise<GenerateFeesResult> {
-  const { db, auth } = ctx;
-  const plan = await db.feePlan.findFirst({ where: { id: planId } });
-  if (!plan) throw notFound('Fee plan');
-  if (!plan.isActive) throw conflict('fee_plan_inactive', 'The fee plan is not active');
-
-  const targets = await db.member.findMany({
-    where: {
-      status: 'ACTIVE',
-      ...(plan.teamId ? { teamMemberships: { some: { teamId: plan.teamId, leftAt: null } } } : {}),
-      ...(body.memberIds ? { id: { in: body.memberIds } } : {}),
-    },
-    select: { id: true },
-  });
-  if (body.memberIds && targets.length !== new Set(body.memberIds).size) {
-    throw unprocessable('members_not_in_plan_target', 'Some members are not active members of the plan target group');
-  }
-
-  const dueDate = parseDateOnly(body.dueDate);
-  const existing = await db.payment.findMany({
-    where: { feePlanId: plan.id, dueDate, memberId: { in: targets.map((member) => member.id) } },
-    select: { memberId: true },
-  });
-  const alreadyBilled = new Set(existing.map((payment) => payment.memberId));
-  const toCreate = targets.filter((member) => !alreadyBilled.has(member.id));
-
-  try {
-    await db.payment.createMany({
-      data: toCreate.map((member) => ({
-        societyId: auth.societyId,
-        memberId: member.id,
-        feePlanId: plan.id,
-        description: body.description ?? plan.name,
-        amountCents: plan.amountCents,
-        currency: plan.currency,
-        dueDate,
-      })),
-    });
-  } catch (error) {
-    // A concurrent generation of the same plan and due date won the (feePlanId, memberId, dueDate) constraint.
-    if (isUniqueViolation(error)) throw conflict('fees_already_generated', 'These fees are already being generated');
-    throw error;
-  }
-  return { created: toCreate.length, skipped: alreadyBilled.size };
-}
 
 // ---------------------------------------------------------------------------
 // Fees

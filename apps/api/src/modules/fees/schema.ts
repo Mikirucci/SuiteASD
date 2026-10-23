@@ -13,30 +13,37 @@ const dateOnlySchema = z.iso.date();
 // Fee plans
 // ---------------------------------------------------------------------------
 
+export const MAX_INSTALLMENTS = 36;
+
+// Creating a plan also creates its fees: one per target member and per due date. Amount, teams and dates are
+// therefore fixed afterwards; only the name, the kind and the active flag can be edited.
 export const createFeePlanBodySchema = z.object({
   name: z.string().trim().min(1).max(120).describe('e.g. "Quota novembre"'),
   kind: feeKindSchema.default('MONTHLY'),
-  amountCents: amountCentsSchema,
-  teamId: idRef.optional().describe('Plan for one team; omitted = every active member of the society'),
+  amountCents: amountCentsSchema.describe('Amount of every installment, in euro cents'),
+  teamIds: z
+    .array(idRef)
+    .max(100)
+    .refine((ids) => new Set(ids).size === ids.length, 'Teams must be listed once')
+    .default([])
+    .describe('Teams the plan is billed to; empty = every active member of the society'),
   seasonId: idRef.optional(),
-  installments: z.number().int().min(1).max(36).optional().describe('Number of monthly installments, informative'),
-  dueDay: z.number().int().min(1).max(28).optional().describe('Day of the month the installment is due, informative'),
-  isActive: z.boolean().default(true),
+  dueDates: z
+    .array(dateOnlySchema)
+    .min(1)
+    .max(MAX_INSTALLMENTS)
+    .refine((dates) => new Set(dates).size === dates.length, 'Due dates must be different from each other')
+    .describe('One date per installment: 1 = a single payment, 3 = paid in three times'),
 });
 
 export const updateFeePlanBodySchema = patchBodySchema({
   name: createFeePlanBodySchema.shape.name,
   kind: feeKindSchema,
-  amountCents: amountCentsSchema,
-  teamId: idRef.nullable(),
-  seasonId: idRef.nullable(),
-  installments: createFeePlanBodySchema.shape.installments.nullable(),
-  dueDay: createFeePlanBodySchema.shape.dueDay.nullable(),
   isActive: z.boolean(),
 });
 
 export const listFeePlansQuerySchema = paginationQuerySchema.extend({
-  teamId: idRef.optional(),
+  teamId: idRef.optional().describe('Plans billed to this team'),
   isActive: z.enum(['true', 'false']).transform((value) => value === 'true').optional(),
 });
 
@@ -46,24 +53,12 @@ export const feePlanSchema = z.object({
   kind: feeKindSchema,
   amountCents: z.number().int(),
   currency: z.string(),
-  teamId: z.string().nullable(),
+  teamIds: z.array(z.string()).describe('Empty = every active member of the society'),
   seasonId: z.string().nullable(),
-  installments: z.number().int().nullable(),
-  dueDay: z.number().int().nullable(),
+  installments: z.number().int().describe('How many times the plan is paid'),
   isActive: z.boolean(),
   createdAt: isoDateTimeSchema,
   updatedAt: isoDateTimeSchema,
-});
-
-export const generateFeesBodySchema = z.object({
-  dueDate: dateOnlySchema.describe('Due date of the generated fees'),
-  description: z.string().trim().min(1).max(200).optional().describe('Defaults to the plan name'),
-  memberIds: z.array(idRef).min(1).max(500).optional().describe('Restrict to these members (default: whole target group)'),
-});
-
-export const generateFeesResultSchema = z.object({
-  created: z.number().int(),
-  skipped: z.number().int().describe('Members that already had a fee of this plan for the same due date'),
 });
 
 // ---------------------------------------------------------------------------
@@ -201,8 +196,6 @@ export type CreateFeePlanBody = z.infer<typeof createFeePlanBodySchema>;
 export type UpdateFeePlanBody = z.infer<typeof updateFeePlanBodySchema>;
 export type ListFeePlansQuery = z.infer<typeof listFeePlansQuerySchema>;
 export type FeePlanDto = z.infer<typeof feePlanSchema>;
-export type GenerateFeesBody = z.infer<typeof generateFeesBodySchema>;
-export type GenerateFeesResult = z.infer<typeof generateFeesResultSchema>;
 export type CreateFeeBody = z.infer<typeof createFeeBodySchema>;
 export type ListFeesQuery = z.infer<typeof listFeesQuerySchema>;
 export type FeesSummaryQuery = z.infer<typeof feesSummaryQuerySchema>;

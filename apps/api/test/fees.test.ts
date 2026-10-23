@@ -73,7 +73,7 @@ describe('fees module (quote e pagamenti)', () => {
       ['ATLETA', 403],
       ['GENITORE', 403],
     ] as const)('%s creating a fee plan gets %i', async (role, expected) => {
-      expect((await call(actors[role], 'POST', '/fee-plans', { name: `Piano ${role}`, amountCents: 6000 })).statusCode).toBe(expected);
+      expect((await call(actors[role], 'POST', '/fee-plans', { name: `Piano ${role}`, amountCents: 6000, dueDates: [dayOffset(10)] })).statusCode).toBe(expected);
     });
 
     it.each(['ALLENATORE', 'STAFF', 'ATLETA', 'GENITORE'] as const)('%s cannot register a payment', async (role) => {
@@ -85,77 +85,138 @@ describe('fees module (quote e pagamenti)', () => {
   });
 
   describe('fee plans', () => {
-    it('creates, updates and deletes a plan, validating the amount', async () => {
-      const created = await call(actors.ADMIN, 'POST', '/fee-plans', { name: 'Quota novembre', amountCents: 6000, teamId });
+    const plan = (payload: object) => call(actors.ADMIN, 'POST', '/fee-plans', { name: 'Piano', amountCents: 6000, dueDates: [dayOffset(10)], ...payload });
+
+    it('creates, updates the label fields and deletes a plan, validating the input', async () => {
+      const created = await plan({ name: 'Quota novembre', teamIds: [teamId] });
       expect(created.statusCode).toBe(201);
-      expect(created.json()).toMatchObject({ kind: 'MONTHLY', amountCents: 6000, currency: 'EUR', teamId, isActive: true });
+      expect(created.json()).toMatchObject({ kind: 'MONTHLY', amountCents: 6000, currency: 'EUR', teamIds: [teamId], installments: 1, isActive: true });
       const id = created.json().id;
-      const updated = await call(actors.SEGRETERIA, 'PATCH', `/fee-plans/${id}`, { amountCents: 6500, dueDay: 10 });
-      expect(updated.json()).toMatchObject({ amountCents: 6500, dueDay: 10 });
-      expect((await call(actors.ADMIN, 'POST', '/fee-plans', { name: 'Bad', amountCents: 0 })).statusCode).toBe(422);
-      expect((await call(actors.ADMIN, 'POST', '/fee-plans', { name: 'Bad', amountCents: 10.5 })).statusCode).toBe(422);
-      expect((await call(actors.ADMIN, 'DELETE', `/fee-plans/${id}`)).statusCode).toBe(204);
+      const updated = await call(actors.SEGRETERIA, 'PATCH', `/fee-plans/${id}`, { name: 'Quota dicembre', kind: 'EXTRA', isActive: false });
+      expect(updated.json()).toMatchObject({ name: 'Quota dicembre', kind: 'EXTRA', isActive: false, teamIds: [teamId] });
+      expect((await call(actors.ADMIN, 'GET', '/fee-plans?isActive=false')).json().data.map((item: { id: string }) => item.id)).toContain(id);
+
+      for (const bad of [
+        { amountCents: 0 },
+        { amountCents: 10.5 },
+        { dueDates: [] },
+        { dueDates: Array.from({ length: 37 }, (_, index) => dayOffset(index + 1)) },
+        { dueDates: [dayOffset(5), dayOffset(5)] },
+        { dueDates: ['not-a-date'] },
+        { teamIds: [teamId, teamId] },
+      ]) {
+        expect((await plan(bad)).statusCode, JSON.stringify(bad)).toBe(422);
+      }
+      expect((await call(actors.ADMIN, 'POST', '/fee-plans', { name: 'Senza date', amountCents: 100 })).statusCode).toBe(422);
+      expect((await call(actors.ADMIN, 'PATCH', `/fee-plans/${id}`, { amountCents: 1 })).statusCode).toBe(422);
     });
 
-    it('refuses a team of another society and a plan that already has fees to delete', async () => {
-      const foreignTeam = await ctx.prisma.team.create({ data: { societyId: outsider.societyId, name: 'Foreign' } });
-      expect((await call(actors.ADMIN, 'POST', '/fee-plans', { name: 'X', amountCents: 100, teamId: foreignTeam.id })).statusCode).toBe(404);
+    it('deletes a plan nobody is billed for, and refuses to delete one that already has fees', async () => {
+      const empty = await createTeam(ctx, societyId, 'Senza atleti');
+      const unbilled = await plan({ name: 'Vuoto', teamIds: [empty.id] });
+      expect((await call(actors.ADMIN, 'DELETE', `/fee-plans/${unbilled.json().id}`)).statusCode).toBe(204);
 
-      const plan = await call(actors.ADMIN, 'POST', '/fee-plans', { name: 'Con quote', amountCents: 5000 });
-      const member = await newMember();
-      await call(actors.ADMIN, 'POST', `/fee-plans/${plan.json().id}/generate`, { dueDate: dayOffset(5), memberIds: [member.id] });
-      const removed = await call(actors.ADMIN, 'DELETE', `/fee-plans/${plan.json().id}`);
+      await newMember();
+      const withFees = await plan({ name: 'Con quote' });
+      const removed = await call(actors.ADMIN, 'DELETE', `/fee-plans/${withFees.json().id}`);
       expect(removed.statusCode).toBe(409);
       expect(removed.json()).toMatchObject({ code: 'fee_plan_in_use' });
     });
+
+    it('refuses a team of another society without creating anything', async () => {
+      const foreignTeam = await ctx.prisma.team.create({ data: { societyId: outsider.societyId, name: 'Foreign' } });
+      const before = await ctx.prisma.feePlan.count({ where: { societyId } });
+      expect((await plan({ name: 'X', teamIds: [teamId, foreignTeam.id] })).statusCode).toBe(404);
+      expect(await ctx.prisma.feePlan.count({ where: { societyId } })).toBe(before);
+    });
+
+    it('does not show the plans of another society', async () => {
+      const mine = await plan({ name: 'Solo mia' });
+      expect((await call(outsider, 'GET', `/fee-plans/${mine.json().id}`)).statusCode).toBe(404);
+      expect((await call(outsider, 'GET', '/fee-plans')).json().data).toEqual([]);
+    });
   });
 
-  describe('fee generation', () => {
-    it('creates one fee per active team member and is idempotent', async () => {
-      const team = await createTeam(ctx, societyId, 'Generazione');
-      const active = [await createMember(ctx, societyId, { firstName: 'A1' }), await createMember(ctx, societyId, { firstName: 'A2' })];
-      for (const member of active) await ctx.prisma.teamMembership.create({ data: { societyId, teamId: team.id, memberId: member.id } });
-      const left = await createMember(ctx, societyId, { firstName: 'Left' });
+  describe('fees generated with the plan', () => {
+    const feesOf = (planId: string) =>
+      ctx.prisma.payment.findMany({ where: { feePlanId: planId }, orderBy: [{ dueDate: 'asc' }, { memberId: 'asc' }] });
+    const post = (payload: object) =>
+      call(actors.SEGRETERIA, 'POST', '/fee-plans', { name: 'Quota novembre', amountCents: 6000, dueDates: ['2026-11-10'], ...payload });
+    const day = (date: Date) => date.toISOString().slice(0, 10);
+
+    async function teamWithMembers(name: string, firstNames: string[]) {
+      const team = await createTeam(ctx, societyId, name);
+      const members = [];
+      for (const firstName of firstNames) {
+        const member = await createMember(ctx, societyId, { firstName, lastName: randomUUID().slice(0, 6) });
+        await ctx.prisma.teamMembership.create({ data: { societyId, teamId: team.id, memberId: member.id } });
+        members.push(member);
+      }
+      return { team, members };
+    }
+
+    it('bills one fee per active member of the chosen team, not the ones who left or are inactive', async () => {
+      const { team, members } = await teamWithMembers('Generazione', ['A1', 'A2']);
+      const left = await createMember(ctx, societyId, { firstName: 'Left', lastName: randomUUID().slice(0, 6) });
       await ctx.prisma.teamMembership.create({ data: { societyId, teamId: team.id, memberId: left.id, leftAt: new Date() } });
-      const inactive = await createMember(ctx, societyId, { firstName: 'Inactive', status: 'INACTIVE' });
+      const inactive = await createMember(ctx, societyId, { firstName: 'Inactive', lastName: randomUUID().slice(0, 6), status: 'INACTIVE' });
       await ctx.prisma.teamMembership.create({ data: { societyId, teamId: team.id, memberId: inactive.id } });
 
-      const plan = await call(actors.SEGRETERIA, 'POST', '/fee-plans', { name: 'Quota novembre', amountCents: 6000, teamId: team.id });
-      const planId = plan.json().id;
-      const first = await call(actors.SEGRETERIA, 'POST', `/fee-plans/${planId}/generate`, { dueDate: '2026-11-10' });
-      expect(first.json()).toEqual({ created: 2, skipped: 0 });
-      const again = await call(actors.SEGRETERIA, 'POST', `/fee-plans/${planId}/generate`, { dueDate: '2026-11-10' });
-      expect(again.json()).toEqual({ created: 0, skipped: 2 });
-      const december = await call(actors.SEGRETERIA, 'POST', `/fee-plans/${planId}/generate`, { dueDate: '2026-12-10' });
-      expect(december.json()).toEqual({ created: 2, skipped: 0 });
-
-      const fees = await ctx.prisma.payment.findMany({ where: { feePlanId: planId, dueDate: new Date('2026-11-10T00:00:00Z') } });
-      expect(fees.map((fee) => [fee.amountCents, fee.description, fee.status])).toEqual([
-        [6000, 'Quota novembre', 'PENDING'],
-        [6000, 'Quota novembre', 'PENDING'],
+      const created = await post({ teamIds: [team.id] });
+      expect(created.statusCode).toBe(201);
+      const fees = await feesOf(created.json().id);
+      expect(fees.map((fee) => fee.memberId).sort()).toEqual(members.map((member) => member.id).sort());
+      expect(fees.map((fee) => [fee.amountCents, fee.description, fee.status, day(fee.dueDate)])).toEqual([
+        [6000, 'Quota novembre', 'PENDING', '2026-11-10'],
+        [6000, 'Quota novembre', 'PENDING', '2026-11-10'],
       ]);
     });
 
-    it('targets every active member when the plan has no team and rejects members outside the target', async () => {
-      const lone = await createSociety(ctx, 'Solo ASD');
-      const admin = await createActor(ctx, lone.id, 'ADMIN');
-      const m1 = await createMember(ctx, lone.id, { firstName: 'M1' });
-      await createMember(ctx, lone.id, { firstName: 'M2', fiscalCode: 'AAAAAA00A00A000A' });
-      const plan = await ctx.app.inject({ method: 'POST', url: `${API}/fee-plans`, headers: admin.headers, payload: { name: 'Iscrizione', kind: 'ENROLLMENT', amountCents: 15000 } });
-      const generate = (payload: object) =>
-        ctx.app.inject({ method: 'POST', url: `${API}/fee-plans/${plan.json().id}/generate`, headers: admin.headers, payload });
-      expect((await generate({ dueDate: '2026-09-30' })).json()).toEqual({ created: 2, skipped: 0 });
-      const foreign = await createMember(ctx, societyId, { firstName: 'Foreign' });
-      const bad = await generate({ dueDate: '2026-10-30', memberIds: [m1.id, foreign.id] });
-      expect(bad.statusCode).toBe(422);
-      expect(bad.json()).toMatchObject({ code: 'members_not_in_plan_target' });
-      expect((await generate({ dueDate: 'not-a-date' })).statusCode).toBe(422);
+    it('bills the members of several teams once each, even when they are in more than one', async () => {
+      const first = await teamWithMembers('Prima', ['B1', 'B2']);
+      const second = await teamWithMembers('Seconda', ['C1']);
+      const shared = first.members[0];
+      if (!shared) throw new Error('missing member');
+      await ctx.prisma.teamMembership.create({ data: { societyId, teamId: second.team.id, memberId: shared.id } });
+      const unrelated = await teamWithMembers('Terza', ['D1']);
+
+      const created = await post({ teamIds: [first.team.id, second.team.id] });
+      expect(created.json().teamIds).toEqual([first.team.id, second.team.id].sort());
+      const billed = (await feesOf(created.json().id)).map((fee) => fee.memberId);
+      expect(billed).toHaveLength(3);
+      expect(new Set(billed)).toEqual(new Set([...first.members, ...second.members].map((member) => member.id)));
+      expect(billed).not.toContain(unrelated.members[0]?.id);
     });
 
-    it('does not generate from an inactive plan', async () => {
-      const plan = await call(actors.ADMIN, 'POST', '/fee-plans', { name: 'Chiuso', amountCents: 100, isActive: false });
-      const response = await call(actors.ADMIN, 'POST', `/fee-plans/${plan.json().id}/generate`, { dueDate: dayOffset(3) });
-      expect(response.statusCode).toBe(409);
+    it('bills every active member of the society when no team is chosen', async () => {
+      const lone = await createSociety(ctx, 'Solo ASD');
+      const admin = await createActor(ctx, lone.id, 'ADMIN');
+      await createMember(ctx, lone.id, { firstName: 'M1' });
+      await createMember(ctx, lone.id, { firstName: 'M2', fiscalCode: 'AAAAAA00A00A000A' });
+      await createMember(ctx, lone.id, { firstName: 'M3', fiscalCode: 'BBBBBB00B00B000B', status: 'INACTIVE' });
+      const response = await ctx.app.inject({
+        method: 'POST',
+        url: `${API}/fee-plans`,
+        headers: admin.headers,
+        payload: { name: 'Iscrizione', kind: 'ENROLLMENT', amountCents: 15000, dueDates: ['2026-09-30'] },
+      });
+      expect(response.json()).toMatchObject({ teamIds: [], installments: 1 });
+      expect(await ctx.prisma.payment.count({ where: { feePlanId: response.json().id } })).toBe(2);
+    });
+
+    it('creates one fee per date, numbered in date order, when the plan is paid in several times', async () => {
+      const { team } = await teamWithMembers('Rate', ['E1', 'E2']);
+      const created = await post({ name: 'Divisa', teamIds: [team.id], dueDates: ['2026-12-10', '2026-10-10', '2027-01-10'] });
+      expect(created.json()).toMatchObject({ installments: 3 });
+      const fees = await feesOf(created.json().id);
+      expect(fees.map((fee) => [day(fee.dueDate), fee.description])).toEqual([
+        ['2026-10-10', 'Divisa · rata 1 di 3'],
+        ['2026-10-10', 'Divisa · rata 1 di 3'],
+        ['2026-12-10', 'Divisa · rata 2 di 3'],
+        ['2026-12-10', 'Divisa · rata 2 di 3'],
+        ['2027-01-10', 'Divisa · rata 3 di 3'],
+        ['2027-01-10', 'Divisa · rata 3 di 3'],
+      ]);
     });
   });
 
@@ -198,7 +259,7 @@ describe('fees module (quote e pagamenti)', () => {
       const society = await createSociety(ctx, 'Pagine ASD');
       const admin = await createActor(ctx, society.id, 'ADMIN');
       const team = await createTeam(ctx, society.id, 'Squadra');
-      const plan = await ctx.prisma.feePlan.create({ data: { societyId: society.id, name: 'Piano', amountCents: 1000, teamId: team.id } });
+      const plan = await ctx.prisma.feePlan.create({ data: { societyId: society.id, name: 'Piano', amountCents: 1000 } });
       for (let i = 0; i < 5; i += 1) {
         const member = await createMember(ctx, society.id, { firstName: `P${i}`, fiscalCode: `PAGINA${i}0000000000`.slice(0, 16) });
         await ctx.prisma.teamMembership.create({ data: { societyId: society.id, teamId: team.id, memberId: member.id } });
