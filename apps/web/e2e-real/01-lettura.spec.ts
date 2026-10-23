@@ -14,7 +14,7 @@ test.describe("società demo, in sola lettura", () => {
     const topics = {
       Persone: ["Tesserati", "Squadre", "Staff", "Accessi e inviti"],
       "Attività sportiva": ["Calendario", "Presenze", "Classifiche", "Tornei", "Pagelle", "Arbitri", "Statistiche"],
-      Amministrazione: ["Pagamenti", "Scadenze e documenti", "Bilancio", "Sponsor"],
+      Amministrazione: ["Pagamenti", "Scadenze e documenti", "Spese", "Bilancio", "Sponsor"],
       Logistica: ["Palestre", "Trasferte", "Divise"],
       Comunicazione: ["Notifiche", "Bacheca", "Automazioni"],
     };

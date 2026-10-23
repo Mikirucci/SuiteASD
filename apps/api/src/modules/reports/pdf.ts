@@ -162,7 +162,7 @@ function renderSummary(writer: Writer, report: AccountingReport): void {
 function renderLedger(writer: Writer, report: AccountingReport): void {
   const ledger = report.ledger;
   if (!ledger) return;
-  writer.sectionTitle('Bilancio', 'Prima nota: entrate e uscite registrate nel periodo, comprese le quote incassate.');
+  writer.sectionTitle('Bilancio', 'Prima nota: entrate e uscite registrate nel periodo. Le quote dei tesserati sono nella sezione Quote e incassi.');
   const totals = cols(writer.contentWidth, [['Entrate', 1, 'right'], ['Uscite', 1, 'right'], ['Saldo', 1, 'right']]);
   writer.table(totals, [[formatEuro(ledger.totals.incomeCents), formatEuro(ledger.totals.expenseCents), formatEuro(ledger.totals.balanceCents)]]);
 

@@ -2,7 +2,7 @@ import type { Prisma } from '@prisma/client';
 import type { CrudService } from '../../lib/crud-routes.js';
 import { fromDateOnly, toDateOnly, toDateOnlyOrNull } from '../../lib/date-only.js';
 import { notFound } from '../../lib/errors.js';
-import { syncLinkedExpense, today } from '../../lib/ledger-links.js';
+import { LINKED_CATEGORIES, syncLinkedExpense, today } from '../../lib/ledger-links.js';
 import { cursorArgs, toPage } from '../../lib/pagination.js';
 import { toIso, toIsoOrNull } from '../../lib/schemas.js';
 import type { TenantRequestContext } from '../../plugins/auth.js';
@@ -44,7 +44,7 @@ async function syncCost(ctx: TenantRequestContext, kit: KitRow): Promise<void> {
     userId: ctx.auth.userId,
     source: { kitId: kit.id },
     expense: kit.costCents
-      ? { category: 'Divise', description: kitName(kit), amountCents: kit.costCents, occurredOn: kit.costDate ?? today() }
+      ? { category: LINKED_CATEGORIES.kit, description: kitName(kit), amountCents: kit.costCents, occurredOn: kit.costDate ?? today() }
       : null,
   });
 }

@@ -1,7 +1,7 @@
 import type { Prisma, Trip } from '@prisma/client';
 import type { CrudService } from '../../lib/crud-routes.js';
 import { notFound } from '../../lib/errors.js';
-import { syncLinkedExpense } from '../../lib/ledger-links.js';
+import { LINKED_CATEGORIES, syncLinkedExpense } from '../../lib/ledger-links.js';
 import { cursorArgs, toPage } from '../../lib/pagination.js';
 import { toIso, toIsoOrNull } from '../../lib/schemas.js';
 import type { TenantRequestContext } from '../../plugins/auth.js';
@@ -40,7 +40,7 @@ async function syncCost(ctx: TenantRequestContext, trip: Trip): Promise<void> {
     userId: ctx.auth.userId,
     source: { tripId: trip.id },
     expense: booked
-      ? { category: 'Trasferte', description: trip.destination, amountCents: trip.costCents ?? 0, occurredOn: new Date(Date.UTC(trip.departAt.getUTCFullYear(), trip.departAt.getUTCMonth(), trip.departAt.getUTCDate())) }
+      ? { category: LINKED_CATEGORIES.trip, description: trip.destination, amountCents: trip.costCents ?? 0, occurredOn: new Date(Date.UTC(trip.departAt.getUTCFullYear(), trip.departAt.getUTCMonth(), trip.departAt.getUTCDate())) }
       : null,
   });
 }

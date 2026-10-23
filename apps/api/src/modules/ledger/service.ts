@@ -6,12 +6,15 @@ import { cursorArgs, toPage } from '../../lib/pagination.js';
 import { toIso } from '../../lib/schemas.js';
 import type { TenantRequestContext } from '../../plugins/auth.js';
 import { ledgerKindSchema } from '../../shared/enums.js';
+import { canonicalCategory, listCategories } from './categories.js';
 import { buildLedgerReport } from './report.js';
 import type {
   CreateLedgerEntryBody,
+  LedgerCategoriesDto,
   LedgerEntryDto,
   LedgerReportDto,
   LedgerReportQuery,
+  ListLedgerCategoriesQuery,
   ListLedgerEntriesQuery,
   UpdateLedgerEntryBody,
 } from './schema.js';
@@ -21,6 +24,7 @@ function sourceOf(entry: LedgerEntry): LedgerEntryDto['source'] {
   if (entry.venueId) return 'VENUE';
   if (entry.kitId) return 'KIT';
   if (entry.tripId) return 'TRIP';
+  if (entry.refereeAssignmentId) return 'REFEREE';
   return null;
 }
 
@@ -33,6 +37,8 @@ function toDto(entry: LedgerEntry): LedgerEntryDto {
     amountCents: entry.amountCents,
     occurredOn: toDateOnly(entry.occurredOn),
     sponsorId: entry.sponsorId,
+    supplier: entry.supplier,
+    notes: entry.notes,
     paymentId: entry.paymentId,
     source: sourceOf(entry),
     createdAt: toIso(entry.createdAt),
@@ -46,13 +52,23 @@ async function assertSponsorExists({ db }: TenantRequestContext, sponsorId: stri
   if (!(await db.sponsor.findFirst({ where: { id: sponsorId }, select: { id: true } }))) throw notFound('Sponsor');
 }
 
-// Entries born from a payment or from the cost of a venue, kit or trip follow their source: changing them here would
+// Entries born from a payment or from the cost of a venue, kit, trip or referee follow their source: changing them here would
 // put the balance out of step with it.
-async function assertOwnEntry({ db }: TenantRequestContext, id: string): Promise<void> {
+async function assertOwnEntry({ db }: TenantRequestContext, id: string): Promise<LedgerEntry> {
   const entry = await db.ledgerEntry.findFirst({ where: { id } });
   if (!entry) throw notFound('Ledger entry');
   if (sourceOf(entry)) throw conflict('ledger_entry_linked', 'The entry follows its source: change it there');
+  return entry;
 }
+
+// An entry has a source when another module owns it (see sourceOf)
+const LINKED_FILTER: Prisma.LedgerEntryWhereInput[] = [
+  { paymentId: { not: null } },
+  { venueId: { not: null } },
+  { kitId: { not: null } },
+  { tripId: { not: null } },
+  { refereeAssignmentId: { not: null } },
+];
 
 export const ledgerService: CrudService<
   LedgerEntryDto,
@@ -71,6 +87,10 @@ export const ledgerService: CrudService<
         ...(query.category ? { category: query.category } : {}),
         ...(query.sponsorId ? { sponsorId: query.sponsorId } : {}),
         ...(Object.keys(occurredOn).length > 0 ? { occurredOn } : {}),
+        ...(query.q
+          ? { OR: [{ description: { contains: query.q } }, { supplier: { contains: query.q } }, { category: { contains: query.q } }] }
+          : {}),
+        ...(query.origin ? { AND: [query.origin === 'LINKED' ? { OR: LINKED_FILTER } : { NOT: { OR: LINKED_FILTER } }] } : {}),
       },
       orderBy: [{ occurredOn: 'desc' }, { id: 'asc' }],
       ...cursorArgs(query),
@@ -90,6 +110,7 @@ export const ledgerService: CrudService<
     const entry = await ctx.db.ledgerEntry.create({
       data: {
         ...body,
+        category: await canonicalCategory(ctx.db, body.kind, body.category),
         societyId: ctx.auth.societyId,
         occurredOn: fromDateOnly(body.occurredOn),
         createdById: ctx.auth.userId,
@@ -99,12 +120,20 @@ export const ledgerService: CrudService<
   },
 
   async update(ctx, id, body) {
-    await assertOwnEntry(ctx, id);
+    const current = await assertOwnEntry(ctx, id);
     await assertSponsorExists(ctx, body.sponsorId);
-    const { occurredOn, ...rest } = body;
+    const { occurredOn, category, ...rest } = body;
+    // A new category (or a new kind with the same category) is matched with the ones already in use
+    const kind = body.kind ?? ledgerKindSchema.parse(current.kind);
     const entry = await ctx.db.ledgerEntry.update({
       where: { id },
-      data: { ...rest, ...(occurredOn ? { occurredOn: fromDateOnly(occurredOn) } : {}) },
+      data: {
+        ...rest,
+        ...(category !== undefined || body.kind !== undefined
+          ? { category: await canonicalCategory(ctx.db, kind, category ?? current.category) }
+          : {}),
+        ...(occurredOn ? { occurredOn: fromDateOnly(occurredOn) } : {}),
+      },
     });
     return toDto(entry);
   },
@@ -116,6 +145,10 @@ export const ledgerService: CrudService<
     if (result.count === 0) throw notFound('Ledger entry');
   },
 };
+
+export async function getLedgerCategories({ db }: TenantRequestContext, query: ListLedgerCategoriesQuery): Promise<LedgerCategoriesDto> {
+  return { data: await listCategories(db, query.kind) };
+}
 
 export async function getLedgerReport({ db }: TenantRequestContext, query: LedgerReportQuery): Promise<LedgerReportDto> {
   const year = query.year ?? new Date().getUTCFullYear();

@@ -18,6 +18,7 @@ export const seedSecondary: SeedStep = async (context) => {
   await seedTrips(context);
   await seedAnnouncements(context);
   await seedReferees(context);
+  await seedLinkedCosts(context);
 };
 
 async function seedVenues({ prisma, societyId }: SeedContext): Promise<void> {
@@ -193,7 +194,15 @@ async function seedSponsors({ prisma, societyId }: SeedContext) {
 
 async function seedLedger({ prisma, societyId, users }: SeedContext, sponsors: { id: string; name: string }[]): Promise<void> {
   const sponsorId = (name: string) => sponsors.find((sponsor) => sponsor.name === name)?.id ?? null;
-  const entry = (kind: 'INCOME' | 'EXPENSE', category: string, description: string, euros: number, occurredOn: Date, linkedSponsor?: string) => ({
+  const entry = (
+    kind: 'INCOME' | 'EXPENSE',
+    category: string,
+    description: string,
+    euros: number,
+    occurredOn: Date,
+    linkedSponsor?: string,
+    supplier?: string,
+  ) => ({
     societyId,
     kind,
     category,
@@ -202,6 +211,7 @@ async function seedLedger({ prisma, societyId, users }: SeedContext, sponsors: {
     occurredOn,
     createdById: users.admin.id,
     sponsorId: linkedSponsor ? sponsorId(linkedSponsor) : null,
+    supplier: supplier ?? null,
   });
   await prisma.ledgerEntry.createMany({
     data: [
@@ -210,12 +220,13 @@ async function seedLedger({ prisma, societyId, users }: SeedContext, sponsors: {
       entry('INCOME', 'Quote iscrizione', 'Iscrizioni settore giovanile', 4200, utc(2026, 9, 25)),
       entry('INCOME', 'Quote mensili', 'Quote di ottobre incassate in segreteria', 5400, utc(2026, 10, 12)),
       entry('INCOME', 'Contributi', 'Contributo comunale per lo sport', 1500, utc(2026, 10, 2)),
-      entry('EXPENSE', 'Affitto palestre', 'Palazzetto, ottobre', 1100, utc(2026, 10, 5)),
-      entry('EXPENSE', 'Affitto palestre', 'Palestra Carducci, ottobre', 450, utc(2026, 10, 5)),
-      entry('EXPENSE', 'Materiale sportivo', 'Palloni da gara e carrello', 640, utc(2026, 9, 18)),
-      entry('EXPENSE', 'Affiliazioni e tesseramenti', 'Affiliazione FIPAV 2026/27', 900, utc(2026, 8, 28)),
-      entry('EXPENSE', 'Assicurazioni', 'Polizza infortuni tesserati', 780, utc(2026, 9, 1)),
-      entry('EXPENSE', 'Arbitri', 'Rimborsi arbitri, prime gare in casa', 280, utc(2026, 10, 20)),
+      entry('EXPENSE', 'Palestre', 'Palazzetto, ottobre', 1100, utc(2026, 10, 5), undefined, 'Comune di Bologna'),
+      entry('EXPENSE', 'Palestre', 'Palestra Carducci, ottobre', 450, utc(2026, 10, 5), undefined, 'Istituto Carducci'),
+      entry('EXPENSE', 'Attrezzatura sportiva', 'Palloni da gara e carrello', 640, utc(2026, 9, 18), undefined, 'Volley Shop Emilia'),
+      entry('EXPENSE', 'Attrezzatura sportiva', 'Rete e antenne per il Palazzetto', 215, utc(2026, 9, 22), undefined, 'Volley Shop Emilia'),
+      entry('EXPENSE', 'Iscrizioni e affiliazioni', 'Affiliazione FIPAV 2026/27', 900, utc(2026, 8, 28), undefined, 'FIPAV Emilia-Romagna'),
+      entry('EXPENSE', 'Assicurazioni', 'Polizza infortuni tesserati', 780, utc(2026, 9, 1), undefined, 'Assicurazioni Rossi'),
+      entry('EXPENSE', 'Ufficio e segreteria', 'Stampa moduli di iscrizione', 48, utc(2026, 9, 3), undefined, 'Copisteria Zanichelli'),
     ],
   });
 }
@@ -313,17 +324,20 @@ async function seedReferees({ prisma, societyId }: SeedContext): Promise<void> {
   // Designations for the home matches of the demo group: the last one is the featured match against Delfini.
   const [cattaneo, ferrari, longhi] = referees;
   const matches = await prisma.match.findMany({
-    where: { societyId, round: { in: [17, 18, 20] }, homeTeam: { teamId: { not: null } } },
+    where: { societyId, homeTeam: { teamId: { not: null } } },
     orderBy: { round: 'asc' },
   });
+  // The first two home matches were played; the last one is the featured match against Delfini
+  const [first, second] = matches;
+  const featured = matches[matches.length - 1];
   const assignments = [
-    { referee: cattaneo, round: 17, feeCents: 4500, reimbursedAt: utc(2026, 10, 20) },
-    { referee: ferrari, round: 18, feeCents: 4000, reimbursedAt: utc(2026, 10, 20) },
-    { referee: cattaneo, round: 20, feeCents: 4500, reimbursedAt: null },
-    { referee: longhi, round: 20, feeCents: 1500, reimbursedAt: null },
+    { referee: cattaneo, match: first, feeCents: 4500, reimbursedAt: utc(2026, 10, 20) },
+    { referee: ferrari, match: second, feeCents: 4000, reimbursedAt: utc(2026, 10, 20) },
+    { referee: cattaneo, match: featured, feeCents: 4500, reimbursedAt: null },
+    { referee: longhi, match: featured, feeCents: 1500, reimbursedAt: null },
   ];
   for (const assignment of assignments) {
-    const match = matches.find((candidate) => candidate.round === assignment.round);
+    const { match } = assignment;
     if (!assignment.referee || !match) continue;
     await prisma.refereeAssignment.create({
       data: {
@@ -332,6 +346,46 @@ async function seedReferees({ prisma, societyId }: SeedContext): Promise<void> {
         matchId: match.id,
         feeCents: assignment.feeCents,
         reimbursedAt: assignment.reimbursedAt,
+      },
+    });
+  }
+}
+
+// The costs of trips and the fees of referees weigh on the balance, as the app books them (lib/ledger-links.ts): one
+// expense per source, on the day of the trip or of the match.
+async function seedLinkedCosts({ prisma, societyId, users }: SeedContext): Promise<void> {
+  const day = (date: Date): Date => new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const trips = await prisma.trip.findMany({ where: { societyId, costCents: { gt: 0 }, status: { not: 'CANCELLED' } } });
+  for (const trip of trips) {
+    await prisma.ledgerEntry.create({
+      data: {
+        societyId,
+        kind: 'EXPENSE',
+        category: 'Trasferte',
+        description: trip.destination,
+        amountCents: trip.costCents ?? 0,
+        occurredOn: day(trip.departAt),
+        tripId: trip.id,
+        createdById: users.admin.id,
+      },
+    });
+  }
+  const assignments = await prisma.refereeAssignment.findMany({
+    where: { societyId, feeCents: { gt: 0 } },
+    include: { referee: true, match: { include: { homeTeam: true, awayTeam: true, event: true } } },
+  });
+  for (const assignment of assignments) {
+    const { referee, match } = assignment;
+    await prisma.ledgerEntry.create({
+      data: {
+        societyId,
+        kind: 'EXPENSE',
+        category: 'Arbitri',
+        description: `${referee.firstName} ${referee.lastName} · ${match.homeTeam.name} - ${match.awayTeam.name}`,
+        amountCents: assignment.feeCents ?? 0,
+        occurredOn: day(match.event?.startsAt ?? match.playedAt ?? assignment.createdAt),
+        refereeAssignmentId: assignment.id,
+        createdById: users.admin.id,
       },
     });
   }

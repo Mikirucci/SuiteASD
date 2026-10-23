@@ -97,7 +97,7 @@ async function loadLedger(db: Db, from: Date, toExclusive: Date): Promise<Ledger
       occurredOn: row.occurredOn,
       kind: ledgerKindSchema.parse(row.kind),
       category: row.category,
-      description: row.description,
+      description: [row.description, row.supplier ? `(${row.supplier})` : null].filter(Boolean).join(' ') || null,
       amountCents: row.amountCents,
     })),
   };

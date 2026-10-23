@@ -22,7 +22,8 @@ interface CategoryListProps {
   report: LedgerReport;
 }
 
-function CategoryList({ title, kind, report }: CategoryListProps) {
+/** The categories of one kind with their totals, each with its share of the total as a bar. */
+export function CategoryList({ title, kind, report }: CategoryListProps) {
   const rows = report.categories.filter((category) => category.kind === kind);
   const total = kind === "INCOME" ? report.totals.incomeCents : report.totals.expenseCents;
   return (

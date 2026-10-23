@@ -14,7 +14,8 @@ export type FieldKind =
   | "money"
   | "date"
   | "datetime"
-  | "member";
+  | "member"
+  | "suggest";
 
 export interface FieldDef {
   /** Key in the form values. */
@@ -29,6 +30,8 @@ export interface FieldDef {
   half?: boolean;
   /** `member` only: form value that remembers the name of the chosen member (shown while editing). */
   labelName?: string;
+  /** `suggest` only: where the names to offer come from, `{ data: string[] }` at `path`. */
+  suggestions?: { path: string; query?: Record<string, string> };
 }
 
 /** Every form field is text: the resource converts to and from API types in `initialValues` and `toBody`. */

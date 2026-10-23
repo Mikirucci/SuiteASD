@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { AFFITTO, ALLENATORE, MAGLIA, PALAZZETTO, PANIFICIO, QUOTE_NOVEMBRE, REPORT, SCUOLA, TRASFERTA, TUTA } from "../src/features/altro/test-fixtures";
+import type { LedgerEntry } from "../src/features/altro/types";
 import { auditAccessibility } from "./support/axe";
 import { mockApi, seedStoredSession } from "./support/mock-api";
 import { pageOf, routeApi, type ApiAnswer, type ApiHandler, type ApiRequest } from "./support/route-api";
@@ -84,7 +85,7 @@ function combine(...handlers: ApiHandler[]): ApiHandler {
 }
 
 const NO_VENUE_DETAILS = { address: null, city: null, capacity: null, availability: null, notes: null };
-const NO_ENTRY_DETAILS = { description: null, sponsorId: null, paymentId: null };
+const NO_ENTRY_DETAILS = { description: null, sponsorId: null, supplier: null, notes: null, paymentId: null, source: null };
 const venues = () => resource("/venues", [PALAZZETTO, SCUOLA], { defaults: NO_VENUE_DETAILS });
 
 async function openAs(page: Page, url: string, me: Parameters<typeof routeApi>[1], handler: ApiHandler) {
@@ -337,6 +338,82 @@ test.describe("altro, bilancio", () => {
   });
 });
 
+
+const PALLONI: LedgerEntry = {
+  ...AFFITTO,
+  id: "l-palloni",
+  category: "Attrezzatura sportiva",
+  description: "Palloni da gara",
+  supplier: "Volley Shop Emilia",
+  notes: "Fattura 118",
+  amountCents: 64000,
+  occurredOn: "2026-09-18",
+};
+const ARBITRO: LedgerEntry = { ...PALLONI, id: "l-arbitro", category: "Arbitri", description: "Roberto Cattaneo · Aquile - Delfini", supplier: null, notes: null, amountCents: 4500, source: "REFEREE" };
+const SPESE_REPORT = {
+  ...REPORT,
+  totals: { incomeCents: 0, expenseCents: 68500, balanceCents: -68500 },
+  categories: [
+    { kind: "EXPENSE" as const, category: "Attrezzatura sportiva", totalCents: 64000 },
+    { kind: "EXPENSE" as const, category: "Arbitri", totalCents: 4500 },
+  ],
+};
+const CATEGORIES = ["Arbitri", "Assicurazioni", "Attrezzatura sportiva", "Palestre"];
+const expenses = () =>
+  combine(
+    resource("/ledger/entries", [PALLONI, ARBITRO], { defaults: NO_ENTRY_DETAILS }).handler,
+    ({ method, path }) => (method === "GET" && path === "/ledger/report" ? { body: SPESE_REPORT } : undefined),
+    ({ method, path }) => (method === "GET" && path === "/ledger/categories" ? { body: { data: CATEGORIES } } : undefined),
+  );
+
+test.describe("altro, spese", () => {
+  test("shows the year, the expenses with their supplier, tells the linked ones, and registers a new expense", async ({ page }) => {
+    const api = await openAs(page, "/altro/spese", ADMIN, expenses());
+
+    await expect(page.getByRole("heading", { level: 1, name: /Ogni spesa, al suo posto/ })).toBeVisible();
+    const sidebar = page.getByRole("navigation", { name: "Sezioni", exact: true });
+    await expect(sidebar.getByRole("link", { name: "Spese" })).toHaveAttribute("aria-current", "page");
+    const summary = page.getByRole("region", { name: /Riepilogo delle spese/ });
+    await expect(summary).toContainText(/€\s685/);
+    await expect(summary).toContainText("Attrezzatura sportiva");
+    await expect(summary.getByRole("region", { name: "Spese per categoria" })).toContainText("Arbitri");
+
+    const list = page.getByRole("list", { name: "Spese", exact: true });
+    await expect(list.getByRole("listitem")).toHaveCount(2);
+    await expect(list.getByRole("listitem").filter({ hasText: "Palloni da gara" })).toContainText("Attrezzatura sportiva · Volley Shop Emilia");
+    const referee = list.getByRole("listitem").filter({ hasText: "Roberto Cattaneo" });
+    await expect(referee.getByText("Arbitro", { exact: true })).toBeVisible();
+    await expect(referee).toContainText("si modifica dalla designazione");
+    await referee.getByRole("button", { name: /^Altre azioni di/ }).click();
+    await expect(page.getByRole("menuitem", { name: /^Modifica/ })).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await settle(page);
+    expect(await auditAccessibility(page)).toEqual([]);
+
+    await page.getByRole("button", { name: "Nuova spesa" }).click();
+    const form = page.getByRole("dialog", { name: "Nuova spesa" });
+    await form.getByLabel(/Nome della spesa/).fill("Nastro e gessetti");
+    await form.getByLabel(/Categoria/).fill("Attrezzatura sportiva");
+    await form.getByLabel(/Data/).fill("2026-11-10");
+    await form.getByLabel(/Importo in euro/).fill("18,40");
+    await form.getByLabel(/Fornitore/).fill("Sport Center");
+    await settle(page);
+    expect(await auditAccessibility(page)).toEqual([]);
+    await form.getByRole("button", { name: "Registra la spesa" }).click();
+
+    await expect(page.getByText("Spesa registrata")).toBeVisible();
+    expect(api.bodies.get("POST /ledger/entries")).toEqual({
+      kind: "EXPENSE",
+      description: "Nastro e gessetti",
+      category: "Attrezzatura sportiva",
+      amountCents: 1840,
+      occurredOn: "2026-11-10",
+      supplier: "Sport Center",
+    });
+    await expect(list.getByRole("listitem")).toHaveCount(3);
+  });
+});
+
 test.describe("altro su telefono", () => {
   test.use({ viewport: { width: 320, height: 640 } });
 
@@ -381,6 +458,19 @@ test.describe("altro su telefono", () => {
     const box = await dialog.boundingBox();
     expect((box?.y ?? -1) >= 0 && (box?.y ?? 0) + (box?.height ?? 0) <= 640).toBe(true);
     await expect(dialog.getByRole("button", { name: "Crea la palestra" })).toBeInViewport();
+  });
+
+  test("spese fits 320px, with the form dialog inside the screen", async ({ page }) => {
+    await openAs(page, "/altro/spese", ADMIN, expenses());
+    await expect(page.getByRole("list", { name: "Spese", exact: true }).getByRole("listitem")).toHaveCount(2);
+    await expectFits(page);
+    await page.getByRole("button", { name: "Nuova spesa" }).click();
+    const dialog = page.getByRole("dialog", { name: "Nuova spesa" });
+    await expect(dialog).toBeVisible();
+    await expectFits(page);
+    const box = await dialog.boundingBox();
+    expect((box?.y ?? -1) >= 0 && (box?.y ?? 0) + (box?.height ?? 0) <= 640).toBe(true);
+    await expect(dialog.getByRole("button", { name: "Registra la spesa" })).toBeInViewport();
   });
 
   test("bilancio fits 320px", async ({ page }) => {

@@ -17,11 +17,12 @@ const schema = z.object({
   description: optionalText(500),
 });
 
-const SOURCE_NOTES: Record<LedgerSource, string> = {
+export const SOURCE_NOTES: Record<LedgerSource, string> = {
   PAYMENT: "Registrato dai pagamenti: si modifica da lì.",
   VENUE: "Costo di una palestra: si modifica dalla palestra.",
   KIT: "Costo di una divisa: si modifica dalla divisa.",
   TRIP: "Costo di una trasferta: si modifica dalla trasferta.",
+  REFEREE: "Compenso di un arbitro: si modifica dalla designazione.",
 };
 
 /** Signed amount for a list row: the sign and the kind badge carry the meaning, not the colour. */
@@ -99,7 +100,7 @@ export const ledgerConfig: ResourceConfig<LedgerEntry> = {
   nameOf: (entry) => `${entry.category} del ${formatDay(entry.occurredOn)}`,
   row: (entry) => ({
     title: entry.category,
-    lines: [entry.description, formatDay(entry.occurredOn), entry.source ? SOURCE_NOTES[entry.source] : null],
+    lines: [entry.description, entry.supplier, formatDay(entry.occurredOn), entry.source ? SOURCE_NOTES[entry.source] : null],
     figure: (
       <span className={entry.kind === "INCOME" ? "text-base font-extrabold text-success" : "text-base font-extrabold text-fg"}>
         {signedAmount(entry)}

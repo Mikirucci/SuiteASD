@@ -1,9 +1,12 @@
 import type { TenantDb } from './tenant.js';
 
-// A venue, a kit or a trip with a cost weighs on the balance: the cost is kept as one expense entry of the ledger,
+// A venue, a kit, a trip or a referee's fee with a cost weighs on the balance: the cost is kept as one expense entry of the ledger,
 // created, updated and removed together with the cost. The entry is deleted with its source (foreign key cascade).
 
-export type LedgerSource = { venueId: string } | { kitId: string } | { tripId: string };
+export type LedgerSource = { venueId: string } | { kitId: string } | { tripId: string } | { refereeAssignmentId: string };
+
+// The category each kind of linked cost is booked under; an expense entered by hand can use them too.
+export const LINKED_CATEGORIES = { venue: 'Palestre', kit: 'Divise', trip: 'Trasferte', referee: 'Arbitri' } as const;
 
 export interface LinkedExpense {
   category: string;

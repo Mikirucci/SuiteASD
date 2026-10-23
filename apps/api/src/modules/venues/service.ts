@@ -2,7 +2,7 @@ import type { Venue } from '@prisma/client';
 import type { CrudService } from '../../lib/crud-routes.js';
 import { fromDateOnly, toDateOnly, toDateOnlyOrNull } from '../../lib/date-only.js';
 import { notFound } from '../../lib/errors.js';
-import { syncLinkedExpense, today } from '../../lib/ledger-links.js';
+import { LINKED_CATEGORIES, syncLinkedExpense, today } from '../../lib/ledger-links.js';
 import { cursorArgs, toPage } from '../../lib/pagination.js';
 import { toIso } from '../../lib/schemas.js';
 import type { TenantRequestContext } from '../../plugins/auth.js';
@@ -32,7 +32,7 @@ async function syncCost(ctx: TenantRequestContext, venue: Venue): Promise<void> 
     userId: ctx.auth.userId,
     source: { venueId: venue.id },
     expense: venue.costCents
-      ? { category: 'Palestre', description: venue.name, amountCents: venue.costCents, occurredOn: venue.costDate ?? today() }
+      ? { category: LINKED_CATEGORIES.venue, description: venue.name, amountCents: venue.costCents, occurredOn: venue.costDate ?? today() }
       : null,
   });
 }

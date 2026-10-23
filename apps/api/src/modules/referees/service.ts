@@ -1,9 +1,11 @@
 import type { Prisma, Referee } from '@prisma/client';
 import type { CrudService } from '../../lib/crud-routes.js';
 import { conflict, notFound } from '../../lib/errors.js';
+import { LINKED_CATEGORIES, syncLinkedExpense } from '../../lib/ledger-links.js';
 import { cursorArgs, toPage } from '../../lib/pagination.js';
 import { isUniqueViolation } from '../../lib/prisma-errors.js';
 import { toIso, toIsoOrNull } from '../../lib/schemas.js';
+import type { TenantRequestContext } from '../../plugins/auth.js';
 import type {
   AssignmentDto,
   CreateAssignmentBody,
@@ -111,6 +113,26 @@ function toAssignmentDto(row: AssignmentRow): AssignmentDto {
   };
 }
 
+const utcDay = (date: Date): Date => new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+
+// The fee of a designation is an expense of the balance on the day of the match, kept in step with it.
+async function syncFee(ctx: TenantRequestContext, row: AssignmentRow): Promise<void> {
+  await syncLinkedExpense({
+    db: ctx.db,
+    societyId: ctx.auth.societyId,
+    userId: ctx.auth.userId,
+    source: { refereeAssignmentId: row.id },
+    expense: row.feeCents
+      ? {
+          category: LINKED_CATEGORIES.referee,
+          description: `${row.referee.firstName} ${row.referee.lastName} · ${row.match.homeTeam.name} - ${row.match.awayTeam.name}`,
+          amountCents: row.feeCents,
+          occurredOn: utcDay(row.match.event?.startsAt ?? row.match.playedAt ?? row.createdAt),
+        }
+      : null,
+  });
+}
+
 export const assignmentService: CrudService<
   AssignmentDto,
   CreateAssignmentBody,
@@ -138,7 +160,8 @@ export const assignmentService: CrudService<
     return toAssignmentDto(row);
   },
 
-  async create({ db, auth }, body) {
+  async create(ctx, body) {
+    const { db, auth } = ctx;
     // Ids from the client are checked through the scoped client: a foreign-tenant id looks "not found".
     if (!(await db.referee.findFirst({ where: { id: body.refereeId }, select: { id: true } }))) throw notFound('Referee');
     if (!(await db.match.findFirst({ where: { id: body.matchId }, select: { id: true } }))) throw notFound('Match');
@@ -147,6 +170,7 @@ export const assignmentService: CrudService<
         data: { societyId: auth.societyId, refereeId: body.refereeId, matchId: body.matchId, feeCents: body.feeCents ?? null },
         include: assignmentInclude,
       });
+      await syncFee(ctx, row);
       return toAssignmentDto(row);
     } catch (error) {
       if (isUniqueViolation(error)) {
@@ -156,13 +180,14 @@ export const assignmentService: CrudService<
     }
   },
 
-  async update({ db }, id, body) {
+  async update(ctx, id, body) {
     const { reimbursedAt, ...rest } = body;
-    const row = await db.refereeAssignment.update({
+    const row = await ctx.db.refereeAssignment.update({
       where: { id },
       data: { ...rest, ...(reimbursedAt === undefined ? {} : { reimbursedAt: reimbursedAt === null ? null : new Date(reimbursedAt) }) },
       include: assignmentInclude,
     });
+    await syncFee(ctx, row);
     return toAssignmentDto(row);
   },
 

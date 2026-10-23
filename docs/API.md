@@ -214,7 +214,7 @@ Tutti sotto `/api/v1`, tutti con validazione Zod, schema OpenAPI (`/docs/`), iso
 | Allegati (Fase 2) | `GET/POST /attachments` (per `entityType` + `entityId`), `GET /attachments/:id/file`, `DELETE /attachments/:id` |
 | Report (Fase 2) | `GET /reports/accounting/summary`, `GET /reports/accounting.pdf` (`from`, `to`, `sections`) |
 | Import da file (Fase 2) | `POST /events/import` (iCalendar), `POST /competitions/:id/groups/:gid/matches/import` (CSV); entrambi con `dryRun` per l'anteprima |
-| Moduli secondari | `/venues`, `/trips`, `/kits` (+ `GET /kits/groups`; palestre, divise e trasferte portano un costo che diventa una uscita del bilancio, D-40), `/sponsors`, `/staff`, `/ledger/entries` + `GET /ledger/report`, `/announcements`, `/referees`, `/referee-assignments`, `GET /statistics/overview`. I tornei sono competizioni con `kind = TOURNAMENT` (`GET /competitions?kind=TOURNAMENT`) |
+| Moduli secondari | `/venues`, `/trips`, `/kits` (+ `GET /kits/groups`; palestre, divise e trasferte portano un costo che diventa una uscita del bilancio, D-40), `/sponsors`, `/staff`, `/ledger/entries` (nome in `description`, `supplier`, `notes`; ricerca `q`; filtro `origin` MANUAL o LINKED; `source` anche REFEREE: il compenso di una designazione arbitrale è un'uscita, D-50) + `GET /ledger/categories?kind=` (categorie in uso più quelle consuete) + `GET /ledger/report`, `/announcements`, `/referees`, `/referee-assignments`, `GET /statistics/overview`. I tornei sono competizioni con `kind = TOURNAMENT` (`GET /competitions?kind=TOURNAMENT`) |
 
 ### Operazioni sensibili e idempotenza
 
