@@ -1,6 +1,6 @@
 # SuiteASD — regole del team (leggere prima di toccare codice)
 
-Specifica funzionale completa: `docs/SPEC.md` (fonte di verità). Decisioni: `docs/DECISIONS.md`. Business/marketing: cartella `business/` (NON toccare nel codice).
+Specifica funzionale completa: `docs/SPEC.md` (fonte di verità). Decisioni: `docs/DECISIONS.md`. Sicurezza e passi per la produzione: `docs/SECURITY.md`. Business/marketing: cartella `business/` (NON toccare nel codice).
 
 **Stato del lavoro: `docs/PROGRESS.md`. Leggerlo a inizio sessione e aggiornarlo a ogni tappa e prima di finire i token.**
 

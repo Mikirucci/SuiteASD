@@ -12,8 +12,12 @@ vi.mock("@/features/auth/auth-provider", () => ({
   useAuth: () => ({ status: "authenticated", me: { permissions: auth.permissions, roles: auth.roles } }),
 }));
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-const inDays = (days: number) => new Date(Date.now() + days * DAY_MS).toISOString();
+// Calendar days, not 24-hour blocks: across a daylight-saving change the latter lands on the wrong day.
+const inDays = (days: number) => {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return date.toISOString();
+};
 
 function invitation(overrides: Partial<Invitation> = {}): Invitation {
   return {

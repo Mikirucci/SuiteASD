@@ -3,7 +3,12 @@ import { auditAccessibility } from "./support/axe";
 import { mockApi, seedStoredSession } from "./support/mock-api";
 import { pageOf, routeApi, type ApiHandler, type RoutedApi } from "./support/route-api";
 
-const DAY_MS = 24 * 60 * 60 * 1000;
+// Calendar days, not 24-hour blocks: across a daylight-saving change the latter lands on the wrong day.
+const inDays = (days: number): string => {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return date.toISOString();
+};
 
 interface InvitationFixture {
   id: string;
@@ -16,15 +21,14 @@ interface InvitationFixture {
 }
 
 function invitation(id: string, email: string | null, role: string, label: string | null = null): InvitationFixture {
-  const now = Date.now();
   return {
     id,
     email,
     label,
     role,
     memberId: null,
-    expiresAt: new Date(now + 5 * DAY_MS).toISOString(),
-    createdAt: new Date(now - DAY_MS).toISOString(),
+    expiresAt: inDays(5),
+    createdAt: inDays(-1),
   };
 }
 
