@@ -19,6 +19,7 @@ export { FilePreviewDialog, type FilePreviewDialogProps } from "./file-preview-d
 export { Input, type InputProps } from "./input";
 export { LoadMore, type LoadMoreProps } from "./load-more";
 export { AppIcon, Logo, type AppIconProps, type LogoProps } from "./logo";
+export { Pagination, type PaginationProps } from "./pagination";
 export { PillFilter, type PillFilterProps, type PillOption } from "./pill-filter";
 export { ProgressBar, type ProgressBarProps, type ProgressTone } from "./progress-bar";
 export { ProgressRing, formatGrade, gradeTone, type ProgressRingProps, type RingTone } from "./progress-ring";

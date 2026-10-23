@@ -167,6 +167,8 @@ export const typePeopleQuerySchema = z.object({
   q: z.string().trim().min(1).max(80).optional().describe('Substring of the member name'),
   teamId: idRef.optional(),
   status: documentStatusSchema.optional(),
+  page: z.coerce.number().int().min(1).default(1).describe('1-based page of the people'),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20).describe('People per page'),
 });
 
 export const typePersonSchema = z.object({
@@ -182,7 +184,13 @@ export const typePersonSchema = z.object({
 
 export const typePeopleSchema = z.object({
   stats: typeStatsSchema.describe('Figures of the whole type, whatever the filters'),
-  people: z.array(typePersonSchema).describe('Ordered by name'),
+  people: z.array(typePersonSchema).describe('One page of the people, ordered by name'),
+  pagination: z.object({
+    page: z.number().int(),
+    pageSize: z.number().int(),
+    total: z.number().int().describe('People matching the filters, over every page'),
+    totalPages: z.number().int().describe('0 when nobody matches'),
+  }),
 });
 
 export type TypeStats = z.infer<typeof typeStatsSchema>;

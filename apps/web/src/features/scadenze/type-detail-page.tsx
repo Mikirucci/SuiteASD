@@ -2,15 +2,15 @@
 
 import { AlertTriangle, ArrowLeft, Check, Clock, FileX, Search } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
-import { Button, EmptyState, ErrorState, Input, PillFilter, SectionHeading, Select, Skeleton, StatTile, type PillOption } from "@/components/ui";
+import { useRef, useState } from "react";
+import { Button, EmptyState, ErrorState, Input, Pagination, PillFilter, SectionHeading, Select, Skeleton, StatTile, type PillOption } from "@/components/ui";
 import { useDocumentTypes, useTeams } from "@/features/tesserati/api";
 import { teamLabel } from "@/features/tesserati/document-format";
 import type { DocumentStatus, DocumentType } from "@/features/tesserati/types";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { ApiError, describeError } from "@/lib/api";
-import { pluralize } from "@/lib/format";
-import { useTypePeople } from "./api";
+import { pluralWord } from "@/lib/format";
+import { PEOPLE_PAGE_SIZE, useTypePeople } from "./api";
 import { TypePersonCard } from "./type-person-card";
 import type { TypePeopleFilters, TypeStats } from "./types";
 
@@ -67,17 +67,17 @@ function DetailSkeleton() {
 
 /** How the people of the type stand: the four states side by side, expiry ones only for types that expire. */
 function TypeReport({ stats, requiresExpiry }: { stats: TypeStats; requiresExpiry: boolean }) {
-  const people = (count: number) => pluralize(count, "persona", "persone");
+  const people = (count: number) => pluralWord(count, "persona", "persone");
   return (
     <section aria-label="Rendiconto del documento" className={requiresExpiry ? "grid grid-cols-2 gap-4 lg:grid-cols-4" : "grid grid-cols-2 gap-4"}>
-      <StatTile label="In regola" tone="success" icon={Check} value={stats.validPeople} note={people(stats.validPeople)} />
+      <StatTile label="In regola" tone="success" icon={Check} value={stats.validPeople} unit={people(stats.validPeople)} />
       {requiresExpiry ? (
-        <StatTile label="In scadenza" tone="warning" icon={Clock} value={stats.expiringPeople} note={people(stats.expiringPeople)} />
+        <StatTile label="In scadenza" tone="warning" icon={Clock} value={stats.expiringPeople} unit={people(stats.expiringPeople)} />
       ) : null}
       {requiresExpiry ? (
-        <StatTile label="Scaduti" tone="danger" icon={AlertTriangle} value={stats.expiredPeople} note={people(stats.expiredPeople)} />
+        <StatTile label="Scaduti" tone="danger" icon={AlertTriangle} value={stats.expiredPeople} unit={people(stats.expiredPeople)} />
       ) : null}
-      <StatTile label="Mancanti" tone="danger" icon={FileX} value={stats.missingPeople} note={people(stats.missingPeople)} />
+      <StatTile label="Mancanti" tone="danger" icon={FileX} value={stats.missingPeople} unit={people(stats.missingPeople)} />
     </section>
   );
 }
@@ -86,16 +86,24 @@ function TypePeopleSection({ type }: { type: DocumentType }) {
   const [search, setSearch] = useState("");
   const [teamId, setTeamId] = useState("");
   const [status, setStatus] = useState<DocumentStatus | "">("");
+  const [page, setPage] = useState(1);
+  const listTop = useRef<HTMLElement>(null);
   const q = useDebouncedValue(search.trim());
-  const filters: TypePeopleFilters = { q, teamId, status };
+  const filters: TypePeopleFilters = { q, teamId, status, page };
   const people = useTypePeople(type.id, filters);
   const teams = useTeams();
 
   const hasFilters = search.trim() !== "" || teamId !== "" || status !== "";
+  // Any change of the search or of a filter starts again from the first page
   const resetFilters = () => {
     setSearch("");
     setTeamId("");
     setStatus("");
+    setPage(1);
+  };
+  const goToPage = (next: number) => {
+    setPage(next);
+    listTop.current?.scrollIntoView?.({ block: "start" });
   };
   const teamOptions = [{ value: "", label: "Tutte le squadre" }, ...(teams.data?.data ?? []).map((team) => ({ value: team.id, label: teamLabel(team) }))];
 
@@ -110,7 +118,7 @@ function TypePeopleSection({ type }: { type: DocumentType }) {
     );
   }
 
-  const { stats, people: list } = people.data;
+  const { stats, people: list, pagination } = people.data;
   const nobody = stats.validPeople + stats.expiringPeople + stats.expiredPeople + stats.missingPeople === 0;
   const description = [type.requiresExpiry ? "Con scadenza" : "Senza scadenza", type.isRequired ? "richiesto a tutti i tesserati" : "facoltativo"].join(", ");
 
@@ -119,7 +127,7 @@ function TypePeopleSection({ type }: { type: DocumentType }) {
       <SectionHeading as="h1" label="Documento" title={type.name} description={`${description}.`} />
       <TypeReport stats={stats} requiresExpiry={type.requiresExpiry} />
 
-      <section aria-labelledby="people-heading" className="flex flex-col gap-4">
+      <section ref={listTop} aria-labelledby="people-heading" className="flex scroll-mt-4 flex-col gap-4">
         <h2 id="people-heading" className="text-lg font-bold tracking-title text-fg">
           Persone
         </h2>
@@ -136,18 +144,32 @@ function TypePeopleSection({ type }: { type: DocumentType }) {
                   placeholder="Nome o cognome"
                   autoComplete="off"
                   value={search}
-                  onChange={(event) => setSearch(event.target.value)}
+                  onChange={(event) => {
+                    setSearch(event.target.value);
+                    setPage(1);
+                  }}
                 />
-                <Select label="Squadra" options={teamOptions} value={teamId} onChange={(event) => setTeamId(event.target.value)} />
+                <Select
+                  label="Squadra"
+                  options={teamOptions}
+                  value={teamId}
+                  onChange={(event) => {
+                    setTeamId(event.target.value);
+                    setPage(1);
+                  }}
+                />
               </div>
               <PillFilter
                 label="Filtra per situazione"
                 options={statusOptions(type.requiresExpiry)}
                 value={status}
-                onChange={(value) => setStatus(isStatus(value) ? value : "")}
+                onChange={(value) => {
+                  setStatus(isStatus(value) ? value : "");
+                  setPage(1);
+                }}
               />
             </div>
-            {list.length === 0 ? (
+            {list.length === 0 && pagination.total === 0 ? (
               <EmptyState
                 icon={Search}
                 title="Nessuno con questi filtri"
@@ -159,11 +181,21 @@ function TypePeopleSection({ type }: { type: DocumentType }) {
                 }
               />
             ) : (
-              <ul aria-label="Persone del documento" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                {list.map((person) => (
-                  <TypePersonCard key={person.memberId} person={person} />
-                ))}
-              </ul>
+              <>
+                <ul aria-label="Persone del documento" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  {list.map((person) => (
+                    <TypePersonCard key={person.memberId} person={person} />
+                  ))}
+                </ul>
+                <Pagination
+                  label="Pagine delle persone"
+                  page={pagination.page}
+                  totalPages={pagination.totalPages}
+                  total={pagination.total}
+                  pageSize={PEOPLE_PAGE_SIZE}
+                  onPageChange={goToPage}
+                />
+              </>
             )}
           </>
         )}

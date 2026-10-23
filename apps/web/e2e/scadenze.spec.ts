@@ -62,30 +62,45 @@ const CERTIFICATE_HOLDERS: TypePerson[] = [
 
 const CERTIFICATE_STATS = { validPeople: 1, expiringPeople: 1, expiredPeople: 1, missingPeople: 1 };
 
-function peopleFor(query: URLSearchParams): TypePeople {
+/** Twenty-six more athletes, so that the people of a document do not fit on one page. */
+const MANY_MORE: TypePerson[] = Array.from({ length: 26 }, (_, index) =>
+  holder(`m-extra-${index + 1}`, `Zeta ${String(index + 1).padStart(2, "0")}`, ["team-2", "U16"], "OK", "2027-06-30", 250),
+);
+
+function peopleFor(query: URLSearchParams, holders: TypePerson[]): TypePeople {
   const search = query.get("q")?.toLowerCase();
   const team = query.get("teamId");
   const status = query.get("status");
-  const people = CERTIFICATE_HOLDERS.filter(
+  const pageNumber = Number(query.get("page") ?? 1);
+  const pageSize = Number(query.get("pageSize") ?? 20);
+  const matching = holders.filter(
     (person) =>
       (!search || person.memberName.toLowerCase().includes(search)) &&
       (!team || person.teams.some((entry) => entry.id === team)) &&
       (!status || person.status === status),
   );
-  return { stats: CERTIFICATE_STATS, people };
+  const start = (pageNumber - 1) * pageSize;
+  return {
+    stats: CERTIFICATE_STATS,
+    people: matching.slice(start, start + pageSize),
+    pagination: { page: pageNumber, pageSize, total: matching.length, totalPages: Math.ceil(matching.length / pageSize) },
+  };
 }
 
-/** `failing` makes the timeline endpoint answer 500 until `recover()` is called. */
-async function expirationsBackend(page: Page, failing = false) {
+/** `failing` makes the document types endpoint answer 500 until `recover()` is called; `many` adds enough people for a second page. */
+async function expirationsBackend(page: Page, failing = false, many = false) {
+  const holders = many ? [...CERTIFICATE_HOLDERS, ...MANY_MORE] : CERTIFICATE_HOLDERS;
   let broken = failing;
   const recorded = await mockBackend(page, "admin", ({ method, path, query }) => {
     if (method !== "GET") return undefined;
     if (path === "/teams") return { body: pageOf(TEAMS) };
-    if (path === "/document-types") return { body: pageOf([CERTIFICATE_TYPE]) };
-    if (path === "/document-types/report") return { body: { data: [{ documentTypeId: CERTIFICATE_TYPE.id, ...CERTIFICATE_STATS }] } };
-    if (path === `/document-types/${CERTIFICATE_TYPE.id}/people`) return { body: peopleFor(query) };
-    if (path === "/documents/expirations") {
+    if (path === "/document-types") {
       if (broken) return { status: 500, body: problem(500, "internal_error") };
+      return { body: pageOf([CERTIFICATE_TYPE]) };
+    }
+    if (path === "/document-types/report") return { body: { data: [{ documentTypeId: CERTIFICATE_TYPE.id, ...CERTIFICATE_STATS }] } };
+    if (path === `/document-types/${CERTIFICATE_TYPE.id}/people`) return { body: peopleFor(query, holders) };
+    if (path === "/documents/expirations") {
       const serieD = query.get("teamId") === "team-4";
       return { body: serieD ? windowOf([GIULIA, ELENA], []) : windowOf([GIULIA, SARA, SARA_COLLEAGUE, ELENA], [ANNA]) };
     }
@@ -100,33 +115,28 @@ async function expirationsBackend(page: Page, failing = false) {
 }
 
 test.describe("Certificati e scadenze (02)", () => {
-  test("shows the totals, the document cards and the timeline with its detail card", async ({ page }) => {
+  test("shows the totals as coloured numbers with their unit and the document cards, without a chart of expiries", async ({ page }) => {
     await expirationsBackend(page);
     await page.goto("/scadenze");
 
     await expect(
       page.getByRole("heading", { level: 1, name: "Scadenze sotto controllo. In automatico." }),
     ).toBeVisible();
-    const timeline = page.getByRole("list", { name: "Scadenze dei documenti nei prossimi mesi" });
-    await expect(timeline.getByRole("listitem")).toHaveCount(4);
-    for (const month of ["ott", "nov", "dic", "gen", "feb", "mar"]) {
-      await expect(page.getByText(month, { exact: true })).toBeVisible();
-    }
-
-    // The nearest expiry is selected by default
-    await expect(page.getByText("Giulia Rossi · Certificato medico")).toBeVisible();
-    await expect(page.getByText("— Scade tra 5 giorni")).toBeVisible();
-
-    await timeline.getByRole("button", { name: /Sara Conti, scade il 27 novembre 2026/ }).click();
-    await expect(page.getByText("Sara Conti · Certificato medico")).toBeVisible();
-    await expect(page.getByText("— Scade tra 15 giorni")).toBeVisible();
-    await expect(page.getByText("Automatico", { exact: true })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Apri la scheda" })).toHaveAttribute("href", "/tesserati/m-sara");
-
+    await expect(page.getByRole("heading", { name: "Prossime scadenze" })).toHaveCount(0);
+    await expect(page.getByRole("list", { name: "Scadenze dei documenti nei prossimi mesi" })).toHaveCount(0);
     await expect(page.getByText("Certificato scaduto, atleta non convocabile")).toBeVisible();
 
     const report = page.getByRole("region", { name: "Rendiconto dei documenti" });
-    await expect(report.getByText("Mancanti", { exact: true }).locator("../..")).toContainText("1 documento");
+    const missing = report.getByText("Mancanti", { exact: true }).locator("../..");
+    await expect(missing).toContainText("1 documento");
+    // the unit sits beside the number, small, in the same colour: no line underneath
+    const figure = missing.locator("p").last();
+    const unit = figure.locator("span");
+    await expect(unit).toHaveText("documento");
+    await expect(unit).toHaveCSS("font-size", "14px");
+    expect(await unit.evaluate((element) => getComputedStyle(element).color)).toBe(await figure.evaluate((element) => getComputedStyle(element).color));
+    await expect(missing.locator("> *")).toHaveCount(2);
+
     const card = page.getByRole("list", { name: "Documenti", exact: true }).getByRole("listitem");
     await expect(card).toHaveCount(1);
     await expect(card.getByRole("link", { name: "Certificato medico" })).toHaveAttribute("href", `/scadenze/${CERTIFICATE_TYPE.id}`);
@@ -142,21 +152,11 @@ test.describe("Certificati e scadenze (02)", () => {
     expect(await auditAccessibility(page)).toEqual([]);
   });
 
-  test("keeps overlapping avatars reachable: the two expiries of the same day are both clickable", async ({ page }) => {
+  test("names the icons of a card on hover, even though the whole card is a link", async ({ page }) => {
     await expirationsBackend(page);
     await page.goto("/scadenze");
-    const timeline = page.getByRole("list", { name: "Scadenze dei documenti nei prossimi mesi" });
-    const sara = timeline.getByRole("button", { name: /Sara Conti/ });
-    const francesca = timeline.getByRole("button", { name: /Francesca Monti/ });
-    const [first, second] = [await sara.boundingBox(), await francesca.boundingBox()];
-    expect(first).not.toBeNull();
-    expect(second).not.toBeNull();
-    // Same day, so they must not sit on top of each other
-    const overlap =
-      Math.abs((first?.x ?? 0) - (second?.x ?? 0)) < 40 && Math.abs((first?.y ?? 0) - (second?.y ?? 0)) < 40;
-    expect(overlap).toBe(false);
-    await francesca.click();
-    await expect(page.getByText("Francesca Monti · Certificato medico")).toBeVisible();
+    await page.getByRole("list", { name: "Documenti", exact: true }).getByText("persone in regola").locator("..").hover();
+    await expect(page.getByRole("tooltip")).toHaveText("persone in regola");
   });
 
   test("opens a document: report, people with the state of their document, search and filters inside", async ({ page }) => {
@@ -167,6 +167,7 @@ test.describe("Certificati e scadenze (02)", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Certificato medico" })).toBeVisible();
     const report = page.getByRole("region", { name: "Rendiconto del documento" });
     await expect(report.getByText("In scadenza", { exact: true }).locator("../..")).toContainText("1 persona");
+    await expect(page.getByRole("navigation", { name: "Pagine delle persone" })).toHaveCount(0);
     const people = page.getByRole("list", { name: "Persone del documento" }).getByRole("listitem");
     await expect(people).toHaveCount(4);
     await expect(people.nth(0)).toContainText("Anna Ferri");
@@ -191,22 +192,48 @@ test.describe("Certificati e scadenze (02)", () => {
     expect(await auditAccessibility(page)).toEqual([]);
   });
 
+  test("gives twenty people per page and walks through the pages", async ({ page }) => {
+    await expirationsBackend(page, false, true);
+    await page.goto(`/scadenze/${CERTIFICATE_TYPE.id}`);
+
+    const people = page.getByRole("list", { name: "Persone del documento" }).getByRole("listitem");
+    const pages = page.getByRole("navigation", { name: "Pagine delle persone" });
+    await expect(people).toHaveCount(20);
+    await expect(pages).toContainText("1-20 di 30");
+    await expect(pages).toContainText("Pagina 1 di 2");
+    await expect(pages.getByRole("button", { name: "Precedente" })).toBeDisabled();
+
+    await pages.getByRole("button", { name: "Successiva" }).click();
+    await expect(people).toHaveCount(10);
+    await expect(pages).toContainText("21-30 di 30");
+    await expect(pages.getByRole("button", { name: "Successiva" })).toBeDisabled();
+    await expect(people.last()).toContainText("Zeta 26");
+
+    // a search starts again from the first page
+    await page.getByLabel("Cerca un tesserato").fill("zeta");
+    await expect(pages).toContainText("1-20 di 26");
+    expect(await auditAccessibility(page)).toEqual([]);
+  });
+
   test("shows an error with retry", async ({ page }) => {
     const backend = await expirationsBackend(page, true);
     await page.goto("/scadenze");
     await expect(page.getByRole("alert").filter({ hasText: "Il servizio non è disponibile al momento" })).toBeVisible();
-    // the document cards do not depend on the timeline: they stay
-    await expect(page.getByRole("link", { name: "Certificato medico" })).toBeVisible();
     backend.recover();
     await page.getByRole("button", { name: "Riprova" }).click();
-    await expect(page.getByRole("list", { name: "Scadenze dei documenti nei prossimi mesi" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Certificato medico" })).toBeVisible();
   });
 
-  test("fits a 320px screen: the timeline scrolls instead of squeezing", async ({ page }) => {
+  test("fits a 320px screen, on the overview and on a page of people", async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 700 });
-    await expirationsBackend(page);
+    await expirationsBackend(page, false, true);
     await page.goto("/scadenze");
-    await expect(page.getByRole("list", { name: "Scadenze dei documenti nei prossimi mesi" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Certificato medico" })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
+    expect(await auditAccessibility(page)).toEqual([]);
+
+    await page.goto(`/scadenze/${CERTIFICATE_TYPE.id}`);
+    await expect(page.getByRole("navigation", { name: "Pagine delle persone" })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
     expect(await auditAccessibility(page)).toEqual([]);
   });

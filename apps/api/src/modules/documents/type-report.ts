@@ -114,5 +114,10 @@ export async function documentTypePeople(
       (!needle || person.memberName.toLocaleLowerCase('it').includes(needle)),
   );
   // The figures describe the whole type: searching and filtering narrow the people, not the report.
-  return { stats: statsOf(everyone), people };
+  const start = (filters.page - 1) * filters.pageSize;
+  return {
+    stats: statsOf(everyone),
+    people: people.slice(start, start + filters.pageSize),
+    pagination: { page: filters.page, pageSize: filters.pageSize, total: people.length, totalPages: Math.ceil(people.length / filters.pageSize) },
+  };
 }

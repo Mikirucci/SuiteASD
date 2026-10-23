@@ -22,6 +22,8 @@ const ICON_CLASSES: Record<CountTone | "default", string> = {
 export interface StatTileProps {
   label: string;
   value: ReactNode;
+  /** What the number counts ("documenti"), written small next to it in the same colour. */
+  unit?: string;
   note?: ReactNode;
   tone?: CountTone | "default";
   icon?: LucideIcon;
@@ -29,7 +31,7 @@ export interface StatTileProps {
 }
 
 /** One figure of a report: label, big value, an optional note. Sits in a grid with its siblings, never inside a Card. */
-export function StatTile({ label, value, note, tone = "default", icon: Icon, className }: StatTileProps) {
+export function StatTile({ label, value, unit, note, tone = "default", icon: Icon, className }: StatTileProps) {
   return (
     <div className={cn("flex flex-col gap-2 rounded-lg bg-surface p-4 shadow-soft sm:p-5", className)}>
       <div className="flex items-center gap-2">
@@ -40,7 +42,15 @@ export function StatTile({ label, value, note, tone = "default", icon: Icon, cla
         ) : null}
         <p className="text-xs font-bold uppercase tracking-label text-fg-muted">{label}</p>
       </div>
-      <p className={cn("text-2xl font-extrabold tracking-title", VALUE_CLASSES[tone])}>{value}</p>
+      <p className={cn("flex items-baseline gap-2 text-2xl font-extrabold tracking-title", VALUE_CLASSES[tone])}>
+        {value}
+        {unit ? (
+          <>
+            {" "}
+            <span className="text-sm font-semibold tracking-normal">{unit}</span>
+          </>
+        ) : null}
+      </p>
       {note ? <div className="text-sm text-fg-muted">{note}</div> : null}
     </div>
   );

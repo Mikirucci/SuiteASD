@@ -1,46 +1,29 @@
 "use client";
 
 import { AlertTriangle, CalendarCheck, Check, Clock, FileX } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Alert } from "@/components/ui/alert";
-import { Card } from "@/components/ui/card";
 import { DataBoundary } from "@/components/ui/data-boundary";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatTile } from "@/components/ui/stat-tile";
-import { Timeline, type TimelineItem } from "@/components/ui/timeline";
 import { useDocumentTypes } from "@/features/tesserati/api";
 import { parseDateOnly } from "@/features/tesserati/document-format";
 import { usePermission } from "@/hooks/use-permission";
 import { describeError } from "@/lib/api";
-import { pluralize } from "@/lib/format";
-import { TIMELINE_MONTHS, useExpirations, useTypeReport } from "./api";
-import { ExpirationDetail } from "./expiration-detail";
+import { pluralWord } from "@/lib/format";
+import { useExpirations, useTypeReport } from "./api";
 import { ExpirationList } from "./expiration-list";
 import { TypeCard, type TypeCardStats } from "./type-card";
-import type { ExpirationFilters, ExpirationItem, TypeReportEntry } from "./types";
+import type { ExpirationFilters, TypeReportEntry } from "./types";
 
 const NO_FILTERS: ExpirationFilters = { teamId: "", documentTypeId: "" };
 const monthFormat = new Intl.DateTimeFormat("it-IT", { month: "long", year: "numeric" });
 
 function monthTitle(month: string): string {
   return monthFormat.format(parseDateOnly(`${month}-01`));
-}
-
-function fullNameOf(item: ExpirationItem): string {
-  return `${item.firstName} ${item.lastName}`;
-}
-
-/** The nearest expiry still to come, or the first one: what the detail card shows before any choice. */
-function defaultSelection(items: readonly ExpirationItem[]): ExpirationItem | undefined {
-  const upcoming = items.filter((item) => item.daysRemaining >= 0);
-  const pool = upcoming.length > 0 ? upcoming : items;
-  return pool.reduce<ExpirationItem | undefined>(
-    (best, item) => (!best || item.daysRemaining < best.daysRemaining ? item : best),
-    undefined,
-  );
 }
 
 function PageSkeleton() {
@@ -60,48 +43,7 @@ const NOT_CONVOCABLE_NOTICE = (
   </Alert>
 );
 
-/** The next expiries on the timeline with the card of the selected one: compact, whatever the number of documents. */
-function UpcomingTimeline() {
-  const expirations = useExpirations(NO_FILTERS);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const data = expirations.data;
-  const upcoming = useMemo(() => data?.months.flatMap((month) => month.items) ?? [], [data]);
-  const timelineItems = useMemo<TimelineItem[]>(
-    () => upcoming.map((item) => ({ id: item.documentId, name: fullNameOf(item), date: parseDateOnly(item.expiresAt) })),
-    [upcoming],
-  );
-  const selected = upcoming.find((item) => item.documentId === selectedId) ?? defaultSelection(upcoming);
-  // Nothing about to expire: the cards above already say everything, so the timeline stays out of the way
-  if (data && upcoming.length === 0) return null;
-  return (
-    <section aria-labelledby="timeline-heading" className="flex flex-col gap-4">
-      <h2 id="timeline-heading" className="text-lg font-bold tracking-title text-fg">
-        Prossime scadenze
-      </h2>
-      {expirations.isPending ? (
-        <Skeleton role="status" aria-busy="true" aria-label="Caricamento delle prossime scadenze" className="h-44 rounded-lg" />
-      ) : null}
-      {!data && expirations.error ? (
-        <ErrorState title="Scadenze non disponibili" message={describeError(expirations.error)} onRetry={() => void expirations.refetch()} />
-      ) : null}
-      {data ? (
-        <Card className="flex flex-col gap-6">
-          <Timeline
-            start={parseDateOnly(data.from)}
-            months={TIMELINE_MONTHS}
-            items={timelineItems}
-            selectedId={selected?.documentId}
-            onSelect={setSelectedId}
-            label="Scadenze dei documenti nei prossimi mesi"
-          />
-          {selected ? <ExpirationDetail item={selected} /> : null}
-        </Card>
-      ) : null}
-    </section>
-  );
-}
-
-/** Documents of the society for staff: the totals, one card per document type, then the timeline of what expires next. */
+/** Documents of the society for staff: the totals, then one card per document type. */
 function DocumentsOverview() {
   const types = useDocumentTypes();
   const report = useTypeReport();
@@ -112,16 +54,16 @@ function DocumentsOverview() {
     if (report.error) return { state: "error" };
     return entries.get(typeId) ?? { validPeople: 0, expiringPeople: 0, expiredPeople: 0, missingPeople: 0 };
   };
-  const documents = (count: number) => pluralize(count, "documento", "documenti");
+  const documents = (count: number) => pluralWord(count, "documento", "documenti");
 
   return (
     <div className="flex flex-col gap-8">
       {report.data ? (
         <section aria-label="Rendiconto dei documenti" className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <StatTile label="In regola" tone="success" icon={Check} value={total((entry) => entry.validPeople)} note={documents(total((entry) => entry.validPeople))} />
-          <StatTile label="In scadenza" tone="warning" icon={Clock} value={total((entry) => entry.expiringPeople)} note={documents(total((entry) => entry.expiringPeople))} />
-          <StatTile label="Scaduti" tone="danger" icon={AlertTriangle} value={total((entry) => entry.expiredPeople)} note={documents(total((entry) => entry.expiredPeople))} />
-          <StatTile label="Mancanti" tone="danger" icon={FileX} value={total((entry) => entry.missingPeople)} note={documents(total((entry) => entry.missingPeople))} />
+          <StatTile label="In regola" tone="success" icon={Check} value={total((entry) => entry.validPeople)} unit={documents(total((entry) => entry.validPeople))} />
+          <StatTile label="In scadenza" tone="warning" icon={Clock} value={total((entry) => entry.expiringPeople)} unit={documents(total((entry) => entry.expiringPeople))} />
+          <StatTile label="Scaduti" tone="danger" icon={AlertTriangle} value={total((entry) => entry.expiredPeople)} unit={documents(total((entry) => entry.expiredPeople))} />
+          <StatTile label="Mancanti" tone="danger" icon={FileX} value={total((entry) => entry.missingPeople)} unit={documents(total((entry) => entry.missingPeople))} />
         </section>
       ) : null}
 
@@ -144,7 +86,6 @@ function DocumentsOverview() {
       </section>
 
       {NOT_CONVOCABLE_NOTICE}
-      <UpcomingTimeline />
     </div>
   );
 }

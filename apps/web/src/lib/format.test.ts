@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { centsToInput, formatDay, formatDayShort, formatEuro, parseEuroToCents, pluralize, formatFileSize } from "./format";
+import { centsToInput, formatDay, formatDayShort, formatEuro, parseEuroToCents, pluralize, pluralWord, formatFileSize } from "./format";
 
 describe("formatEuro", () => {
   it("drops the decimals for whole euros and groups from five digits, as Italian does", () => {
@@ -56,5 +56,13 @@ describe("formatFileSize", () => {
     expect(formatFileSize(512)).toBe("512 B");
     expect(formatFileSize(245_760)).toBe("240 KB");
     expect(formatFileSize(2_621_440)).toBe("2,5 MB");
+  });
+});
+
+describe("pluralWord", () => {
+  it("gives the word without the count", () => {
+    expect(pluralWord(1, "documento", "documenti")).toBe("documento");
+    expect(pluralWord(0, "documento", "documenti")).toBe("documenti");
+    expect(pluralWord(12, "documento", "documenti")).toBe("documenti");
   });
 });

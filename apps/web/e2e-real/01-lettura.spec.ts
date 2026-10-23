@@ -38,9 +38,19 @@ test.describe("società demo, in sola lettura", () => {
     await expect(page.getByRole("list", { name: "Documenti del tesserato" })).toContainText("Certificato medico");
   });
 
-  test("scadenze: il certificato di Sara Conti scade tra 15 giorni", async ({ page }) => {
+  test("scadenze: il certificato medico di 118 persone sta in pagine da venti, Sara Conti ha la data ma non il file", async ({ page }) => {
     await page.goto("/scadenze");
-    await expect(page.getByText("Sara Conti · Certificato medico — Scade tra 15 giorni")).toBeVisible();
+    await page.getByRole("link", { name: "Certificato medico" }).click();
+    const people = page.getByRole("list", { name: "Persone del documento" }).getByRole("listitem");
+    const pages = page.getByRole("navigation", { name: "Pagine delle persone" });
+    await expect(people).toHaveCount(20);
+    await expect(pages).toContainText("1-20 di 118");
+    await pages.getByRole("button", { name: "Successiva" }).click();
+    await expect(pages).toContainText("21-40 di 118");
+
+    await page.getByLabel("Cerca un tesserato").fill("Sara Conti");
+    await expect(people).toHaveCount(1);
+    await expect(people).toContainText("File non ancora caricato");
   });
 
   test("classifiche: Girone B di Serie D con Aquile Volley prima a 32 punti", async ({ page }) => {

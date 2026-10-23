@@ -111,6 +111,47 @@ describe('document type report (Scadenze e documenti: cards per type, people ins
     expect(filtered.stats).toEqual({ validPeople: 1, expiringPeople: 1, expiredPeople: 1, missingPeople: 3 });
   });
 
+  describe('pages of people', () => {
+    const page = async (query: string) =>
+      (await get(actors.ADMIN, `/document-types/${certificateId}/people?${query}`)).json<{
+        people: { memberName: string }[];
+        pagination: { page: number; pageSize: number; total: number; totalPages: number };
+        stats: Record<string, number>;
+      }>();
+
+    it('gives twenty people per page unless told otherwise, and says how many there are', async () => {
+      const body = await page('');
+      expect(body.pagination).toEqual({ page: 1, pageSize: 20, total: 6, totalPages: 1 });
+    });
+
+    it('cuts the ordered list into pages that neither skip nor repeat anybody', async () => {
+      const first = await page('pageSize=4');
+      const second = await page('pageSize=4&page=2');
+      expect(first.pagination).toEqual({ page: 1, pageSize: 4, total: 6, totalPages: 2 });
+      expect(first.people.map((person) => person.memberName)).toEqual(['Atleta Arancio', 'Atleta Blu', 'Atleta Gialli', 'Atleta Neri']);
+      expect(second.people.map((person) => person.memberName)).toEqual(['Atleta Rossi', 'Atleta Verdi']);
+      expect(second.pagination.total).toBe(6);
+    });
+
+    it('counts the people matching the filters, while the figures of the type stay whole', async () => {
+      const body = await page('pageSize=1&status=MISSING');
+      expect(body.pagination).toEqual({ page: 1, pageSize: 1, total: 3, totalPages: 3 });
+      expect(body.people).toHaveLength(1);
+      expect(body.stats).toEqual({ validPeople: 1, expiringPeople: 1, expiredPeople: 1, missingPeople: 3 });
+    });
+
+    it('answers an empty page past the end and no pages at all when nobody matches', async () => {
+      expect((await page('page=9')).people).toEqual([]);
+      expect((await page('q=nessunocosi')).pagination).toEqual({ page: 1, pageSize: 20, total: 0, totalPages: 0 });
+    });
+
+    it('refuses nonsense page numbers and sizes', async () => {
+      for (const query of ['page=0', 'page=-1', 'page=x', 'pageSize=0', 'pageSize=101']) {
+        expect((await get(actors.ADMIN, `/document-types/${certificateId}/people?${query}`)).statusCode, query).toBe(422);
+      }
+    });
+  });
+
   it('answers 404 for an unknown type and 422 for an unknown status', async () => {
     expect((await get(actors.ADMIN, '/document-types/does-not-exist/people')).statusCode).toBe(404);
     expect((await get(actors.ADMIN, `/document-types/${certificateId}/people?status=NOPE`)).statusCode).toBe(422);
