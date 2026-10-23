@@ -39,7 +39,7 @@ function dayAhead(days: number): string {
 }
 
 test.describe("società nuova: documento, pagamento segnalato, ricevuta", () => {
-  test("Gianni registra la società, crea la squadra, il piano quota e il link di iscrizione", async ({ page }) => {
+  test("Gianni registra la società, crea la squadra e il link di iscrizione", async ({ page }) => {
     await page.goto("/registrazione");
     await page.getByLabel("Nome della società").fill(SOCIETY);
     await page.getByRole("button", { name: "Continua" }).click();
@@ -57,14 +57,6 @@ test.describe("società nuova: documento, pagamento segnalato, ricevuta", () => 
     await team.getByRole("textbox", { name: "Nome", exact: true }).fill(TEAM);
     await team.getByRole("button", { name: "Crea squadra" }).click();
     await expect(page.getByText("Squadra creata", { exact: true })).toBeVisible();
-
-    await page.goto("/quote");
-    await page.getByRole("button", { name: "Nuovo piano" }).first().click();
-    const plan = page.getByRole("dialog", { name: "Nuovo piano quota" });
-    await plan.getByLabel(/Nome del piano/).fill(PLAN);
-    await plan.getByLabel(/Importo in euro/).fill("60");
-    await plan.getByRole("button", { name: "Crea il piano" }).click();
-    await expect(page.getByText("Piano creato")).toBeVisible();
 
     await page.goto("/tesserati");
     await page.getByRole("button", { name: "Altre azioni" }).click();
@@ -121,14 +113,21 @@ test.describe("società nuova: documento, pagamento segnalato, ricevuta", () => 
     await page.keyboard.press("Escape");
   });
 
-  test("Gianni genera la quota, vede il certificato di Marco senza il pulsante Aggiungi documento", async ({ page }) => {
+  test("Gianni crea il piano quota, che genera la quota di Marco, e vede il certificato senza il pulsante Aggiungi documento", async ({ page }) => {
     await signIn(page, gianni, "/quote");
+    await page.getByRole("button", { name: "Nuovo piano" }).first().click();
+    const plan = page.getByRole("dialog", { name: "Nuovo piano quota" });
+    await plan.getByLabel(/Nome del piano/).fill(PLAN);
+    await plan.getByLabel(/Importo di ogni pagamento/).fill("60");
+    await plan.getByLabel(/Data di scadenza/).fill(dayAhead(5));
+    await plan.getByRole("button", { name: "Crea il piano" }).click();
+    await expect(page.getByText("Piano creato")).toBeVisible();
+
+    // No generation step: the plan already holds the fee of the one athlete of the society
     await page.getByRole("link", { name: PLAN }).click();
-    await page.getByRole("button", { name: "Genera quote" }).first().click();
-    const generate = page.getByRole("dialog", { name: "Genera le quote" });
-    await generate.getByLabel("Scadenza delle quote").fill(dayAhead(5));
-    await generate.getByRole("button", { name: "Genera le quote" }).click();
-    await expect(page.getByRole("dialog", { name: "Genera le quote" })).toHaveCount(0);
+    await expect(page.getByRole("list", { name: "Persone del piano" }).getByRole("listitem")).toHaveCount(1);
+    await expect(page.getByRole("list", { name: "Persone del piano" })).toContainText(MARCO_NAME);
+    await expect(page.getByRole("button", { name: /Genera/ })).toHaveCount(0);
 
     await page.goto("/tesserati");
     await page.getByRole("list", { name: "Tesserati" }).getByRole("link", { name: new RegExp(MARCO_NAME) }).click();

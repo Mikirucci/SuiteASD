@@ -72,10 +72,11 @@ export interface FeePlan {
   kind: FeeKind;
   amountCents: number;
   currency: string;
-  teamId: string | null;
+  /** Teams the plan is billed to; empty = every active member of the society. */
+  teamIds: string[];
   seasonId: string | null;
-  installments: number | null;
-  dueDay: number | null;
+  /** How many times the plan is paid. */
+  installments: number;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -89,24 +90,23 @@ export interface PayFeeBody {
   reference?: string;
 }
 
-export interface FeePlanBody {
+/** POST /fee-plans: creating the plan also creates its fees, one per target member and due date. */
+export interface CreateFeePlanBody {
   name: string;
   kind: FeeKind;
+  /** Amount of every installment. */
   amountCents: number;
-  teamId?: string | null;
-  installments?: number | null;
-  dueDay?: number | null;
-  isActive?: boolean;
+  /** Empty = every active member of the society. */
+  teamIds: string[];
+  /** One calendar day ("YYYY-MM-DD") per installment. */
+  dueDates: string[];
 }
 
-export interface GenerateFeesBody {
-  dueDate: string;
-  description?: string;
-}
-
-export interface GenerateFeesResult {
-  created: number;
-  skipped: number;
+/** PATCH /fee-plans/:id: amount, teams and dates stay as the fees were created. */
+export interface UpdateFeePlanBody {
+  name: string;
+  kind: FeeKind;
+  isActive: boolean;
 }
 
 /** Where a person stands in one plan: late if any fee is late, waiting if something is left to pay, settled otherwise. */

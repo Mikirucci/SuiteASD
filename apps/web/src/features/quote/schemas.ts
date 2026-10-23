@@ -1,17 +1,10 @@
 import { z } from "zod";
 import { toDayKey } from "@/lib/dates";
 import { parseEuroToCents } from "@/lib/format";
-import type { FeePlanBody, GenerateFeesBody, PayFeeBody } from "./types";
+import type { CreateFeePlanBody, PayFeeBody } from "./types";
 
 /** Limits mirror apps/api/src/modules/fees/schema.ts so most mistakes are caught before the request. */
 const dayText = z.iso.date("Inserisci una data valida");
-
-function optionalInteger(min: number, max: number, message: string) {
-  return z
-    .string()
-    .trim()
-    .refine((value) => value === "" || (/^\d+$/.test(value) && Number(value) >= min && Number(value) <= max), message);
-}
 
 // ---------------------------------------------------------------------------
 // Payment registration
@@ -50,47 +43,56 @@ export function toPayBody(values: PayValues, today: string = toDayKey(new Date()
 // Fee plans
 // ---------------------------------------------------------------------------
 
-export const planSchema = z.object({
-  name: z.string().trim().min(1, "Inserisci il nome del piano").max(120, "Massimo 120 caratteri"),
-  kind: z.enum(["ENROLLMENT", "MONTHLY", "EXTRA"]),
-  amount: z
-    .string()
-    .refine((value) => parseEuroToCents(value) !== null, "Inserisci un importo valido, per esempio 60 o 60,50"),
-  teamId: z.string(),
-  installments: optionalInteger(1, 36, "Inserisci un numero da 1 a 36"),
-  dueDay: optionalInteger(1, 28, "Inserisci un giorno da 1 a 28"),
-  isActive: z.boolean(),
-});
+export const MAX_INSTALLMENTS = 36;
 
-export type PlanValues = z.infer<typeof planSchema>;
+const planNameSchema = z.string().trim().min(1, "Inserisci il nome del piano").max(120, "Massimo 120 caratteri");
+const feeKindSchema = z.enum(["ENROLLMENT", "MONTHLY", "EXTRA"]);
 
-/** Body for POST (create) and PATCH (update): cleared optional fields are sent as `null` on update. */
-export function toPlanBody(values: PlanValues, mode: "create" | "update"): FeePlanBody {
+export const createPlanSchema = z
+  .object({
+    name: planNameSchema,
+    kind: feeKindSchema,
+    amount: z
+      .string()
+      .refine((value) => parseEuroToCents(value) !== null, "Inserisci un importo valido, per esempio 60 o 60,50"),
+    allTeams: z.boolean(),
+    teamIds: z.array(z.string()),
+    installments: z
+      .string()
+      .trim()
+      .refine(
+        (value) => /^\d+$/.test(value) && Number(value) >= 1 && Number(value) <= MAX_INSTALLMENTS,
+        `Inserisci un numero da 1 a ${MAX_INSTALLMENTS}`,
+      ),
+    dueDates: z.array(dayText),
+  })
+  .superRefine((values, context) => {
+    if (!values.allTeams && values.teamIds.length === 0) {
+      context.addIssue({ code: "custom", path: ["teamIds"], message: "Scegli almeno una squadra, oppure tutte" });
+    }
+    const seen = new Set<string>();
+    values.dueDates.forEach((day, index) => {
+      if (seen.has(day)) {
+        context.addIssue({ code: "custom", path: ["dueDates", index], message: "Ogni scadenza deve essere diversa dalle altre" });
+      }
+      seen.add(day);
+    });
+  });
+
+export type CreatePlanValues = z.infer<typeof createPlanSchema>;
+
+export const editPlanSchema = z.object({ name: planNameSchema, kind: feeKindSchema, isActive: z.boolean() });
+
+export type EditPlanValues = z.infer<typeof editPlanSchema>;
+
+export function toCreatePlanBody(values: CreatePlanValues): CreateFeePlanBody {
   const cents = parseEuroToCents(values.amount);
-  if (cents === null) throw new Error("Invalid amount: validate with planSchema first");
-  const optional = <T>(value: T | null): T | null | undefined => (value === null && mode === "create" ? undefined : value);
+  if (cents === null) throw new Error("Invalid amount: validate with createPlanSchema first");
   return {
     name: values.name,
     kind: values.kind,
     amountCents: cents,
-    teamId: optional(values.teamId === "" ? null : values.teamId),
-    installments: optional(values.installments === "" ? null : Number(values.installments)),
-    dueDay: optional(values.dueDay === "" ? null : Number(values.dueDay)),
-    isActive: values.isActive,
+    teamIds: values.allTeams ? [] : values.teamIds,
+    dueDates: values.dueDates,
   };
-}
-
-// ---------------------------------------------------------------------------
-// Fee generation
-// ---------------------------------------------------------------------------
-
-export const generateSchema = z.object({
-  dueDate: dayText,
-  description: z.string().trim().max(200, "Massimo 200 caratteri"),
-});
-
-export type GenerateValues = z.infer<typeof generateSchema>;
-
-export function toGenerateBody(values: GenerateValues): GenerateFeesBody {
-  return values.description ? { dueDate: values.dueDate, description: values.description } : { dueDate: values.dueDate };
 }

@@ -55,12 +55,12 @@ test.describe("società demo, in sola lettura", () => {
     await expect(rows.nth(4)).toContainText("Tigri Volley");
   });
 
-  test("quote: incassati 240 euro da 4 quote, una scaduta", async ({ page }) => {
+  test("quote: incassati 240 euro, da incassare il resto, senza conteggi sotto le cifre", async ({ page }) => {
     await page.goto("/quote");
     const report = page.getByRole("region", { name: "Rendiconto" });
     await expect(report.getByText("Incassato", { exact: true }).locator("../..")).toContainText(/€\s240/);
-    await expect(report.getByText("4 quote pagate")).toBeVisible();
-    await expect(report.getByText(/di cui €\s60 scaduti \(1 quota\)/)).toBeVisible();
+    await expect(report.getByText("Da incassare", { exact: true }).locator("../..")).toContainText(/€\s6900/);
+    await expect(report).not.toContainText(/quote pagate|di cui/);
   });
 
   test("calendario: la partita Aquile-Delfini del 14 novembre con 5/12 confermate", async ({ page }) => {

@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { Tooltip } from "./tooltip";
 
 export type CountTone = "success" | "warning" | "danger" | "brand";
 
@@ -26,7 +27,7 @@ export interface ToneCountProps {
  * The icon and the label carry the state as well as the colour.
  */
 export function ToneCount({ tone, icon: Icon, count, label, showLabel = false, className }: ToneCountProps) {
-  return (
+  const counter = (
     <span className={cn("inline-flex items-center gap-2", className)}>
       <span aria-hidden="true" className={cn("flex size-7 shrink-0 items-center justify-center rounded-full", ICON_CLASSES[tone])}>
         <Icon className="size-4" />
@@ -35,4 +36,6 @@ export function ToneCount({ tone, icon: Icon, count, label, showLabel = false, c
       <span className={showLabel ? "text-sm text-fg-muted" : "sr-only"}>{label}</span>
     </span>
   );
+  // With the label written next to it the icon needs no name tag
+  return showLabel ? counter : <Tooltip label={label}>{counter}</Tooltip>;
 }

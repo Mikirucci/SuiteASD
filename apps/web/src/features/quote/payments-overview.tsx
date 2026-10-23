@@ -14,9 +14,9 @@ import { useQuoteAccess } from "./use-quote-access";
 
 function PlansSkeleton() {
   return (
-    <div role="status" aria-busy="true" aria-label="Caricamento dei piani" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+    <div role="status" aria-busy="true" aria-label="Caricamento dei piani" className="flex flex-col gap-3">
       {[0, 1, 2].map((index) => (
-        <Skeleton key={index} className="h-40 rounded-lg" />
+        <Skeleton key={index} className="h-24 rounded-lg" />
       ))}
     </div>
   );
@@ -34,7 +34,6 @@ export function PaymentsOverview() {
   const [form, setForm] = useState<PlanDialogState | null>(null);
   const [claimedOpen, setClaimedOpen] = useState(false);
 
-  const teamNames = new Map((teams.items ?? []).map((team) => [team.id, team.name]));
   const stats = new Map((report.data?.data ?? []).map((entry) => [entry.feePlanId, entry]));
   const statsOf = (planId: string): PlanCardStats => {
     if (report.isLoading) return { state: "loading" };
@@ -67,19 +66,14 @@ export function PaymentsOverview() {
           <EmptyState
             icon={ClipboardList}
             title="Nessun piano ancora"
-            description="Un piano fissa importo e squadra, per esempio “Quota novembre · € 60”. Da lì generi le quote di tutti i tesserati e le segui qui."
+            description="Un piano fissa squadre, importo e quante volte si paga, per esempio “Quota novembre · € 60”. Le quote dei tesserati nascono insieme al piano e le segui qui."
             action={newPlan}
           />
         ) : null}
         {plans.items && plans.items.length > 0 ? (
-          <ul aria-label="Piani" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <ul aria-label="Piani" className="flex flex-col gap-3">
             {plans.items.map((plan) => (
-              <PlanCard
-                key={plan.id}
-                plan={plan}
-                teamName={plan.teamId ? (teamNames.get(plan.teamId) ?? "Una squadra") : "Tutte le squadre"}
-                stats={statsOf(plan.id)}
-              />
+              <PlanCard key={plan.id} plan={plan} teams={teams.items ?? []} stats={statsOf(plan.id)} />
             ))}
           </ul>
         ) : null}

@@ -4,7 +4,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { tokens } from "@/lib/api";
 import { expectNoA11yViolations } from "@/test/a11y";
 import { json, page, problem, renderWithProviders, stubApi, type RecordedCall } from "@/test/stub-api";
-import { defaultDueDate } from "./generate-fees-dialog";
 import { PlanDetailPage } from "./plan-detail-page";
 import {
   OVERDUE_FEE,
@@ -111,7 +110,7 @@ describe("PlanDetailPage: report and people", () => {
     expect(screen.getByText("Marta Bianchi")).toBeInTheDocument();
   });
 
-  it("invites to generate the fees when the plan has none yet", async () => {
+  it("says there are no fees when nobody was in the plan's teams at creation", async () => {
     stubApi(
       routes({
         "GET /fee-plans/p-nov/people": () =>
@@ -121,7 +120,7 @@ describe("PlanDetailPage: report and people", () => {
     renderWithProviders(<PlanDetailPage id="p-nov" />);
     expect(await screen.findByRole("heading", { name: "Nessuna quota in questo piano" })).toBeInTheDocument();
     expect(screen.queryByLabelText("Cerca un tesserato")).not.toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "Genera quote" })).toHaveLength(2);
+    expect(screen.queryByRole("button", { name: "Genera quote" })).not.toBeInTheDocument();
   });
 
   it("says when the plan does not exist, and retries when the server fails", async () => {
@@ -231,61 +230,34 @@ describe("PlanDetailPage: the fees of a person", () => {
 });
 
 describe("PlanDetailPage: managing the plan", () => {
-  it("edits the plan and clears an optional field with null", async () => {
+  it("states the terms of the plan under its name", async () => {
+    stubApi(routes({ "GET /fee-plans/p-nov": () => json(200, { ...PLAN, installments: 4, teamIds: ["t-u16", "t-u18"] }) }));
+    renderWithProviders(<PlanDetailPage id="p-nov" />);
+    await screen.findByRole("heading", { level: 1, name: "Quota novembre" });
+    expect(await screen.findByText(/4 pagamenti da €\s60 · U16 e U18/)).toBeInTheDocument();
+  });
+
+  it("edits only what the fees do not depend on: name, type and whether the plan is in use", async () => {
     const api = stubApi(routes({ "PATCH /fee-plans/p-nov": () => json(200, PLAN) }));
     renderWithProviders(<PlanDetailPage id="p-nov" />);
     await userEvent.click(await screen.findByRole("button", { name: "Modifica" }));
     const dialog = await screen.findByRole("dialog", { name: "Modifica il piano" });
     expect(within(dialog).getByLabelText(/Nome del piano/)).toHaveValue("Quota novembre");
+    expect(within(dialog).queryByLabelText(/Importo/)).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole("checkbox")).not.toBeInTheDocument();
 
-    await userEvent.clear(within(dialog).getByLabelText("Giorno di scadenza"));
     await userEvent.click(within(dialog).getByRole("switch", { name: "Piano attivo" }));
     await userEvent.click(within(dialog).getByRole("button", { name: "Salva le modifiche" }));
 
     await waitFor(() => expect(api.count("PATCH /fee-plans/p-nov")).toBe(1));
-    expect(api.calls.find((call) => call.method === "PATCH")?.body).toEqual({
-      name: "Quota novembre",
-      kind: "MONTHLY",
-      amountCents: 6000,
-      teamId: null,
-      installments: null,
-      dueDay: null,
-      isActive: false,
-    });
+    expect(api.calls.find((call) => call.method === "PATCH")?.body).toEqual({ name: "Quota novembre", kind: "MONTHLY", isActive: false });
   });
 
-  it("generates the fees of the plan and reports how many were created", async () => {
-    const api = stubApi(routes({ "POST /fee-plans/p-nov/generate": () => json(200, { created: 18, skipped: 2 }) }));
+  it("has no way to generate fees: they are created with the plan", async () => {
+    stubApi(routes());
     renderWithProviders(<PlanDetailPage id="p-nov" />);
-    await userEvent.click(await screen.findByRole("button", { name: "Genera quote" }));
-    const dialog = await screen.findByRole("dialog", { name: "Genera le quote" });
-    expect(dialog).toHaveAccessibleDescription(/Quota novembre · €\s60/);
-
-    await userEvent.clear(within(dialog).getByLabelText(/Scadenza delle quote/));
-    await userEvent.type(within(dialog).getByLabelText(/Scadenza delle quote/), "2026-11-10");
-    await userEvent.click(within(dialog).getByRole("button", { name: "Genera le quote" }));
-
-    expect(await screen.findByText("18 quote create")).toBeInTheDocument();
-    expect(screen.getByText(/2 tesserati la avevano già/)).toBeInTheDocument();
-    expect(api.calls.find((call) => call.method === "POST")?.body).toEqual({ dueDate: "2026-11-10" });
-    await waitFor(() => expect(api.count("GET /fee-plans/p-nov/people")).toBeGreaterThan(1));
-  });
-
-  it("explains an inactive plan when the server refuses to generate", async () => {
-    stubApi(routes({ "POST /fee-plans/p-nov/generate": () => problem(409, "fee_plan_inactive", "Conflict") }));
-    renderWithProviders(<PlanDetailPage id="p-nov" />);
-    await userEvent.click(await screen.findByRole("button", { name: "Genera quote" }));
-    const dialog = await screen.findByRole("dialog", { name: "Genera le quote" });
-    await userEvent.click(within(dialog).getByRole("button", { name: "Genera le quote" }));
-    expect(await within(dialog).findByText(/Il piano non è attivo/)).toBeInTheDocument();
-  });
-
-  it("offers no generation for an inactive plan", async () => {
-    stubApi(routes({ "GET /fee-plans/p-nov": () => json(200, { ...PLAN, isActive: false }) }));
-    renderWithProviders(<PlanDetailPage id="p-nov" />);
-    await screen.findByRole("heading", { level: 1, name: "Quota novembre" });
-    expect(screen.queryByRole("button", { name: "Genera quote" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Modifica" })).toBeInTheDocument();
+    await screen.findByText("Anna Ferri");
+    expect(screen.queryByRole("button", { name: /Genera/ })).not.toBeInTheDocument();
   });
 
   it("is read-only for users without the write permission", async () => {
@@ -294,19 +266,9 @@ describe("PlanDetailPage: managing the plan", () => {
     renderWithProviders(<PlanDetailPage id="p-nov" />);
     await screen.findByText("Anna Ferri");
     expect(screen.queryByRole("button", { name: "Modifica" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Genera quote" })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /Marta Bianchi/ }));
     const list = await screen.findByRole("dialog", { name: "Quote di Marta Bianchi" });
     await within(list).findByText(/Quota novembre · €\s60/);
     expect(within(list).queryByRole("button", { name: /^Registra pagamento/ })).not.toBeInTheDocument();
-  });
-});
-
-describe("defaultDueDate", () => {
-  it("proposes the next occurrence of the plan due day", () => {
-    const now = new Date(2026, 10, 12);
-    expect(defaultDueDate({ ...PLAN, dueDay: 20 }, now)).toBe("2026-11-20");
-    expect(defaultDueDate({ ...PLAN, dueDay: 5 }, now)).toBe("2026-12-05");
-    expect(defaultDueDate({ ...PLAN, dueDay: null }, now)).toBe("2026-11-12");
   });
 });

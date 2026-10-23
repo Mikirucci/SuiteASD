@@ -4,6 +4,7 @@ import { Loader2 } from "lucide-react";
 import type { ButtonHTMLAttributes, ReactNode, Ref } from "react";
 import { cn } from "@/lib/cn";
 import { buttonClasses, iconOnlySizeClasses, type ButtonSize, type ButtonVariant } from "./button-styles";
+import { Tooltip } from "./tooltip";
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
@@ -57,21 +58,23 @@ export function Button({
 }
 
 export interface IconButtonProps extends Omit<ButtonProps, "leftIcon" | "rightIcon" | "fullWidth" | "children"> {
-  /** Required: icon-only buttons have no visible text. */
+  /** Required: icon-only buttons have no visible text. It is also the hint shown on hover and focus. */
   "aria-label": string;
   icon: ReactNode;
 }
 
 export function IconButton({ icon, variant = "ghost", size = "md", loading, className, ...props }: IconButtonProps) {
   return (
-    <Button
-      variant={variant}
-      size={size}
-      loading={loading}
-      className={cn("px-0", iconOnlySizeClasses[size], className)}
-      {...props}
-    >
-      {loading ? null : icon}
-    </Button>
+    <Tooltip label={props["aria-label"]}>
+      <Button
+        variant={variant}
+        size={size}
+        loading={loading}
+        className={cn("px-0", iconOnlySizeClasses[size], className)}
+        {...props}
+      >
+        {loading ? null : icon}
+      </Button>
+    </Tooltip>
   );
 }

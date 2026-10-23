@@ -52,7 +52,9 @@ describe("QuotePage for the secretariat: the plans overview", () => {
     expect(await screen.findByRole("heading", { level: 1, name: /Incassi chiari, piano per piano\./ })).toBeInTheDocument();
     const report = await screen.findByRole("region", { name: "Rendiconto" });
     expect(within(report).getByText("Incassato").parentElement?.parentElement).toHaveTextContent(/€\s240/);
-    expect(within(report).getByText("Da incassare").parentElement?.parentElement).toHaveTextContent(/€\s120.*€\s60 scaduti/);
+    expect(within(report).getByText("Da incassare").parentElement?.parentElement).toHaveTextContent(/€\s120/);
+    // the figures say what they are: no counts of fees, no overdue note under them
+    expect(report).not.toHaveTextContent(/quot[ae] pagat|di cui|scaduti|in attesa, nessuna/);
     expect(within(report).getByText("Per piano")).toBeInTheDocument();
     expect(within(report).getByText("Quota novembre")).toBeInTheDocument();
     expect(report).toHaveTextContent(/Incassato\s€\s60 · Da incassare\s€\s120/);
@@ -62,15 +64,20 @@ describe("QuotePage for the secretariat: the plans overview", () => {
     expect(cards).toHaveLength(2);
     const [monthly, enrollment] = cards as [HTMLElement, HTMLElement];
     expect(within(monthly).getByRole("link", { name: "Quota novembre" })).toHaveAttribute("href", "/quote/p-nov");
-    expect(within(monthly).getByText("Attivo")).toBeInTheDocument();
-    expect(monthly).toHaveTextContent(/€\s60 · Mensile · Tutte le squadre · scade il 10 del mese/);
+    expect(within(monthly).queryByText("Non attivo")).not.toBeInTheDocument();
+    expect(monthly).toHaveTextContent(/Pagamento unico di €\s60 · Tutte le squadre/);
+    expect(within(monthly).getByRole("progressbar", { name: "Incassato del piano Quota novembre" })).toHaveAttribute(
+      "aria-valuetext",
+      expect.stringMatching(/€\s60 su €\s180/),
+    );
     expect(within(monthly).getByText("persone in regola").previousElementSibling).toHaveTextContent("1");
     expect(within(monthly).getByText("persone in attesa").previousElementSibling).toHaveTextContent("1");
     expect(within(monthly).getByText("persone con quote scadute").previousElementSibling).toHaveTextContent("1");
 
     expect(within(enrollment).getByRole("link", { name: "Iscrizione 2026" })).toHaveAttribute("href", "/quote/p-iscr");
     expect(within(enrollment).getByText("Non attivo")).toBeInTheDocument();
-    expect(within(enrollment).getByText("Nessuna quota generata")).toBeInTheDocument();
+    expect(enrollment).toHaveTextContent(/3 pagamenti da €\s150 · U16/);
+    expect(within(enrollment).getByText("Nessuna quota in questo piano")).toBeInTheDocument();
     await expectNoA11yViolations(container);
   });
 
@@ -88,7 +95,7 @@ describe("QuotePage for the secretariat: the plans overview", () => {
     expect(screen.queryByRole("tab")).not.toBeInTheDocument();
   });
 
-  it("explains what a plan is when there are none, and creates the first one converting euros to cents", async () => {
+  it("explains what a plan is when there are none, and creates the first one with its fees", async () => {
     const api = stubApi(
       staffRoutes({
         "GET /fee-plans": () => json(200, page([])),
@@ -106,9 +113,9 @@ describe("QuotePage for the secretariat: the plans overview", () => {
     expect(api.count("POST /fee-plans")).toBe(0);
 
     await userEvent.type(within(dialog).getByLabelText(/Nome del piano/), "Quota dicembre");
-    await userEvent.type(within(dialog).getByLabelText(/Importo in euro/), "60,50");
-    await userEvent.selectOptions(within(dialog).getByLabelText("Squadra"), "t-u18");
-    await userEvent.type(within(dialog).getByLabelText("Giorno di scadenza"), "10");
+    await userEvent.type(within(dialog).getByLabelText(/Importo di ogni pagamento/), "60,50");
+    await userEvent.clear(within(dialog).getByLabelText(/Data di scadenza/));
+    await userEvent.type(within(dialog).getByLabelText(/Data di scadenza/), "2026-12-10");
     await userEvent.click(within(dialog).getByRole("button", { name: "Crea il piano" }));
 
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
@@ -116,12 +123,13 @@ describe("QuotePage for the secretariat: the plans overview", () => {
       name: "Quota dicembre",
       kind: "MONTHLY",
       amountCents: 6050,
-      teamId: "t-u18",
-      dueDay: 10,
-      isActive: true,
+      teamIds: [],
+      dueDates: ["2026-12-10"],
     });
     expect(await screen.findByText("Piano creato")).toBeInTheDocument();
+    // the new plan comes with its fees: plans, fees and the totals are read again
     await waitFor(() => expect(api.count("GET /fee-plans")).toBe(2));
+    await waitFor(() => expect(api.count("GET /fees/summary")).toBeGreaterThan(1));
   });
 
   it("shows an error with a retry button, then the plans", async () => {
