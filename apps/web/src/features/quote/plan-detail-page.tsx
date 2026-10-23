@@ -141,7 +141,7 @@ function PlanPeopleSection({ plan }: { plan: FeePlan }) {
           <EmptyState
             icon={Users}
             title="Nessuna quota in questo piano"
-            description="Nessun tesserato attivo nelle squadre del piano quando è stato creato: le quote nascono insieme al piano."
+            description="Nessun tesserato attivo nelle squadre del piano: le quote compaiono qui da sole appena qualcuno ne fa parte."
           />
         ) : (
           <>

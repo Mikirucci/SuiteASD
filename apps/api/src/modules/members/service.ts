@@ -8,7 +8,7 @@ import { toIso } from '../../lib/schemas.js';
 import type { TenantRequestContext } from '../../plugins/auth.js';
 import { can } from '../../rbac/permissions.js';
 import { guardianRelationSchema } from '../../shared/enums.js';
-import { syncMemberConvocations } from '../convocations/auto.js';
+import { syncMemberEntitlements } from './entitlements.js';
 import { loadDocumentStates, type MemberDocumentState } from '../documents/indicators.js';
 import { formatDateOnly, parseDateOnly } from '../documents/status.js';
 import type { FileStorage } from '../documents/storage.js';
@@ -188,7 +188,7 @@ export async function createMember(ctx: TenantRequestContext, body: CreateMember
       },
       select: { id: true },
     });
-    await syncMemberConvocations(ctx.db, societyId, created.id);
+    await syncMemberEntitlements(ctx.db, societyId, created.id);
     return await getMember(ctx, created.id);
   } catch (error) {
     if (isUniqueViolation(error)) throw conflict('fiscal_code_taken', 'A member with this fiscal code already exists');
@@ -226,6 +226,8 @@ export async function createOwnChild(ctx: TenantRequestContext, body: CreateChil
     if (isUniqueViolation(error)) throw conflict('fiscal_code_taken', 'A member with this fiscal code already exists');
     throw error;
   }
+  // No team yet, but the plans for the whole society apply to the child from the start
+  await syncMemberEntitlements(ctx.db, ctx.auth.societyId, memberId, now);
   try {
     await notifyAdministration(ctx.db, {
       societyId: ctx.auth.societyId,
@@ -273,8 +275,8 @@ export async function updateMember(ctx: TenantRequestContext, id: string, body: 
     if (isUniqueViolation(error)) throw conflict('fiscal_code_taken', 'A member with this fiscal code already exists');
     throw error;
   }
-  // Joining or leaving a team, or becoming (in)active, changes which upcoming events the member is convocated to.
-  if (wanted || fields.status !== undefined) await syncMemberConvocations(ctx.db, societyId, id, now);
+  // Joining or leaving a team, or becoming (in)active, changes which upcoming events and fees the member is part of.
+  if (wanted || fields.status !== undefined) await syncMemberEntitlements(ctx.db, societyId, id, now);
   return getMember(ctx, id);
 }
 
@@ -403,7 +405,7 @@ export async function importMembers(ctx: TenantRequestContext, body: ImportMembe
           },
           select: { id: true },
         });
-        await syncMemberConvocations(ctx.db, societyId, member.id);
+        await syncMemberEntitlements(ctx.db, societyId, member.id);
         created += 1;
       } catch (error) {
         if (!isUniqueViolation(error)) throw error;

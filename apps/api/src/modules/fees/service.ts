@@ -16,6 +16,7 @@ import { notifyAdministration } from '../notifications/admin-alerts.js';
 import { createNotification } from '../notifications/service.js';
 import { renderNotification } from '../notifications/templates.js';
 import { resolveRecipients } from '../notifications/recipients.js';
+import { installmentDescription, syncPlanFees } from './billing.js';
 import { formatReceiptCode, renderReceiptPdf } from './receipt-pdf.js';
 import type {
   CreateFeeBody,
@@ -34,7 +35,7 @@ import type {
 // Fee plans
 // ---------------------------------------------------------------------------
 
-const planInclude = { teams: { select: { teamId: true } } } satisfies Prisma.FeePlanInclude;
+const planInclude = { teams: { select: { teamId: true } }, schedule: { select: { number: true } } } satisfies Prisma.FeePlanInclude;
 
 type PlanRow = Prisma.FeePlanGetPayload<{ include: typeof planInclude }>;
 
@@ -47,7 +48,7 @@ function toPlanDto(plan: PlanRow): FeePlanDto {
     currency: plan.currency,
     teamIds: plan.teams.map((team) => team.teamId).sort(),
     seasonId: plan.seasonId,
-    installments: plan.installments,
+    installments: plan.schedule.length,
     isActive: plan.isActive,
     createdAt: toIso(plan.createdAt),
     updatedAt: toIso(plan.updatedAt),
@@ -94,22 +95,29 @@ export const feePlanService: CrudService<FeePlanDto, CreateFeePlanBody, UpdateFe
     });
 
     return ctx.db.$transaction(async (tx) => {
-      const plan = await tx.feePlan.create({
-        data: { ...planData, societyId: ctx.auth.societyId, installments: dueDates.length },
-      });
+      const plan = await tx.feePlan.create({ data: { ...planData, societyId: ctx.auth.societyId } });
       if (teamIds.length > 0) {
         await tx.feePlanTeam.createMany({
           data: teamIds.map((teamId) => ({ societyId: ctx.auth.societyId, feePlanId: plan.id, teamId })),
         });
       }
       const sorted = [...dueDates].sort();
+      // The schedule stays on the plan, so whoever becomes a target later is billed from it (fees/billing.ts)
+      await tx.feePlanInstallment.createMany({
+        data: sorted.map((dueDate, index) => ({
+          societyId: ctx.auth.societyId,
+          feePlanId: plan.id,
+          number: index + 1,
+          dueDate: parseDateOnly(dueDate),
+        })),
+      });
       await tx.payment.createMany({
         data: sorted.flatMap((dueDate, index) =>
           targets.map((member) => ({
             societyId: ctx.auth.societyId,
             memberId: member.id,
             feePlanId: plan.id,
-            description: sorted.length > 1 ? `${plan.name} · rata ${index + 1} di ${sorted.length}` : plan.name,
+            description: installmentDescription(plan.name, index + 1, sorted.length),
             amountCents: plan.amountCents,
             currency: plan.currency,
             dueDate: parseDateOnly(dueDate),
@@ -122,7 +130,11 @@ export const feePlanService: CrudService<FeePlanDto, CreateFeePlanBody, UpdateFe
 
   async update(ctx, id, body) {
     // A missing / foreign-tenant id makes Prisma throw P2025, mapped to 404 by the error plugin.
-    return toPlanDto(await ctx.db.feePlan.update({ where: { id }, data: body, include: planInclude }));
+    const before = await ctx.db.feePlan.findFirst({ where: { id }, select: { isActive: true } });
+    const plan = await ctx.db.feePlan.update({ where: { id }, data: body, include: planInclude });
+    // Switched on again: the people who became targets while it was off are billed now
+    if (before && !before.isActive && plan.isActive) await syncPlanFees(ctx.db, ctx.auth.societyId, id);
+    return toPlanDto(plan);
   },
 
   async remove({ db }, id) {

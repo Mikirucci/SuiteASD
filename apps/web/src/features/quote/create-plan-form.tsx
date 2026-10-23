@@ -183,7 +183,7 @@ export function CreatePlanForm({ teams, onDone }: { teams: readonly TeamOption[]
           </div>
         </fieldset>
 
-        <p className="text-sm text-fg-muted">Creando il piano le quote vengono generate subito per ogni tesserato attivo e ogni scadenza.</p>
+        <p className="text-sm text-fg-muted">Le quote vengono generate subito per ogni tesserato attivo. Chi entra nelle squadre dopo riceve in automatico le scadenze ancora da venire.</p>
       </form>
       <div className="sticky bottom-0 mt-6 flex flex-col-reverse gap-2 bg-surface pt-3 sm:flex-row sm:justify-end">
         <DialogClose asChild>

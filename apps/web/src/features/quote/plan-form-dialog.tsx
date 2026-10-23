@@ -82,7 +82,7 @@ export function PlanFormDialog({ state, teams, onClose }: PlanFormDialogProps) {
         title={state.mode === "create" ? "Nuovo piano quota" : "Modifica il piano"}
         description={
           state.mode === "create"
-            ? "Scegli squadre, importo e quante volte si paga: le quote nascono insieme al piano."
+            ? "Scegli squadre, importo e quante volte si paga: le quote si creano da sole, anche per chi entra dopo."
             : "Importo, squadre e scadenze restano quelli con cui sono state create le quote."
         }
         className={state.mode === "create" ? "max-w-xl" : undefined}

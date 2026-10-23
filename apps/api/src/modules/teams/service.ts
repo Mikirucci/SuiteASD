@@ -5,7 +5,7 @@ import { isUniqueViolation } from '../../lib/prisma-errors.js';
 import { toIso } from '../../lib/schemas.js';
 import type { TenantRequestContext } from '../../plugins/auth.js';
 import { sportSchema, teamGenderSchema } from '../../shared/enums.js';
-import { syncMemberConvocations } from '../convocations/auto.js';
+import { syncMemberEntitlements } from '../members/entitlements.js';
 import type {
   AddTeamMembersBody,
   AddTeamMembersResult,
@@ -124,8 +124,8 @@ export async function addTeamMembers(
       create: { societyId: ctx.auth.societyId, teamId, memberId, joinedAt: now },
       update: { leftAt: null, joinedAt: now },
     });
-    // Entering a team changes which upcoming events the member is convocated to
-    await syncMemberConvocations(db, ctx.auth.societyId, memberId, now);
+    // Entering a team brings the upcoming events and the fees set up for it
+    await syncMemberEntitlements(db, ctx.auth.societyId, memberId, now);
   }
   return { added: entering.length, alreadyInTeam: already.size };
 }

@@ -7,6 +7,7 @@ import { toIso } from '../../lib/schemas.js';
 import type { TenantDb } from '../../lib/tenant.js';
 import type { TenantRequestContext } from '../../plugins/auth.js';
 import { can } from '../../rbac/permissions.js';
+import { syncMemberConvocations } from '../convocations/auto.js';
 import { memberScope, ownMemberIds } from '../members/access.js';
 import { notifyAdministration } from '../notifications/admin-alerts.js';
 import type {
@@ -214,6 +215,17 @@ export async function getDocument(ctx: TenantRequestContext, id: string, now = n
   return toDto(row, await viewerOf(ctx), now);
 }
 
+// A certificate that expired kept the athlete out of the convocations; a new valid one (or the removal of the
+// expired one) brings them into the upcoming events of their teams, like any other late arrival.
+async function realignAfterCertificate(
+  { db, auth }: TenantRequestContext,
+  memberId: string,
+  typeKey: string,
+  now: Date,
+): Promise<void> {
+  if (typeKey === MEDICAL_CERTIFICATE_KEY) await syncMemberConvocations(db, auth.societyId, memberId, now);
+}
+
 export async function createDocument(
   ctx: TenantRequestContext,
   memberId: string,
@@ -239,6 +251,7 @@ export async function createDocument(
     },
     include: { documentType: true },
   });
+  await realignAfterCertificate(ctx, memberId, type.key, now);
   return toDto(created, await viewerOf(ctx), now);
 }
 
@@ -267,13 +280,18 @@ export async function updateDocument(
     },
     include: { documentType: true },
   });
+  await realignAfterCertificate(ctx, updated.memberId, updated.documentType.key, now);
   return toDto(updated, await viewerOf(ctx), now);
 }
 
-export async function deleteDocument({ db }: TenantRequestContext, id: string, storage: FileStorage): Promise<void> {
-  const existing = await db.document.findFirst({ where: { id }, select: { fileKey: true } });
+export async function deleteDocument(ctx: TenantRequestContext, id: string, storage: FileStorage, now = new Date()): Promise<void> {
+  const existing = await ctx.db.document.findFirst({
+    where: { id },
+    select: { fileKey: true, memberId: true, documentType: { select: { key: true } } },
+  });
   if (!existing) throw notFound('Document');
-  await db.document.deleteMany({ where: { id } });
+  await ctx.db.document.deleteMany({ where: { id } });
+  await realignAfterCertificate(ctx, existing.memberId, existing.documentType.key, now);
   if (existing.fileKey) await storage.remove(existing.fileKey);
 }
 
@@ -377,6 +395,7 @@ export async function uploadMemberDocument(
       },
       include: { documentType: true },
     });
+    await realignAfterCertificate(ctx, memberId, type.key, now);
     return {
       document: toDto(created, viewer, now),
       memberName: `${member.firstName} ${member.lastName}`,

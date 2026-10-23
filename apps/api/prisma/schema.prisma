@@ -49,6 +49,7 @@ model Society {
   attachments             Attachment[]
   feePlans                FeePlan[]
   feePlanTeams            FeePlanTeam[]
+  feePlanInstallments     FeePlanInstallment[]
   payments                Payment[]
   receipts                Receipt[]
   receiptSequences        ReceiptSequence[]
@@ -451,7 +452,6 @@ model FeePlan {
   kind         String   @default("MONTHLY")
   amountCents  Int
   currency     String   @default("EUR")
-  installments Int      @default(1)
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -459,6 +459,7 @@ model FeePlan {
   society  Society   @relation(fields: [societyId], references: [id], onDelete: Cascade)
   season   Season?   @relation(fields: [seasonId], references: [id], onDelete: SetNull)
   teams    FeePlanTeam[]
+  schedule FeePlanInstallment[]
   payments Payment[]
 
   @@index([societyId])
@@ -481,6 +482,24 @@ model FeePlanTeam {
   @@unique([feePlanId, teamId])
   @@index([societyId])
   @@index([teamId])
+}
+
+// The due dates of a plan, kept on the plan itself: a member who joins later is billed from them, even when
+// nobody was in the plan's teams at creation.
+model FeePlanInstallment {
+  id        String   @id @default(cuid())
+  societyId String
+  feePlanId String
+  number    Int
+  dueDate   DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  plan    FeePlan @relation(fields: [feePlanId], references: [id], onDelete: Cascade)
+
+  @@unique([feePlanId, number])
+  @@index([societyId])
 }
 
 // status: PENDING | PAID | OVERDUE | CANCELLED     method: CASH | BANK_TRANSFER | CARD | OTHER

@@ -66,7 +66,7 @@ export function PaymentsOverview() {
           <EmptyState
             icon={ClipboardList}
             title="Nessun piano ancora"
-            description="Un piano fissa squadre, importo e quante volte si paga, per esempio “Quota novembre · € 60”. Le quote dei tesserati nascono insieme al piano e le segui qui."
+            description="Un piano fissa squadre, importo e quante volte si paga, per esempio “Quota novembre · € 60”. Le quote dei tesserati si creano da sole, anche per chi entra dopo, e le segui qui."
             action={newPlan}
           />
         ) : null}
