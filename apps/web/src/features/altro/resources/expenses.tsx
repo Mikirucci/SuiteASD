@@ -3,6 +3,7 @@ import { z } from "zod";
 import { Badge } from "@/components/ui";
 import { toDayKey } from "@/lib/dates";
 import { formatDay, formatEuro } from "@/lib/format";
+import { CategoryTile } from "../category-tile";
 import type { ResourceConfig } from "../crud/types";
 import { amountToInput, bodyReader, optionalText, parseAmount, requiredAmount, requiredDay, requiredText } from "../crud/values";
 import type { LedgerEntry, LedgerSource } from "../types";
@@ -17,7 +18,7 @@ const schema = z.object({
   notes: optionalText(1000),
 });
 
-/** What a linked expense comes from, in one word: the badge on the row says where to change it. */
+/** What a linked expense comes from, in one word: the badge on the card says where to change it. */
 const SOURCE_LABELS: Record<LedgerSource, string> = {
   PAYMENT: "Pagamento",
   VENUE: "Palestra",
@@ -51,8 +52,8 @@ export const expensesConfig: ResourceConfig<LedgerEntry> = {
     createdToast: "Spesa registrata",
     updatedToast: "Spesa aggiornata",
     deletedToast: "Spesa eliminata",
-    emptyTitle: "Nessuna spesa",
-    emptyDescription: "Registra palloni, iscrizioni, assicurazioni e ogni altra spesa: finiscono da sole nel bilancio.",
+    emptyTitle: "Nessuna spesa in questo periodo",
+    emptyDescription: "Cambia periodo, oppure registra una spesa: finisce da sola nel bilancio.",
     deleteDescription: "La spesa esce dal bilancio. L'azione non si può annullare.",
     countNoun: "Spese",
     moreLabel: "Mostra altre spese",
@@ -64,7 +65,7 @@ export const expensesConfig: ResourceConfig<LedgerEntry> = {
     options: [
       { value: "", label: "Tutte" },
       { value: "MANUAL", label: "Registrate qui" },
-      { value: "LINKED", label: "Da palestre, divise, trasferte, arbitri" },
+      { value: "LINKED", label: "Da altre sezioni" },
     ],
   },
   fields: [
@@ -105,14 +106,14 @@ export const expensesConfig: ResourceConfig<LedgerEntry> = {
     };
   },
   nameOf: (entry) => entry.description ?? entry.category,
-  row: (entry) => ({
-    title: entry.description ?? entry.category,
-    lines: [
-      [entry.category, entry.supplier].filter(Boolean).join(" · "),
-      formatDay(entry.occurredOn),
-      entry.source ? SOURCE_NOTES[entry.source] : null,
-    ],
-    figure: <span className="text-base font-extrabold text-fg">− {formatEuro(entry.amountCents)}</span>,
-    status: entry.source ? <Badge variant="brand">{SOURCE_LABELS[entry.source]}</Badge> : undefined,
-  }),
+  row: (entry) => {
+    return {
+      title: entry.description ?? entry.category,
+      lines: [[entry.category, entry.supplier].filter(Boolean).join(" · "), formatDay(entry.occurredOn), entry.source ? SOURCE_NOTES[entry.source] : null],
+      // The colour is the one of the category in the summary above the list
+      leading: <CategoryTile category={entry.category} />,
+      status: entry.source ? <Badge variant="warning">{SOURCE_LABELS[entry.source]}</Badge> : <Badge variant="success">Registrata qui</Badge>,
+      figure: <span className="ml-auto text-base font-extrabold text-fg">− {formatEuro(entry.amountCents)}</span>,
+    };
+  },
 };

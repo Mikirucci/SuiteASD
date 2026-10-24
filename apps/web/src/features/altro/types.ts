@@ -123,6 +123,27 @@ export interface LedgerReport {
   categories: Array<{ kind: LedgerKind; category: string; totalCents: number }>;
 }
 
+/** Totals of the incomes or of the expenses of a period: GET /ledger/summary. */
+export interface LedgerSummary {
+  totalCents: number;
+  count: number;
+  /** Entered by hand. */
+  manualCents: number;
+  /** Born from a payment or from the cost of a venue, kit, trip or referee. */
+  linkedCents: number;
+  /** The heaviest first. */
+  categories: Array<{
+    category: string;
+    totalCents: number;
+    count: number;
+    /** Earliest and latest day of its entries, "YYYY-MM-DD". */
+    firstOn: string;
+    lastOn: string;
+    /** Names of its biggest entries. */
+    names: string[];
+  }>;
+}
+
 /** One group per item name: GET /kits/groups. */
 export interface KitGroup {
   item: string;

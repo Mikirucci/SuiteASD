@@ -8,11 +8,13 @@ import {
   ledgerEntrySchema,
   ledgerReportQuerySchema,
   ledgerReportSchema,
+  ledgerSummaryQuerySchema,
+  ledgerSummarySchema,
   listLedgerCategoriesQuerySchema,
   listLedgerEntriesQuerySchema,
   updateLedgerEntryBodySchema,
 } from './schema.js';
-import { getLedgerCategories, getLedgerReport, ledgerService } from './service.js';
+import { getLedgerCategories, getLedgerReport, getLedgerSummary, ledgerService } from './service.js';
 
 export const ledgerRoutes: FastifyPluginAsyncZod = async (app) => {
   registerCrudRoutes(app, {
@@ -58,5 +60,19 @@ export const ledgerRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     async (request) => getLedgerReport(tenantOf(request), request.query),
+  );
+  app.get(
+    '/ledger/summary',
+    {
+      onRequest: [app.requirePermission('ledger:read')],
+      schema: {
+        tags: ['Ledger'],
+        summary: 'Totals of the incomes or of the expenses of any period: by origin and per category',
+        security: bearerSecurity,
+        querystring: ledgerSummaryQuerySchema,
+        response: { 200: ledgerSummarySchema, ...problemResponses(401, 403, 422) },
+      },
+    },
+    async (request) => getLedgerSummary(tenantOf(request), request.query),
   );
 };

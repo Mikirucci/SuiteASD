@@ -31,15 +31,17 @@ export const updateLedgerEntryBodySchema = patchBodySchema({
   notes: createLedgerEntryBodySchema.shape.notes.nullable(),
 });
 
+const searchTextSchema = z.string().trim().min(1).max(80).describe('Substring of the description, the supplier or the category');
+const originSchema = z
+  .enum(['MANUAL', 'LINKED'])
+  .describe('MANUAL: entered by hand; LINKED: born from a payment or from the cost of a venue, kit, trip or referee');
+
 export const listLedgerEntriesQuerySchema = paginationQuerySchema.extend({
   kind: ledgerKindSchema.optional(),
   category: categorySchema.optional(),
   sponsorId: idRef.optional(),
-  q: z.string().trim().min(1).max(80).optional().describe('Substring of the description, the supplier or the category'),
-  origin: z
-    .enum(['MANUAL', 'LINKED'])
-    .optional()
-    .describe('MANUAL: entered by hand; LINKED: born from a payment or from the cost of a venue, kit, trip or referee'),
+  q: searchTextSchema.optional(),
+  origin: originSchema.optional(),
   from: dateOnlySchema.optional().describe('Entries on or after this day'),
   to: dateOnlySchema.optional().describe('Entries on or before this day'),
 });
@@ -90,6 +92,34 @@ export const ledgerReportSchema = z.object({
   ),
 });
 
+export const ledgerSummaryQuerySchema = z.object({
+  kind: ledgerKindSchema,
+  category: categorySchema.optional().describe('Only this category: its totals, as on the page of the category'),
+  q: searchTextSchema.optional(),
+  origin: originSchema.optional(),
+  from: dateOnlySchema.optional().describe('Entries on or after this day'),
+  to: dateOnlySchema.optional().describe('Entries on or before this day'),
+});
+
+export const ledgerSummarySchema = z.object({
+  totalCents: z.number().int(),
+  count: z.number().int(),
+  manualCents: z.number().int().describe('Entered by hand'),
+  linkedCents: z.number().int().describe('Born from a payment or from the cost of a venue, kit, trip or referee'),
+  categories: z
+    .array(
+      z.object({
+        category: z.string(),
+        totalCents: z.number().int(),
+        count: z.number().int(),
+        firstOn: dateOnlySchema.describe('The earliest day of its entries'),
+        lastOn: dateOnlySchema.describe('The latest day of its entries'),
+        names: z.array(z.string()).max(3).describe('Names of its biggest entries, to tell what the category holds'),
+      }),
+    )
+    .describe('The heaviest first'),
+});
+
 export type CreateLedgerEntryBody = z.infer<typeof createLedgerEntryBodySchema>;
 export type UpdateLedgerEntryBody = z.infer<typeof updateLedgerEntryBodySchema>;
 export type ListLedgerEntriesQuery = z.infer<typeof listLedgerEntriesQuerySchema>;
@@ -98,3 +128,5 @@ export type ListLedgerCategoriesQuery = z.infer<typeof listLedgerCategoriesQuery
 export type LedgerCategoriesDto = z.infer<typeof ledgerCategoriesSchema>;
 export type LedgerReportQuery = z.infer<typeof ledgerReportQuerySchema>;
 export type LedgerReportDto = z.infer<typeof ledgerReportSchema>;
+export type LedgerSummaryQuery = z.infer<typeof ledgerSummaryQuerySchema>;
+export type LedgerSummaryDto = z.infer<typeof ledgerSummarySchema>;

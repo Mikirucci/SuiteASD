@@ -8,18 +8,23 @@ import type { TenantRequestContext } from '../../plugins/auth.js';
 import { ledgerKindSchema } from '../../shared/enums.js';
 import { canonicalCategory, listCategories } from './categories.js';
 import { buildLedgerReport } from './report.js';
+import { buildLedgerSummary } from './summary.js';
 import type {
   CreateLedgerEntryBody,
   LedgerCategoriesDto,
   LedgerEntryDto,
   LedgerReportDto,
+  LedgerSummaryDto,
+  LedgerSummaryQuery,
   LedgerReportQuery,
   ListLedgerCategoriesQuery,
   ListLedgerEntriesQuery,
   UpdateLedgerEntryBody,
 } from './schema.js';
 
-function sourceOf(entry: LedgerEntry): LedgerEntryDto['source'] {
+type SourceLinks = Pick<LedgerEntry, 'paymentId' | 'venueId' | 'kitId' | 'tripId' | 'refereeAssignmentId'>;
+
+function sourceOf(entry: SourceLinks): LedgerEntryDto['source'] {
   if (entry.paymentId) return 'PAYMENT';
   if (entry.venueId) return 'VENUE';
   if (entry.kitId) return 'KIT';
@@ -70,6 +75,26 @@ const LINKED_FILTER: Prisma.LedgerEntryWhereInput[] = [
   { refereeAssignmentId: { not: null } },
 ];
 
+type EntryFilters = Pick<ListLedgerEntriesQuery, 'kind' | 'category' | 'sponsorId' | 'q' | 'origin' | 'from' | 'to'>;
+
+// The filters the list and the summary share, so what is added up is exactly what is listed
+function entryWhere(query: EntryFilters): Prisma.LedgerEntryWhereInput {
+  const occurredOn: Prisma.DateTimeFilter = {
+    ...(query.from ? { gte: fromDateOnly(query.from) } : {}),
+    ...(query.to ? { lte: fromDateOnly(query.to) } : {}),
+  };
+  return {
+    ...(query.kind ? { kind: query.kind } : {}),
+    ...(query.category ? { category: query.category } : {}),
+    ...(query.sponsorId ? { sponsorId: query.sponsorId } : {}),
+    ...(Object.keys(occurredOn).length > 0 ? { occurredOn } : {}),
+    ...(query.q
+      ? { OR: [{ description: { contains: query.q } }, { supplier: { contains: query.q } }, { category: { contains: query.q } }] }
+      : {}),
+    ...(query.origin ? { AND: [query.origin === 'LINKED' ? { OR: LINKED_FILTER } : { NOT: { OR: LINKED_FILTER } }] } : {}),
+  };
+}
+
 export const ledgerService: CrudService<
   LedgerEntryDto,
   CreateLedgerEntryBody,
@@ -77,21 +102,8 @@ export const ledgerService: CrudService<
   ListLedgerEntriesQuery
 > = {
   async list({ db }, query) {
-    const occurredOn: Prisma.DateTimeFilter = {
-      ...(query.from ? { gte: fromDateOnly(query.from) } : {}),
-      ...(query.to ? { lte: fromDateOnly(query.to) } : {}),
-    };
     const rows = await db.ledgerEntry.findMany({
-      where: {
-        ...(query.kind ? { kind: query.kind } : {}),
-        ...(query.category ? { category: query.category } : {}),
-        ...(query.sponsorId ? { sponsorId: query.sponsorId } : {}),
-        ...(Object.keys(occurredOn).length > 0 ? { occurredOn } : {}),
-        ...(query.q
-          ? { OR: [{ description: { contains: query.q } }, { supplier: { contains: query.q } }, { category: { contains: query.q } }] }
-          : {}),
-        ...(query.origin ? { AND: [query.origin === 'LINKED' ? { OR: LINKED_FILTER } : { NOT: { OR: LINKED_FILTER } }] } : {}),
-      },
+      where: entryWhere(query),
       orderBy: [{ occurredOn: 'desc' }, { id: 'asc' }],
       ...cursorArgs(query),
     });
@@ -148,6 +160,32 @@ export const ledgerService: CrudService<
 
 export async function getLedgerCategories({ db }: TenantRequestContext, query: ListLedgerCategoriesQuery): Promise<LedgerCategoriesDto> {
   return { data: await listCategories(db, query.kind) };
+}
+
+export async function getLedgerSummary({ db }: TenantRequestContext, query: LedgerSummaryQuery): Promise<LedgerSummaryDto> {
+  const rows = await db.ledgerEntry.findMany({
+    where: entryWhere(query),
+    select: {
+      category: true,
+      description: true,
+      amountCents: true,
+      occurredOn: true,
+      paymentId: true,
+      venueId: true,
+      kitId: true,
+      tripId: true,
+      refereeAssignmentId: true,
+    },
+  });
+  return buildLedgerSummary(
+    rows.map((row) => ({
+      category: row.category,
+      description: row.description,
+      amountCents: row.amountCents,
+      occurredOn: toDateOnly(row.occurredOn),
+      linked: sourceOf(row) !== null,
+    })),
+  );
 }
 
 export async function getLedgerReport({ db }: TenantRequestContext, query: LedgerReportQuery): Promise<LedgerReportDto> {

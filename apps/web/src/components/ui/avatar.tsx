@@ -4,7 +4,8 @@ import { cn } from "@/lib/cn";
 
 export type AvatarSize = "xs" | "sm" | "md" | "lg" | "xl";
 
-const toneClasses: Record<AvatarTone, string> = {
+/** Background of each tone: white text and icons on it keep AA contrast. */
+export const avatarToneClasses: Record<AvatarTone, string> = {
   blue: "bg-avatar-blue",
   amber: "bg-avatar-amber",
   rose: "bg-avatar-rose",
@@ -48,7 +49,7 @@ export function Avatar({ name, size = "md", tone, confirmed, highlighted, decora
       aria-hidden={decorative || undefined}
       className={cn(
         "relative inline-flex shrink-0 select-none items-center justify-center rounded-full font-bold text-white",
-        toneClasses[tone ?? avatarToneOf(name)],
+        avatarToneClasses[tone ?? avatarToneOf(name)],
         sizeClasses[size],
         highlighted && "ring-4 ring-orange-200",
         className,

@@ -350,50 +350,88 @@ const PALLONI: LedgerEntry = {
   occurredOn: "2026-09-18",
 };
 const ARBITRO: LedgerEntry = { ...PALLONI, id: "l-arbitro", category: "Arbitri", description: "Roberto Cattaneo · Aquile - Delfini", supplier: null, notes: null, amountCents: 4500, source: "REFEREE" };
-const SPESE_REPORT = {
-  ...REPORT,
-  totals: { incomeCents: 0, expenseCents: 68500, balanceCents: -68500 },
-  categories: [
-    { kind: "EXPENSE" as const, category: "Attrezzatura sportiva", totalCents: 64000 },
-    { kind: "EXPENSE" as const, category: "Arbitri", totalCents: 4500 },
-  ],
+const RETI: LedgerEntry = { ...PALLONI, id: "l-reti", description: "Reti da gara", amountCents: 12000, occurredOn: "2026-10-02" };
+const SPESE: readonly LedgerEntry[] = [PALLONI, RETI, ARBITRO];
+const summaryOf = (entries: readonly LedgerEntry[]) => {
+  const total = (list: readonly LedgerEntry[]) => list.reduce((sum, entry) => sum + entry.amountCents, 0);
+  const categories = [...new Set(entries.map((entry) => entry.category))].map((category) => {
+    const own = entries.filter((entry) => entry.category === category);
+    const days = own.map((entry) => entry.occurredOn).sort();
+    return { category, totalCents: total(own), count: own.length, firstOn: days[0], lastOn: days.at(-1), names: own.map((entry) => entry.description) };
+  });
+  return {
+    totalCents: total(entries),
+    count: entries.length,
+    manualCents: total(entries.filter((entry) => !entry.source)),
+    linkedCents: total(entries.filter((entry) => entry.source)),
+    categories: categories.sort((a, b) => b.totalCents - a.totalCents),
+  };
 };
 const CATEGORIES = ["Arbitri", "Assicurazioni", "Attrezzatura sportiva", "Palestre"];
 const expenses = () =>
   combine(
+    // the summary and the entries of a category, as the API gives them when asked for it
+    ({ method, path, query }) =>
+      method === "GET" && path === "/ledger/summary"
+        ? { body: summaryOf(SPESE.filter((entry) => !query.get("category") || entry.category === query.get("category"))) }
+        : undefined,
+    ({ method, path, query }) =>
+      method === "GET" && path === "/ledger/entries"
+        ? { body: { data: SPESE.filter((entry) => !query.get("category") || entry.category === query.get("category")), page: { nextCursor: null, hasMore: false } } }
+        : undefined,
     resource("/ledger/entries", [PALLONI, ARBITRO], { defaults: NO_ENTRY_DETAILS }).handler,
-    ({ method, path }) => (method === "GET" && path === "/ledger/report" ? { body: SPESE_REPORT } : undefined),
     ({ method, path }) => (method === "GET" && path === "/ledger/categories" ? { body: { data: CATEGORIES } } : undefined),
   );
 
 test.describe("altro, spese", () => {
-  test("shows the year, the expenses with their supplier, tells the linked ones, and registers a new expense", async ({ page }) => {
+  test("shows the year by category, opens a category with its expenses, changes the period and registers a new expense", async ({ page }) => {
     const api = await openAs(page, "/altro/spese", ADMIN, expenses());
 
     await expect(page.getByRole("heading", { level: 1, name: /Ogni spesa, al suo posto/ })).toBeVisible();
     const sidebar = page.getByRole("navigation", { name: "Sezioni", exact: true });
     await expect(sidebar.getByRole("link", { name: "Spese" })).toHaveAttribute("aria-current", "page");
-    const summary = page.getByRole("region", { name: /Riepilogo delle spese/ });
-    await expect(summary).toContainText(/€\s685/);
-    await expect(summary).toContainText("Attrezzatura sportiva");
-    await expect(summary.getByRole("region", { name: "Spese per categoria" })).toContainText("Arbitri");
+    const tiles = page.getByRole("region", { name: "Rendiconto delle spese" });
+    await expect(tiles).toContainText(/€\s805/);
+    await expect(tiles).toContainText("Registrate qui");
 
-    const list = page.getByRole("list", { name: "Spese", exact: true });
-    await expect(list.getByRole("listitem")).toHaveCount(2);
-    await expect(list.getByRole("listitem").filter({ hasText: "Palloni da gara" })).toContainText("Attrezzatura sportiva · Volley Shop Emilia");
-    const referee = list.getByRole("listitem").filter({ hasText: "Roberto Cattaneo" });
-    await expect(referee.getByText("Arbitro", { exact: true })).toBeVisible();
-    await expect(referee).toContainText("si modifica dalla designazione");
-    await referee.getByRole("button", { name: /^Altre azioni di/ }).click();
-    await expect(page.getByRole("menuitem", { name: /^Modifica/ })).toHaveCount(0);
-    await page.keyboard.press("Escape");
+    // one card per category, and the ring says the same
+    const cards = page.getByRole("list", { name: "Categorie", exact: true });
+    await expect(cards.getByRole("listitem")).toHaveCount(2);
+    await expect(cards.getByRole("listitem").filter({ hasText: "Attrezzatura sportiva" })).toContainText("Palloni da gara, Reti da gara");
+    await expect(page.getByRole("group", { name: "Spese per categoria" }).getByRole("button")).toHaveCount(2);
     await settle(page);
     expect(await auditAccessibility(page)).toEqual([]);
 
-    await page.getByRole("button", { name: "Nuova spesa" }).click();
+    // the period: the panel with its four ways, then a month; "Azzera filtri" brings the year back
+    const period = page.getByRole("group", { name: "Periodo", exact: true });
+    await period.getByRole("button", { name: String(new Date().getFullYear()) }).click();
+    const panel = page.getByRole("dialog", { name: "Scegli il periodo" });
+    await expect(panel.getByRole("tab")).toHaveCount(4);
+    expect(await auditAccessibility(page)).toEqual([]);
+    await panel.getByRole("tab", { name: "Mese" }).click();
+    await panel.getByRole("button", { name: `novembre ${new Date().getFullYear()}` }).click();
+    await expect(panel).toBeHidden();
+    await expect(period).toContainText(`Novembre ${new Date().getFullYear()}`);
+    await expect(page).toHaveURL(/dal=\d{4}-11-01&al=\d{4}-11-30/);
+    await expect.poll(() => api.calls.filter((call) => call === "GET /ledger/summary").length).toBeGreaterThan(1);
+    await page.getByRole("button", { name: "Azzera filtri" }).click();
+    await expect(page.getByRole("button", { name: "Azzera filtri" })).toBeHidden();
+    await expect(page).not.toHaveURL(/dal=/);
+
+    // a card opens the page of the category, with the expenses and what only applies there
+    await cards.getByRole("link", { name: "Attrezzatura sportiva" }).click();
+    await expect(page).toHaveURL(/\/altro\/spese\/Attrezzatura%20sportiva/);
+    await expect(page.getByRole("heading", { level: 1, name: "Attrezzatura sportiva" })).toBeVisible();
+    const list = page.getByRole("list", { name: "Spese", exact: true });
+    await expect(list.getByRole("listitem")).toHaveCount(2);
+    await expect(list.getByRole("listitem").filter({ hasText: "Palloni da gara" })).toContainText("Attrezzatura sportiva · Volley Shop Emilia");
+    await settle(page);
+    expect(await auditAccessibility(page)).toEqual([]);
+
+    await page.getByRole("button", { name: "Nuova spesa" }).first().click();
     const form = page.getByRole("dialog", { name: "Nuova spesa" });
+    await expect(form.getByLabel(/Categoria/)).toHaveValue("Attrezzatura sportiva");
     await form.getByLabel(/Nome della spesa/).fill("Nastro e gessetti");
-    await form.getByLabel(/Categoria/).fill("Attrezzatura sportiva");
     await form.getByLabel(/Data/).fill("2026-11-10");
     await form.getByLabel(/Importo in euro/).fill("18,40");
     await form.getByLabel(/Fornitore/).fill("Sport Center");
@@ -410,7 +448,16 @@ test.describe("altro, spese", () => {
       occurredOn: "2026-11-10",
       supplier: "Sport Center",
     });
-    await expect(list.getByRole("listitem")).toHaveCount(3);
+
+    // the way back keeps the period, and the expenses that follow another section are read-only
+    await page.getByRole("link", { name: "Tutte le spese" }).click();
+    await expect(page).toHaveURL(/\/altro\/spese$/);
+    await cards.getByRole("link", { name: "Arbitri" }).click();
+    const referee = page.getByRole("list", { name: "Spese", exact: true }).getByRole("listitem").filter({ hasText: "Roberto Cattaneo" });
+    await expect(referee.getByText("Arbitro", { exact: true })).toBeVisible();
+    await expect(referee).toContainText("si modifica dalla designazione");
+    await referee.getByRole("button", { name: /^Altre azioni di/ }).click();
+    await expect(page.getByRole("menuitem", { name: /^Modifica/ })).toHaveCount(0);
   });
 });
 
@@ -462,8 +509,12 @@ test.describe("altro su telefono", () => {
 
   test("spese fits 320px, with the form dialog inside the screen", async ({ page }) => {
     await openAs(page, "/altro/spese", ADMIN, expenses());
-    await expect(page.getByRole("list", { name: "Spese", exact: true }).getByRole("listitem")).toHaveCount(2);
+    await expect(page.getByRole("list", { name: "Categorie", exact: true }).getByRole("listitem")).toHaveCount(2);
     await expectFits(page);
+    await page.getByRole("group", { name: "Periodo", exact: true }).getByRole("button", { name: String(new Date().getFullYear()) }).click();
+    await expect(page.getByRole("dialog", { name: "Scegli il periodo" })).toBeVisible();
+    await expectFits(page);
+    await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Nuova spesa" }).click();
     const dialog = page.getByRole("dialog", { name: "Nuova spesa" });
     await expect(dialog).toBeVisible();

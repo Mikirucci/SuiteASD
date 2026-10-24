@@ -1,5 +1,5 @@
 export { Alert, type AlertProps, type AlertTone } from "./alert";
-export { Avatar, AvatarStack, type AvatarProps, type AvatarSize, type AvatarStackProps } from "./avatar";
+export { Avatar, AvatarStack, avatarToneClasses, type AvatarProps, type AvatarSize, type AvatarStackProps } from "./avatar";
 export { Badge, type BadgeProps, type BadgeVariant } from "./badge";
 export { Button, IconButton, type ButtonProps, type IconButtonProps } from "./button";
 export { buttonClasses, type ButtonSize, type ButtonVariant } from "./button-styles";
@@ -20,7 +20,9 @@ export { Input, type InputProps } from "./input";
 export { LoadMore, type LoadMoreProps } from "./load-more";
 export { AppIcon, Logo, type AppIconProps, type LogoProps } from "./logo";
 export { Pagination, type PaginationProps } from "./pagination";
+export { Popover, PopoverContent, PopoverTrigger } from "./popover";
 export { PillFilter, type PillFilterProps, type PillOption } from "./pill-filter";
+export { RangeCalendar, type CalendarRange, type RangeCalendarProps } from "./range-calendar";
 export { ProgressBar, type ProgressBarProps, type ProgressTone } from "./progress-bar";
 export { ProgressRing, formatGrade, gradeTone, type ProgressRingProps, type RingTone } from "./progress-ring";
 export { Reveal, type RevealProps } from "./reveal";

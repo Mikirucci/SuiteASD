@@ -1,104 +1,103 @@
 "use client";
 
-import { Coins, CalendarDays, Tag } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useState } from "react";
-import { Alert, Button, Select, Skeleton, StatTile } from "@/components/ui";
+import { Button, EmptyState, ErrorState, Skeleton } from "@/components/ui";
+import { usePermission } from "@/hooks/use-permission";
+import { cn } from "@/lib/cn";
 import { describeError, useApiQuery } from "@/lib/api";
-import { formatEuro } from "@/lib/format";
-import { ResourceView } from "./crud/resource-view";
-import { CategoryList } from "./ledger-summary";
+import { CategoryCard } from "./category-card";
+import { ResourceFormDialog, type ResourceDialogState } from "./crud/resource-form-dialog";
 import { PageShell } from "./page-shell";
 import { expensesConfig } from "./resources/expenses";
-import type { LedgerReport } from "./types";
+import { rangeQuery } from "./spese-period";
+import { SpesePeriodBar } from "./spese-period-bar";
+import { SpeseTiles } from "./spese-tiles";
+import { SpendingChart } from "./spending-chart";
+import type { LedgerEntry, LedgerSummary } from "./types";
+import { periodHref, useSpesePeriod } from "./use-spese-period";
 
-const YEARS_SHOWN = 5;
-
-const monthName = new Intl.DateTimeFormat("it-IT", { month: "long" });
-
-/** What was spent in the year, this month and under the heaviest category, then every category with its share. */
-function ExpensesSummary({ year, report }: { year: number; report: LedgerReport }) {
-  const now = new Date();
-  const thisMonth = year === now.getFullYear() ? report.months[now.getMonth()] : undefined;
-  const top = report.categories.find((category) => category.kind === "EXPENSE");
+function OverviewSkeleton() {
   return (
-    <section aria-labelledby="expenses-summary-title" className="flex flex-col gap-6">
-      <h2 id="expenses-summary-title" className="text-lg font-bold tracking-title text-fg">
-        Riepilogo delle spese {year}
-      </h2>
-      <div className="grid gap-4 sm:grid-cols-3">
-        <StatTile label={`Spese ${year}`} icon={Coins} value={formatEuro(report.totals.expenseCents)} />
-        {thisMonth ? (
-          <StatTile label={`In ${monthName.format(now)}`} icon={CalendarDays} value={formatEuro(thisMonth.expenseCents)} />
-        ) : null}
-        {top ? <StatTile label="Categoria più pesante" icon={Tag} value={formatEuro(top.totalCents)} note={top.category} /> : null}
+    <div role="status" aria-busy="true" aria-label="Caricamento delle spese" className="flex flex-col gap-6">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {[0, 1, 2, 3].map((index) => (
+          <Skeleton key={index} className="h-28 rounded-lg" />
+        ))}
       </div>
-      <CategoryList title="Spese per categoria" kind="EXPENSE" report={report} />
-    </section>
+      <Skeleton className="h-64 rounded-lg" />
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {[0, 1, 2].map((index) => (
+          <Skeleton key={index} className="h-36 rounded-lg" />
+        ))}
+      </div>
+    </div>
   );
 }
 
-/** Spese: the extra costs of the club, written once and counted in the balance, next to the ones other sections book. */
+/**
+ * Spese: the extra costs of the club, written once and counted in the balance, next to the ones other sections book.
+ * Like the other overviews it has the totals, then one card per category; the single expenses are on the page of the
+ * category. The period is chosen once, in the middle, and both pages follow it.
+ */
 export function SpesePage() {
-  const currentYear = new Date().getFullYear();
-  const [year, setYear] = useState(currentYear);
-  const [category, setCategory] = useState("");
+  const canWrite = usePermission(expensesConfig.writePermission);
+  const period = useSpesePeriod();
+  const [hovered, setHovered] = useState<string | null>(null);
+  const [form, setForm] = useState<ResourceDialogState<LedgerEntry> | null>(null);
 
-  const report = useApiQuery<LedgerReport>(["ledger", "report", year], "/ledger/report", { query: { year } });
-  const categories = useApiQuery<{ data: string[] }>(["ledger", "categories", "EXPENSE"], "/ledger/categories", { query: { kind: "EXPENSE" } });
+  const filters = { kind: "EXPENSE", ...rangeQuery(period.range) };
+  const summary = useApiQuery<LedgerSummary>(["ledger", "summary", filters], "/ledger/summary", { query: filters });
+  const categoryHref = (category: string) => periodHref(`/altro/spese/${encodeURIComponent(category)}`, period.range);
 
-  const yearOptions = Array.from({ length: YEARS_SHOWN }, (_, index) => {
-    const value = String(currentYear - index);
-    return { value, label: value };
-  });
-  const usedCategories = new Set((report.data?.categories ?? []).filter((row) => row.kind === "EXPENSE").map((row) => row.category));
-  const categoryOptions = (categories.data?.data ?? []).filter((name) => usedCategories.has(name));
+  const newButton = canWrite ? (
+    <Button leftIcon={<Plus />} onClick={() => setForm({ mode: "create" })}>
+      {expensesConfig.copy.newLabel}
+    </Button>
+  ) : undefined;
+  const data = summary.data;
 
   return (
     <PageShell
       label="Spese"
       title="Ogni spesa, al suo posto."
       highlight="al suo posto."
-      description="Palloni, iscrizioni, assicurazioni e ogni altra spesa: le registri una volta e finiscono nel bilancio, insieme ai costi di palestre, divise, trasferte e arbitri."
+      description="Una categoria per volta: apri una card per vedere le singole spese del periodo che scegli qui."
     >
-      <div className="flex flex-col gap-6">
-        <Select
-          label="Anno"
-          className="max-w-40"
-          options={yearOptions}
-          value={String(year)}
-          onChange={(event) => {
-            setYear(Number(event.target.value));
-            setCategory("");
-          }}
-        />
-        {report.isLoading ? <Skeleton role="status" aria-busy="true" aria-label="Caricamento del riepilogo" className="h-40 rounded-lg" /> : null}
-        {report.error ? (
-          <Alert tone="danger" title="Riepilogo non disponibile">
-            <p>{describeError(report.error)}</p>
-            <Button variant="secondary" className="mt-3" onClick={() => void report.refetch()}>
-              Riprova
-            </Button>
-          </Alert>
+      <div className="flex flex-col gap-8">
+        <SpesePeriodBar period={period} />
+
+        {summary.isLoading ? <OverviewSkeleton /> : null}
+        {summary.error ? <ErrorState title="Spese non disponibili" message={describeError(summary.error)} onRetry={() => void summary.refetch()} /> : null}
+        {data ? (
+          <>
+            <SpeseTiles summary={data} label="Rendiconto delle spese" last="categories" />
+            <div className={cn("grid items-start gap-8", data.categories.length > 0 && "lg:grid-cols-[19rem_1fr]")}>
+              {data.categories.length > 0 ? (
+                <SpendingChart categories={data.categories} totalCents={data.totalCents} hovered={hovered} onHover={setHovered} hrefOf={categoryHref} />
+              ) : null}
+              <section aria-labelledby="categories-heading" className="flex flex-col gap-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <h2 id="categories-heading" className="text-lg font-bold tracking-title text-fg">
+                    Categorie
+                  </h2>
+                  {data.categories.length > 0 ? newButton : null}
+                </div>
+                {data.categories.length === 0 ? (
+                  <EmptyState icon={expensesConfig.icon} title={expensesConfig.copy.emptyTitle} description={expensesConfig.copy.emptyDescription} action={newButton} />
+                ) : (
+                  <ul aria-label="Categorie" className="grid gap-4 sm:grid-cols-2">
+                    {data.categories.map((group) => (
+                      <CategoryCard key={group.category} group={group} href={categoryHref(group.category)} active={hovered === group.category} onHover={setHovered} />
+                    ))}
+                  </ul>
+                )}
+              </section>
+            </div>
+          </>
         ) : null}
-        {report.data ? <ExpensesSummary year={year} report={report.data} /> : null}
-        <ResourceView
-          config={expensesConfig}
-          extraQuery={{ kind: "EXPENSE", from: `${year}-01-01`, to: `${year}-12-31`, category: category || undefined }}
-          extraFiltersActive={category !== ""}
-          onResetExtraFilters={() => setCategory("")}
-          toolbarExtra={
-            categoryOptions.length > 0 ? (
-              <Select
-                label="Categoria"
-                className="max-w-xs"
-                options={[{ value: "", label: "Tutte le categorie" }, ...categoryOptions.map((name) => ({ value: name, label: name }))]}
-                value={category}
-                onChange={(event) => setCategory(event.target.value)}
-              />
-            ) : undefined
-          }
-        />
       </div>
+      <ResourceFormDialog config={expensesConfig} state={form} onClose={() => setForm(null)} />
     </PageShell>
   );
 }
