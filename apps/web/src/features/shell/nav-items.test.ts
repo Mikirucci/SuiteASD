@@ -11,7 +11,7 @@ import {
 } from "./nav-items";
 
 const ALL_PERMISSIONS = ADMIN_ITEMS.flatMap((item) => (item.permission ? [item.permission] : []));
-/** What the ALLENATORE role gets from the matrix in apps/api/src/rbac/permissions.ts, limited to the menu permissions. */
+/** What the ALLENATORE role gets from the matrix in the permission matrix of the backend (docs/api/openapi.yaml lists the permission of each endpoint), limited to the menu permissions. */
 const COACH_PERMISSIONS = [
   "members:read",
   "documents:read",

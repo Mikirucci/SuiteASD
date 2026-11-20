@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-/** Limits mirror the API (apps/api auth schema) so most mistakes are caught before the request. */
+/** Limits mirror the API (the backend auth schema) so most mistakes are caught before the request. */
 const PASSWORD_MIN = 8;
 const PASSWORD_MAX = 128;
 

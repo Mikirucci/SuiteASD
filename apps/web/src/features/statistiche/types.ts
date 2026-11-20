@@ -1,4 +1,4 @@
-/** Wire types of GET /statistics/overview. Source of truth: apps/api/src/modules/statistics/schema.ts. */
+/** Wire types of GET /statistics/overview. Source of truth: the backend OpenAPI contract (docs/api/openapi.yaml in the SuiteASD-backend repository). */
 
 export type EventType = "MATCH" | "TRAINING" | "TOURNAMENT" | "MEETING";
 export type CertificateStatus = "OK" | "EXPIRING" | "EXPIRED" | "MISSING";

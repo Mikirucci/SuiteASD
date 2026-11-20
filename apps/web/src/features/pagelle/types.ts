@@ -1,4 +1,4 @@
-/** Wire types of the evaluations module. Source of truth: apps/api/src/modules/evaluations/schema.ts. */
+/** Wire types of the evaluations module. Source of truth: the backend OpenAPI contract (docs/api/openapi.yaml in the SuiteASD-backend repository). */
 
 export interface Evaluation {
   id: string;

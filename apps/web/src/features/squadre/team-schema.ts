@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { Team } from "@/features/tesserati/types";
 
-/** Wire types and form schema of the teams endpoints. Source of truth: apps/api/src/modules/teams/schema.ts. */
+/** Wire types and form schema of the teams endpoints. Source of truth: the backend OpenAPI contract (docs/api/openapi.yaml in the SuiteASD-backend repository). */
 
 export type TeamGender = "FEMALE" | "MALE" | "MIXED";
 

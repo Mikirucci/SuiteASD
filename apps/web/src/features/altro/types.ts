@@ -1,4 +1,4 @@
-/** Wire types of the secondary-module endpoints. Source of truth: apps/api/src/modules/{venues,trips,kits,sponsors,ledger,staff}/schema.ts. */
+/** Wire types of the secondary-module endpoints. Source of truth: the backend OpenAPI contract (docs/api/openapi.yaml in the SuiteASD-backend repository). */
 
 export interface Venue {
   id: string;

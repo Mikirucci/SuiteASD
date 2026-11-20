@@ -80,7 +80,7 @@ Convenzioni:
 
 ## 5. Dati, errori, autenticazione
 
-**Client API** (`src/lib/api`): `api.get/post/put/patch/delete<T>(path, ...)` con tipi in `types.ts` (allineati a `apps/api`; quando c'è `docs/API.md`, fa fede quello).
+**Client API** (`src/lib/api`): `api.get/post/put/patch/delete<T>(path, ...)` con tipi in `types.ts` (allineati al contratto del backend Java, `docs/api/openapi.yaml` nel repository `SuiteASD-backend`; fa fede quello).
 
 - Il token di accesso sta in memoria; il refresh token in `localStorage` (così la sessione sopravvive al reload). Compromesso: leggibile da uno script XSS; la mitigazione è la CSP e nessun HTML non fidato. Se in futuro il backend offrirà cookie `httpOnly`, cambia solo `token-store.ts`.
 - Su `401` il client rinnova **una sola volta** (single flight), ripete la richiesta e, se il refresh è rifiutato, svuota la sessione e notifica `api.onSessionExpired` (l'`AuthProvider` porta l'utente al login). Un errore di rete non fa mai perdere la sessione.

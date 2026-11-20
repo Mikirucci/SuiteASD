@@ -1,4 +1,4 @@
-/** Wire types of the notifications API. Keep in sync with apps/api/src/modules/notifications/schema.ts. */
+/** Wire types of the notifications API. Keep in sync with the backend OpenAPI contract (docs/api/openapi.yaml in the SuiteASD-backend repository). */
 
 export type NotificationType =
   | "CONVOCATION"

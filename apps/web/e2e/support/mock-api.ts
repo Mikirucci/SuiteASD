@@ -53,7 +53,7 @@ export interface MockApiState {
 
 /**
  * Mocks the backend at network level: no real API needed for the UI tests.
- * Mirrors the contract of apps/api (auth module) including RFC 7807 errors.
+ * Mirrors the contract of the backend (auth endpoints) including RFC 7807 errors.
  */
 export async function mockApi(page: Page): Promise<MockApiState> {
   const state: MockApiState = { calls: [] };

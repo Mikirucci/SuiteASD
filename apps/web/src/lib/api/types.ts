@@ -1,4 +1,4 @@
-/** Wire types of the REST API. Keep in sync with apps/api (docs/API.md once available). */
+/** Wire types of the REST API. Keep in sync with the backend OpenAPI contract (docs/api/openapi.yaml in the SuiteASD-backend repository). */
 
 export const ROLES = ["ADMIN", "SEGRETERIA", "ALLENATORE", "STAFF", "ATLETA", "GENITORE"] as const;
 export type Role = (typeof ROLES)[number];

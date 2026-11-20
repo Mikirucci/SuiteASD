@@ -63,6 +63,7 @@ test.describe("società nuova: documento, pagamento segnalato, ricevuta", () => 
     const plan = page.getByRole("dialog", { name: "Nuovo piano quota" });
     await plan.getByLabel(/Nome del piano/).fill(PLAN);
     await plan.getByLabel(/Importo in euro/).fill("60");
+    await plan.getByLabel(/Prima scadenza/).fill(dayAhead(5));
     await plan.getByRole("button", { name: "Crea il piano" }).click();
     await expect(page.getByText("Piano creato")).toBeVisible();
 
@@ -121,14 +122,12 @@ test.describe("società nuova: documento, pagamento segnalato, ricevuta", () => 
     await page.keyboard.press("Escape");
   });
 
-  test("Gianni genera la quota, vede il certificato di Marco senza il pulsante Aggiungi documento", async ({ page }) => {
+  test("Gianni trova la quota già addebitata a Marco e il suo certificato, senza il pulsante Aggiungi documento", async ({ page }) => {
     await signIn(page, gianni, "/quote");
     await page.getByRole("link", { name: PLAN }).click();
-    await page.getByRole("button", { name: "Genera quote" }).first().click();
-    const generate = page.getByRole("dialog", { name: "Genera le quote" });
-    await generate.getByLabel("Scadenza delle quote").fill(dayAhead(5));
-    await generate.getByRole("button", { name: "Genera le quote" }).click();
-    await expect(page.getByRole("dialog", { name: "Genera le quote" })).toHaveCount(0);
+    // Marco joined after the plan was created: the fee was billed to him when he enrolled, nobody generates it
+    await expect(page.getByRole("list", { name: "Persone del piano" })).toContainText(MARCO_NAME);
+    await expect(page.getByRole("button", { name: "Genera quote" })).toHaveCount(0);
 
     await page.goto("/tesserati");
     await page.getByRole("list", { name: "Tesserati" }).getByRole("link", { name: new RegExp(MARCO_NAME) }).click();

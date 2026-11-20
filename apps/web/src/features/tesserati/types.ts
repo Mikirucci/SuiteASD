@@ -1,4 +1,4 @@
-/** Wire types of the members, teams and documents endpoints. Source of truth: apps/api/src/modules/{members,documents,teams}/schema.ts. */
+/** Wire types of the members, teams and documents endpoints. Source of truth: the backend OpenAPI contract (docs/api/openapi.yaml in the SuiteASD-backend repository). */
 
 import type { GuardianRelation } from "@/lib/api";
 

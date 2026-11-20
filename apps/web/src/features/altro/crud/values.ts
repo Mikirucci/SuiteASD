@@ -29,7 +29,7 @@ export function fromLocalInput(local: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Form schemas. Limits mirror apps/api/src/modules/<resource>/schema.ts.
+// Form schemas. Limits mirror the backend OpenAPI contract (docs/api/openapi.yaml in the SuiteASD-backend repository).
 // ---------------------------------------------------------------------------
 
 export function requiredText(max: number, message: string) {

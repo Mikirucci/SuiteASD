@@ -1,4 +1,4 @@
-/** Wire types of the competitions module. Source of truth: apps/api/src/modules/competitions/schema.ts. */
+/** Wire types of the competitions module. Source of truth: the backend OpenAPI contract (docs/api/openapi.yaml in the SuiteASD-backend repository). */
 
 export type CompetitionKind = "LEAGUE" | "TOURNAMENT";
 export type MatchStatus = "SCHEDULED" | "PLAYED" | "POSTPONED" | "CANCELLED";
@@ -111,7 +111,7 @@ export interface Standings {
   rows: StandingRow[];
 }
 
-/** Our own team (apps/api teams module), used to add it to a group. */
+/** Our own team (the backend teams module), used to add it to a group. */
 export interface OwnTeam {
   id: string;
   name: string;

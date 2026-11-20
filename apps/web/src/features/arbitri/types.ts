@@ -1,4 +1,4 @@
-/** Wire types of the referees API. Source of truth: apps/api/src/modules/referees/schema.ts. */
+/** Wire types of the referees API. Source of truth: the backend OpenAPI contract (docs/api/openapi.yaml in the SuiteASD-backend repository). */
 
 export interface Referee {
   id: string;

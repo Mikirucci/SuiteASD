@@ -1,4 +1,4 @@
-/** Wire types of GET /documents/expirations. Source of truth: apps/api/src/modules/documents/schema.ts. */
+/** Wire types of GET /documents/expirations. Source of truth: the backend OpenAPI contract (docs/api/openapi.yaml in the SuiteASD-backend repository). */
 
 import type { DocumentStatus } from "@/features/tesserati/types";
 

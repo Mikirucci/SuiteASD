@@ -1,4 +1,4 @@
-/** Response shapes of /automations (see apps/api/src/modules/automations/schema.ts and docs/API.md). */
+/** Response shapes of /automations (see the backend and docs/API.md). */
 
 export type AutomationState = "DISABLED" | "RUNNING" | "FAILED" | "COMPLETED" | "WAITING";
 export type AutomationKind = "SCHEDULED" | "EVENT";

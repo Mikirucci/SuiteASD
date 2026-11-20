@@ -29,7 +29,7 @@ export function useRevokeInvitation() {
 
 // ---- Public: the person who opens the link ------------------------------------------------------------------------
 
-/** What the link is for. Source of truth: apps/api/src/modules/auth/schema.ts (`invitationInfoSchema`). */
+/** What the link is for. Source of truth: the backend (`invitationInfoSchema`). */
 export interface InvitationInfo {
   society: { name: string };
   role: Role;

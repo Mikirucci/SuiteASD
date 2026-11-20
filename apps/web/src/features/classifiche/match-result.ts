@@ -1,4 +1,4 @@
-/** Volleyball rules (best of five). Mirrors apps/api/src/modules/competitions/match-result.ts; the server stays the authority. */
+/** Volleyball rules (best of five). Mirrors the backend; the server stays the authority. */
 
 export const SETS_TO_WIN = 3;
 export const MAX_SETS = 2 * SETS_TO_WIN - 1;

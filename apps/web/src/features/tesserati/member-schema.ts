@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { CreateMemberBody, MemberDetail, MemberGender, UpdateMemberBody } from "./types";
 
-/** Limits mirror apps/api/src/modules/members/schema.ts so most mistakes are caught before the request. */
+/** Limits mirror the backend so most mistakes are caught before the request. */
 const text = (max: number) => z.string().trim().max(max, `Massimo ${max} caratteri`);
 
 const optionalDate = z

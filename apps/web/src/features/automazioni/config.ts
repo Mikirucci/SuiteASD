@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { JsonObject } from "./types";
 
 /**
- * Settings of each automation, mirroring the per-key schemas of apps/api/src/jobs/catalog.ts.
+ * Settings of each automation, mirroring the per-key schemas of the backend
  * Form values are strings (HTML inputs); `toConfigBody` converts them after validation.
  */
 
