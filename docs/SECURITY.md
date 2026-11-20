@@ -8,20 +8,21 @@ Ultimo aggiornamento: 2026-11-20. Questo repository contiene solo il frontend (`
 
 - Il browser parla solo con `/api/v1` sulla stessa origine del sito; il backend non ha CORS (in produzione un reverse proxy instrada web e API sotto lo stesso dominio).
 - Token di accesso e di rinnovo arrivano dal backend e il frontend li conserva in `apps/web/src/lib/api/token-store.ts` (il rinnovo in `localStorage`, vedi limite 2).
-- **Dipendenze: avvisi aperti.** `npm audit --omit=dev` del 2026-11-20 segnala `next` 16.4.2 con nuovi avvisi (tra gli altri GHSA-7qx7-33qx-rqx2, GHSA-f3mh-rxg3-f5g2, GHSA-pc58-hwjq-p385, GHSA-rhh4-g77r-r9qj, GHSA-vvgp-ww4w-46vf) e propone `npm audit fix`. Non ho verificato se le funzioni coinvolte sono usate dall'app né quale versione le corregge: va fatto prima della produzione, seguendo la procedura della sezione 4. Resta anche `braces` (dipendenza di ESLint, solo sviluppo): nessuna versione corretta all'ultimo controllo.
+- **Dipendenze (2026-11-20):** `npm audit --omit=dev` dava avvisi su `next` 16.4.2 (tra gli altri GHSA-7qx7-33qx-rqx2, GHSA-f3mh-rxg3-f5g2, GHSA-pc58-hwjq-p385, GHSA-rhh4-g77r-r9qj, GHSA-vvgp-ww4w-46vf) e su `effect` (dipendenza di `@hookform/resolvers`, GHSA-7589-6fvf-x4pw). Con `npm audit fix` sono passati a `next` 16.4.6 e `effect` aggiornato: **0 vulnerabilità** in produzione, e typecheck, lint, 1112 test unitari, 133 E2E con API simulata, 37 E2E reali e la build restano verdi. Non ho verificato se le funzioni degli avvisi fossero usate dall'app. La CI (`.github/workflows/ci.yml`) ora fallisce se `npm audit --omit=dev` trova una vulnerabilità moderata o peggiore.
+- **Intestazioni di sicurezza:** le imposta Caddy nello stack di deploy (`deploy/Caddyfile` nel repository backend): HSTS, CSP, `X-Frame-Options: DENY`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`. Provate in locale con la suite E2E reale intera dietro Caddy. Il sito servito senza Caddy non le ha.
 
 ## 2. Limiti noti
 
-1. **Nessuna intestazione di sicurezza sul sito web.** `apps/web/next.config.ts` non imposta CSP, HSTS, `X-Frame-Options`/`frame-ancestors`, `Referrer-Policy`, `Permissions-Policy`, e non c'è un middleware. Senza CSP, un difetto XSS ha tutto lo spazio per agire.
+1. **Le intestazioni di sicurezza stanno solo in Caddy**, non in `apps/web/next.config.ts`: servire il sito senza Caddy le toglie. La CSP ammette `'unsafe-inline'` per gli script perché Next.js scrive script in pagina; una CSP con nonce è più forte ed è un miglioramento previsto.
 2. **Il token di rinnovo sta in `localStorage`** (compromesso già dichiarato in `docs/FRONTEND.md`). Chi riesce a eseguire script nella pagina (XSS) lo legge e ottiene una sessione lunga. Un cookie `HttpOnly` + `SameSite` è più sicuro, ma richiede una modifica di backend e frontend: decisione da prendere.
-3. **Nessuna scansione automatica nel processo.** Non c'è CI che esegua `npm audit`, test ed E2E a ogni modifica.
+3. **La CI non è mai girata su GitHub**: l'ho scritta (lint, tipi, test, build, audit, E2E con API simulata, immagine Docker) e ne ho provato i comandi in locale, ma il primo giro vero lo vedremo alla prima pull request o push.
 4. **Adempimenti GDPR non verificati.** Informativa, consenso del genitore per i minori, nomina dei responsabili del trattamento, tempi di conservazione, esportazione e cancellazione dei dati: vanno verificati con chi è titolare del trattamento.
 
 ## 3. Che cosa fare prima della produzione (parte frontend)
 
-1. **Aggiornare `next`** e le altre dipendenze con avvisi aperti (sezione 4).
-2. **Intestazioni di sicurezza** in `next.config.ts` (`headers()`) o nel reverse proxy: `Content-Security-Policy` (partire da `default-src 'self'`, `frame-ancestors 'none'`, provare prima in modalità `Report-Only`), `Strict-Transport-Security`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` ristretta. Provare con gli E2E: la CSP può rompere pagine che funzionano.
-3. **HTTPS ovunque** e un solo dominio per sito e API (reverse proxy), così il browser non ha bisogno di CORS.
+1. ~~Aggiornare `next` e le altre dipendenze con avvisi aperti~~ **Fatto** il 2026-11-20 (sezione 1).
+2. ~~Intestazioni di sicurezza~~ **Fatto in Caddy** (sezione 1); da rifare nel reverse proxy se non si usa Caddy.
+3. ~~HTTPS ovunque e un solo dominio per sito e API~~ **Previsto dallo stack di deploy** (Caddy con Let's Encrypt, stessa origine). Il certificato non è stato provato: serve un dominio vero.
 4. **Token di rinnovo in cookie `HttpOnly` + `SameSite=Lax`** al posto di `localStorage`, con protezione CSRF: richiede una decisione e una modifica concordata con il backend.
 5. **CI** che a ogni modifica lancia lint, typecheck, test, E2E e `npm audit --omit=dev`, più aggiornamenti automatici delle dipendenze.
 6. Le parti di sicurezza del backend (segreti, database, archivio file, email, scheduler, audit, 2FA) sono elencate nei documenti del repository `SuiteASD-backend`.
