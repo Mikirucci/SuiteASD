@@ -39,7 +39,6 @@ function fee(overrides: Partial<Fee> = {}): Fee {
     feePlanId: null,
     description: "Quota novembre",
     amountCents: 6000,
-    currency: "EUR",
     dueDate: "2026-11-10",
     status: "PENDING",
     paidAt: null,

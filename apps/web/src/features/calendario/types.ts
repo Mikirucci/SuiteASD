@@ -1,4 +1,4 @@
-/** Wire types of the calendar endpoints. Source of truth: apps/api/src/modules/{events,convocations,attendance}/schema.ts. */
+/** Wire types of the calendar endpoints. Source of truth: the backend OpenAPI contract (docs/api/openapi.yaml in the SuiteASD-backend repository). */
 
 export type EventType = "MATCH" | "TRAINING" | "TOURNAMENT" | "MEETING";
 export type EventStatus = "SCHEDULED" | "POSTPONED" | "CANCELLED" | "COMPLETED";
@@ -96,14 +96,12 @@ export interface EventConvocations {
 export interface SendConvocationsResult {
   eventId: string;
   sent: number;
-  notified: number;
   convocationsSentAt: string | null;
 }
 
 export interface RemindConvocationsResult {
   eventId: string;
   reminded: number;
-  notified: number;
 }
 
 export interface RespondBody {
@@ -165,7 +163,7 @@ export interface VenueOption {
 
 export type CertificateState = "OK" | "EXPIRING" | "EXPIRED" | "MISSING";
 
-/** The part of a member row the convocation picker needs (apps/api members module). */
+/** The part of a member row the convocation picker needs (the backend members module). */
 export interface RosterMember extends MemberRef {
   status: "ACTIVE" | "INACTIVE";
   documents: Array<{ key: string; status: CertificateState }>;

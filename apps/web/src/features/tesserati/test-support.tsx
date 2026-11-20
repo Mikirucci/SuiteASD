@@ -148,8 +148,8 @@ export function member(
   };
 }
 
-export const TEAM_U16 = { id: "t16", name: "U16", category: "U16", position: null, jerseyNumber: null };
-export const TEAM_SERIE_D = { id: "td", name: "Serie D", category: "Serie D", position: "Libero", jerseyNumber: 7 };
+export const TEAM_U16 = { id: "t16", name: "U16", category: "U16" };
+export const TEAM_SERIE_D = { id: "td", name: "Serie D", category: "Serie D" };
 
 export const SARA_CONTI = member({
   id: "m-sara",

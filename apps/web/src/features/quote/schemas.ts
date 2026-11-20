@@ -1,17 +1,10 @@
 import { z } from "zod";
 import { toDayKey } from "@/lib/dates";
 import { parseEuroToCents } from "@/lib/format";
-import type { FeePlanBody, GenerateFeesBody, PayFeeBody } from "./types";
+import type { FeePlanBody, PayFeeBody } from "./types";
 
-/** Limits mirror apps/api/src/modules/fees/schema.ts so most mistakes are caught before the request. */
+/** Limits mirror the fee requests of the backend (docs/api/openapi.yaml) so most mistakes are caught before the request. */
 const dayText = z.iso.date("Inserisci una data valida");
-
-function optionalInteger(min: number, max: number, message: string) {
-  return z
-    .string()
-    .trim()
-    .refine((value) => value === "" || (/^\d+$/.test(value) && Number(value) >= min && Number(value) <= max), message);
-}
 
 // ---------------------------------------------------------------------------
 // Payment registration
@@ -57,40 +50,45 @@ export const planSchema = z.object({
     .string()
     .refine((value) => parseEuroToCents(value) !== null, "Inserisci un importo valido, per esempio 60 o 60,50"),
   teamId: z.string(),
-  installments: optionalInteger(1, 36, "Inserisci un numero da 1 a 36"),
-  dueDay: optionalInteger(1, 28, "Inserisci un giorno da 1 a 28"),
+  installments: z
+    .string()
+    .trim()
+    .refine((value) => /^\d+$/.test(value) && Number(value) >= 1 && Number(value) <= 36, "Inserisci un numero da 1 a 36"),
+  firstDueDate: dayText,
   isActive: z.boolean(),
 });
 
 export type PlanValues = z.infer<typeof planSchema>;
 
-/** Body for POST (create) and PATCH (update): cleared optional fields are sent as `null` on update. */
+function twoDigits(value: number): string {
+  return String(value).padStart(2, "0");
+}
+
+/** One due date a month for `count` months, starting from `first`; a day the month does not have (the 31st) becomes its last day. */
+export function monthlyDueDates(first: string, count: number): string[] {
+  const [year = 0, month = 1, day = 1] = first.split("-").map(Number);
+  return Array.from({ length: count }, (_, step) => {
+    const index = month - 1 + step;
+    const dueYear = year + Math.floor(index / 12);
+    const dueMonth = index % 12;
+    const lastDay = new Date(Date.UTC(dueYear, dueMonth + 1, 0)).getUTCDate();
+    return `${dueYear}-${twoDigits(dueMonth + 1)}-${twoDigits(Math.min(day, lastDay))}`;
+  });
+}
+
+/**
+ * Body for POST (create) and PATCH (update). Updating sends only name, kind and state: the form does not show the other
+ * fields then, so their values are never read.
+ */
 export function toPlanBody(values: PlanValues, mode: "create" | "update"): FeePlanBody {
+  if (mode === "update") return { name: values.name, kind: values.kind, isActive: values.isActive };
   const cents = parseEuroToCents(values.amount);
   if (cents === null) throw new Error("Invalid amount: validate with planSchema first");
-  const optional = <T>(value: T | null): T | null | undefined => (value === null && mode === "create" ? undefined : value);
   return {
     name: values.name,
     kind: values.kind,
     amountCents: cents,
-    teamId: optional(values.teamId === "" ? null : values.teamId),
-    installments: optional(values.installments === "" ? null : Number(values.installments)),
-    dueDay: optional(values.dueDay === "" ? null : Number(values.dueDay)),
-    isActive: values.isActive,
+    teamIds: values.teamId === "" ? [] : [values.teamId],
+    dueDates: monthlyDueDates(values.firstDueDate, Number(values.installments)),
   };
-}
-
-// ---------------------------------------------------------------------------
-// Fee generation
-// ---------------------------------------------------------------------------
-
-export const generateSchema = z.object({
-  dueDate: dayText,
-  description: z.string().trim().max(200, "Massimo 200 caratteri"),
-});
-
-export type GenerateValues = z.infer<typeof generateSchema>;
-
-export function toGenerateBody(values: GenerateValues): GenerateFeesBody {
-  return values.description ? { dueDate: values.dueDate, description: values.description } : { dueDate: values.dueDate };
 }

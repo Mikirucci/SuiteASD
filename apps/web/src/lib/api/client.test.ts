@@ -85,6 +85,8 @@ describe("api client", () => {
     tokens.setTokens({ accessToken: "abc", refreshToken: "r" });
     const file = await client.download("/fees/f1/receipt");
     expect(calls(fetchImpl)[0]?.headers.Authorization).toBe("Bearer abc");
+    // The API answers 406 to a PDF endpoint that is asked for JSON only
+    expect(calls(fetchImpl)[0]?.headers.Accept).toBe("*/*");
     expect(file.filename).toBe("ricevuta-0147.pdf");
     expect(await file.blob.text()).toBe("%PDF-1.4");
   });

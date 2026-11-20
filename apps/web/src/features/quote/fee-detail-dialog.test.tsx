@@ -1,25 +1,24 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { tokens } from "@/lib/api";
 import { expectNoA11yViolations } from "@/test/a11y";
-import { json, problem, renderWithProviders, stubApi } from "@/test/stub-api";
+import { problem, renderWithProviders, stubApi } from "@/test/stub-api";
 import { FeeDetailDialog } from "./fee-detail-dialog";
 import { CLAIMED_FEE, OVERDUE_FEE, PAID_FEE } from "./test-support";
 import type { Fee } from "./types";
 
 const ISSUED_AT = "2026-11-12T10:00:00.000Z";
 
-/** What `POST /fees/:id/pay` answers: the snapshot at payment time, `sentAt` still null. */
+/** What `POST /fees/:id/pay` answers: the fee just paid, with its receipt. */
 const JUST_PAID: Fee = {
   ...OVERDUE_FEE,
   status: "PAID",
   paidAt: ISSUED_AT,
   method: "BANK_TRANSFER",
   payerName: "Marta Bianchi",
-  receipt: { id: "r148", number: 148, code: "0148", issuedAt: ISSUED_AT, sentAt: null },
+  receipt: { id: "r148", number: 148, code: "0148", issuedAt: ISSUED_AT },
 };
-const SENT: Fee = { ...JUST_PAID, receipt: { id: "r148", number: 148, code: "0148", issuedAt: ISSUED_AT, sentAt: ISSUED_AT } };
 const NO_RECEIPT: Fee = { ...JUST_PAID, receipt: null };
 
 beforeEach(() => {
@@ -41,34 +40,15 @@ function renderDialog(fee: Fee, props: { justPaid?: boolean; onPay?: (fee: Fee) 
 }
 
 describe("FeeDetailDialog: outcome of a payment just registered", () => {
-  it("says the receipt was issued and sent once the fee confirms it", async () => {
-    stubApi({ [`GET /fees/${JUST_PAID.id}`]: () => json(200, SENT) });
-    renderDialog(JUST_PAID, { justPaid: true });
-
-    expect(
-      await screen.findByText("Pagamento registrato. Ricevuta n. 0148 emessa e inviata a Marta Bianchi e all'amministrazione."),
-    ).toBeInTheDocument();
-  });
-
-  it("only says 'emessa' while the sending is not confirmed", async () => {
-    stubApi({ [`GET /fees/${JUST_PAID.id}`]: () => json(200, JUST_PAID) });
+  it("says the receipt was issued, without reloading the fee", async () => {
+    const api = stubApi({});
     renderDialog(JUST_PAID, { justPaid: true });
 
     expect(await screen.findByText("Pagamento registrato. Ricevuta n. 0148 emessa.")).toBeInTheDocument();
-    await waitFor(() => expect(fetch).toHaveBeenCalled());
-    expect(screen.queryByText(/inviata/)).not.toBeInTheDocument();
-  });
-
-  it("does not claim the sending when the fee cannot be reloaded", async () => {
-    stubApi({ [`GET /fees/${JUST_PAID.id}`]: () => problem(500, "internal") });
-    renderDialog(JUST_PAID, { justPaid: true });
-
-    expect(await screen.findByText("Pagamento registrato. Ricevuta n. 0148 emessa.")).toBeInTheDocument();
-    expect(screen.queryByText(/inviata/)).not.toBeInTheDocument();
+    expect(api.calls).toHaveLength(0);
   });
 
   it("says no receipt was issued when the automation is off, without inventing an action", async () => {
-    stubApi({ [`GET /fees/${NO_RECEIPT.id}`]: () => json(200, NO_RECEIPT) });
     renderDialog(NO_RECEIPT, { justPaid: true });
 
     expect(await screen.findByText("Pagamento registrato. Nessuna ricevuta emessa per questo pagamento.")).toBeInTheDocument();
@@ -77,16 +57,9 @@ describe("FeeDetailDialog: outcome of a payment just registered", () => {
 
   it("shows no outcome message, and does not reload the fee, when the card is opened from the list", () => {
     const api = stubApi({});
-    renderDialog(SENT);
+    renderDialog(JUST_PAID);
     expect(screen.queryByText(/Pagamento registrato\./)).not.toBeInTheDocument();
     expect(api.calls).toHaveLength(0);
-  });
-
-  it("lists when the receipt was sent in the receipt details", async () => {
-    stubApi({});
-    renderDialog(PAID_FEE);
-    const dialog = await screen.findByRole("dialog", { name: "Anna Ferri" });
-    expect(within(dialog).getByText("Ricevuta inviata").nextElementSibling).toHaveTextContent("5 nov 2026");
   });
 });
 
@@ -134,9 +107,8 @@ describe("FeeDetailDialog: reported payment", () => {
   });
 
   it("has no accessibility violations with the outcome message", async () => {
-    stubApi({ [`GET /fees/${SENT.id}`]: () => json(200, SENT) });
-    const { baseElement } = renderDialog(SENT, { justPaid: true });
-    await screen.findByText(/emessa e inviata/);
+    const { baseElement } = renderDialog(JUST_PAID, { justPaid: true });
+    await screen.findByText(/Ricevuta n\. 0148 emessa/);
     await expectNoA11yViolations(baseElement);
   });
 });

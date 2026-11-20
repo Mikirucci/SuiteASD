@@ -8,10 +8,9 @@ import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { ApiError, describeError } from "@/lib/api";
 import { formatEuro, pluralize } from "@/lib/format";
 import { useFeePlan, usePlanPeople, useQuoteTeams, type PlanPeopleFilters } from "./api";
-import { GenerateFeesDialog } from "./generate-fees-dialog";
 import { PersonCard } from "./person-card";
 import { PersonFeesDialog } from "./person-fees-dialog";
-import { describePlan } from "./plan-card";
+import { describePlan, teamNameOf } from "./plan-card";
 import { PlanFormDialog, type PlanDialogState } from "./plan-form-dialog";
 import type { FeePlan, PersonPaymentStatus, PlanPerson, PlanStats } from "./types";
 import { useQuoteAccess } from "./use-quote-access";
@@ -96,7 +95,6 @@ function PlanPeopleSection({ plan }: { plan: FeePlan }) {
   const teams = useQuoteTeams();
   const [open, setOpen] = useState<PlanPerson | null>(null);
   const [form, setForm] = useState<PlanDialogState | null>(null);
-  const [generating, setGenerating] = useState<FeePlan | null>(null);
 
   const hasFilters = search.trim() !== "" || teamId !== "" || status !== "";
   const resetFilters = () => {
@@ -105,7 +103,7 @@ function PlanPeopleSection({ plan }: { plan: FeePlan }) {
     setStatus("");
   };
   const teamOptions = [{ value: "", label: "Tutte le squadre" }, ...(teams.items ?? []).map((team) => ({ value: team.id, label: team.name }))];
-  const teamName = plan.teamId ? (teams.items?.find((team) => team.id === plan.teamId)?.name ?? "Una squadra") : "Tutte le squadre";
+  const teamName = teamNameOf(plan, new Map((teams.items ?? []).map((team) => [team.id, team.name])));
 
   if (people.isLoading) return <DetailSkeleton />;
   if (people.error || !people.data) {
@@ -127,11 +125,6 @@ function PlanPeopleSection({ plan }: { plan: FeePlan }) {
         <SectionHeading as="h1" label="Piano" title={plan.name} description={describePlan(plan, teamName)} />
         {canWrite ? (
           <div className="flex flex-wrap gap-2">
-            {plan.isActive ? (
-              <Button variant="soft" leftIcon={<Users />} onClick={() => setGenerating(plan)}>
-                Genera quote
-              </Button>
-            ) : null}
             <Button variant="secondary" leftIcon={<Pencil />} onClick={() => setForm({ mode: "edit", plan })}>
               Modifica
             </Button>
@@ -149,14 +142,7 @@ function PlanPeopleSection({ plan }: { plan: FeePlan }) {
           <EmptyState
             icon={Users}
             title="Nessuna quota in questo piano"
-            description="Genera le quote: ogni tesserato compare qui con quello che deve pagare."
-            action={
-              canWrite && plan.isActive ? (
-                <Button leftIcon={<Users />} onClick={() => setGenerating(plan)}>
-                  Genera quote
-                </Button>
-              ) : undefined
-            }
+            description="Le quote si addebitano ai tesserati attivi quando il piano viene creato e a chi si iscrive dopo: per ora nessuno risulta da addebitare."
           />
         ) : (
           <>
@@ -204,7 +190,6 @@ function PlanPeopleSection({ plan }: { plan: FeePlan }) {
 
       <PersonFeesDialog planId={plan.id} planName={plan.name} person={open} canWrite={canWrite} onClose={() => setOpen(null)} />
       <PlanFormDialog state={form} teams={teams.items ?? []} onClose={() => setForm(null)} />
-      <GenerateFeesDialog plan={generating} onClose={() => setGenerating(null)} />
     </>
   );
 }

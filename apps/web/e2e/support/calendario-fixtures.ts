@@ -167,7 +167,7 @@ export function calendarBackend({ eventsFailures = 0, viewer = "coach" }: Calend
       case "GET/convocations":
         return { body: { data: rows, summary: summaryOf(state.squad, event.convocations.capacity) } };
       case "POST/convocations/remind":
-        return { body: { eventId: event.id, reminded: state.squad.filter((row) => row.status === "PENDING").length, notified: 4 } };
+        return { body: { eventId: event.id, reminded: state.squad.filter((row) => row.status === "PENDING").length } };
       case "PATCH": {
         const updated: CalendarEvent = {
           ...event,

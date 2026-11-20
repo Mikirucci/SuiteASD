@@ -7,6 +7,7 @@ import { useState } from "react";
 import { useForm, type Path } from "react-hook-form";
 import { Alert, Button, Dialog, DialogClose, DialogContent, Input, Select, Switch, useToast } from "@/components/ui";
 import { ApiError, describeError, useApiMutation } from "@/lib/api";
+import { toDayKey } from "@/lib/dates";
 import { centsToInput } from "@/lib/format";
 import { KIND_OPTIONS } from "./format";
 import { planSchema, toPlanBody, type PlanValues } from "./schemas";
@@ -18,25 +19,25 @@ const FIELD_OF_API_PATH: Record<string, Path<PlanValues>> = {
   name: "name",
   kind: "kind",
   amountCents: "amount",
-  teamId: "teamId",
-  installments: "installments",
-  dueDay: "dueDay",
+  teamIds: "teamId",
+  dueDates: "firstDueDate",
 };
 
 export type PlanDialogState = { mode: "create" } | { mode: "edit"; plan: FeePlan };
 
 function defaultsOf(state: PlanDialogState): PlanValues {
   if (state.mode === "create") {
-    return { name: "", kind: "MONTHLY", amount: "", teamId: "", installments: "", dueDay: "", isActive: true };
+    return { name: "", kind: "MONTHLY", amount: "", teamId: "", installments: "1", firstDueDate: toDayKey(new Date()), isActive: true };
   }
   const { plan } = state;
   return {
     name: plan.name,
     kind: plan.kind,
     amount: centsToInput(plan.amountCents),
-    teamId: plan.teamId ?? "",
-    installments: plan.installments === null ? "" : String(plan.installments),
-    dueDay: plan.dueDay === null ? "" : String(plan.dueDay),
+    // Amount, team and dates are not editable: the form hides them, these values only keep the schema satisfied.
+    teamId: plan.teamIds[0] ?? "",
+    installments: String(plan.installments),
+    firstDueDate: toDayKey(new Date()),
     isActive: plan.isActive,
   };
 }
@@ -83,6 +84,7 @@ function PlanForm({ state, teams, onDone }: PlanFormProps) {
     }
   });
 
+  const creating = state.mode === "create";
   const teamOptions = [{ value: "", label: "Tutte le squadre" }, ...teams.map((team) => ({ value: team.id, label: team.name }))];
 
   return (
@@ -96,42 +98,50 @@ function PlanForm({ state, teams, onDone }: PlanFormProps) {
           error={errors.name?.message}
           {...register("name")}
         />
-        <div className="grid gap-4 sm:grid-cols-2">
+        {creating ? (
+          <>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Select label="Tipo" options={KIND_OPTIONS} error={errors.kind?.message} {...register("kind")} />
+              <Input
+                label="Importo in euro"
+                required
+                inputMode="decimal"
+                autoComplete="off"
+                hint="Per ogni rata e ogni tesserato, per esempio 60 o 60,50."
+                error={errors.amount?.message}
+                {...register("amount")}
+              />
+            </div>
+            <Select
+              label="Squadra"
+              options={teamOptions}
+              hint="Con “Tutte le squadre” il piano vale per ogni tesserato attivo."
+              error={errors.teamId?.message}
+              {...register("teamId")}
+            />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Input
+                label="Numero di rate"
+                required
+                inputMode="numeric"
+                hint="Da 1 a 36, una al mese."
+                error={errors.installments?.message}
+                {...register("installments")}
+              />
+              <Input
+                label="Prima scadenza"
+                type="date"
+                required
+                hint="Le altre rate scadono lo stesso giorno dei mesi dopo."
+                error={errors.firstDueDate?.message}
+                {...register("firstDueDate")}
+              />
+            </div>
+          </>
+        ) : (
           <Select label="Tipo" options={KIND_OPTIONS} error={errors.kind?.message} {...register("kind")} />
-          <Input
-            label="Importo in euro"
-            required
-            inputMode="decimal"
-            autoComplete="off"
-            hint="Per ogni tesserato, per esempio 60 o 60,50."
-            error={errors.amount?.message}
-            {...register("amount")}
-          />
-        </div>
-        <Select
-          label="Squadra"
-          options={teamOptions}
-          hint="Con “Tutte le squadre” il piano vale per ogni tesserato attivo."
-          error={errors.teamId?.message}
-          {...register("teamId")}
-        />
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Input
-            label="Numero di rate"
-            inputMode="numeric"
-            hint="Facoltativo, da 1 a 36."
-            error={errors.installments?.message}
-            {...register("installments")}
-          />
-          <Input
-            label="Giorno di scadenza"
-            inputMode="numeric"
-            hint="Facoltativo, del mese, da 1 a 28."
-            error={errors.dueDay?.message}
-            {...register("dueDay")}
-          />
-        </div>
-        <Switch label="Piano attivo" hint="Solo un piano attivo può generare nuove quote." {...register("isActive")} />
+        )}
+        <Switch label="Piano attivo" hint="Un piano non attivo non addebita chi si iscrive dopo." {...register("isActive")} />
       </form>
       <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
         <DialogClose asChild>
@@ -159,8 +169,8 @@ export function PlanFormDialog({ state, teams, onClose }: PlanFormDialogProps) {
         title={state.mode === "create" ? "Nuovo piano quota" : "Modifica il piano"}
         description={
           state.mode === "create"
-            ? "Definisci importo e squadra, poi genera le quote per i tesserati."
-            : "Le quote già generate non cambiano."
+            ? "Importo, squadra e scadenze: le quote si addebitano subito ai tesserati."
+            : "Importo, squadre e scadenze non cambiano più: sono quelli delle quote già addebitate."
         }
       >
         <PlanForm key={state.mode === "edit" ? state.plan.id : "new"} state={state} teams={teams} onDone={onClose} />

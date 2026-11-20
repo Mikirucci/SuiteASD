@@ -50,7 +50,7 @@ describe("TodoSection", () => {
       ...ROUTES,
       "GET /members/summary": { body: { tesserati: 10, squadre: 1, documentiMancanti: 1 } },
       "GET /fees/summary": {
-        body: { incassatoCents: 0, daIncassareCents: 0, scadutoCents: 5000, promemoriaInviati: 0, paidCount: 0, pendingCount: 0, overdueCount: 1 },
+        body: { incassatoCents: 0, daIncassareCents: 0, scadutoCents: 5000, paidCount: 0, pendingCount: 0, overdueCount: 1 },
       },
       "GET /notifications": pageOf([unreadEnrolment("n1")]),
       "GET /events": pageOf([event({ convocations: { confirmed: 0, declined: 0, pending: 1, total: 1, capacity: 12 } })]),

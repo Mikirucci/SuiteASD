@@ -1,4 +1,4 @@
-/** Wire types of the announcements API. Source of truth: apps/api/src/modules/announcements/schema.ts. */
+/** Wire types of the announcements API. Source of truth: the backend OpenAPI contract (docs/api/openapi.yaml in the SuiteASD-backend repository). */
 
 export type AnnouncementStatus = "DRAFT" | "SCHEDULED" | "PUBLISHED";
 

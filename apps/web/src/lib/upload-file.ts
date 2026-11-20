@@ -1,6 +1,6 @@
 import { formatFileSize } from "./format";
 
-/** Same rules as apps/api/src/modules/documents/storage.ts: every upload of the app (documents, attachments). */
+/** Same rules as the backend: every upload of the app (documents, attachments). */
 export const ALLOWED_UPLOAD_TYPES: readonly string[] = ["application/pdf", "image/jpeg", "image/png"];
 export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 export const UPLOAD_ACCEPT = ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png";

@@ -3,7 +3,6 @@
 import { HandCoins } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Alert, AutoChip, Button, Dialog, DialogContent } from "@/components/ui";
-import { useApiQuery } from "@/lib/api";
 import { FeeStatusChip } from "./fee-row";
 import { formatDateTime, formatDay, formatEuro } from "@/lib/format";
 import { claimNote, METHOD_LABELS } from "./format";
@@ -25,14 +24,10 @@ function reminderText(fee: Fee): string {
   return `${fee.reminderCount}${last}`;
 }
 
-/**
- * What the secretariat reads right after registering a payment. The receipt is only said to be sent when the fee
- * confirms it (`sentAt`): the answer of the payment itself is a snapshot taken before the notification goes out.
- */
+/** What the secretariat reads right after registering a payment. */
 function describeOutcome(fee: Fee): string {
   if (!fee.receipt) return "Pagamento registrato. Nessuna ricevuta emessa per questo pagamento.";
-  const issued = `Pagamento registrato. Ricevuta n. ${fee.receipt.code} emessa`;
-  return fee.receipt.sentAt ? `${issued} e inviata a ${fee.memberName} e all'amministrazione.` : `${issued}.`;
+  return `Pagamento registrato. Ricevuta n. ${fee.receipt.code} emessa.`;
 }
 
 export interface FeeDetailDialogProps {
@@ -42,20 +37,16 @@ export interface FeeDetailDialogProps {
   onPay?: (fee: Fee) => void;
   /** Who reads the card: it shapes the wording of a reported payment. */
   viewer?: "payer" | "secretariat";
-  /** The card opens right after a payment was registered: it states the outcome, with the receipt and its delivery. */
+  /** The card opens right after a payment was registered: it states the outcome, with the receipt. */
   justPaid?: boolean;
 }
 
 /** Fee card: amounts, dates, who paid and the numbered receipt, which can be looked at or downloaded as a PDF. */
 export function FeeDetailDialog({ fee, onClose, onPay, viewer = "payer", justPaid = false }: FeeDetailDialogProps) {
   const [receiptError, setReceiptError] = useState<string | null>(null);
-  // The answer of `pay` cannot know whether the receipt went out: read the fee again to find out
-  const fresh = useApiQuery<Fee>(["fees", "detail", fee?.id ?? ""], fee ? `/fees/${fee.id}` : "/fees", {
-    enabled: justPaid && fee !== null,
-  });
 
   if (!fee) return null;
-  const current = justPaid ? (fresh.data ?? fee) : fee;
+  const current = fee;
   const settled = current.status === "PAID";
   const canPay = onPay !== undefined && (current.status === "PENDING" || current.status === "OVERDUE");
   const note = claimNote(current, viewer);
@@ -100,7 +91,6 @@ export function FeeDetailDialog({ fee, onClose, onPay, viewer = "payer", justPai
                 </span>
               </Detail>
             ) : null}
-            {current.receipt?.sentAt ? <Detail label="Ricevuta inviata">{formatDateTime(current.receipt.sentAt)}</Detail> : null}
             {!settled && current.status !== "CANCELLED" ? (
               <Detail label="Promemoria">
                 <span className="flex flex-wrap items-center gap-2">

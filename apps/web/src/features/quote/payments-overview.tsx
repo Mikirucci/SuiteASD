@@ -8,7 +8,7 @@ import { useFeePlans, usePlanReport, useQuoteTeams } from "./api";
 import { ClaimedBanner } from "./claimed-banner";
 import { ClaimedFeesDialog } from "./claimed-fees-dialog";
 import { FeesSummaryBar } from "./fees-summary";
-import { PlanCard, type PlanCardStats } from "./plan-card";
+import { PlanCard, teamNameOf, type PlanCardStats } from "./plan-card";
 import { PlanFormDialog, type PlanDialogState } from "./plan-form-dialog";
 import { useQuoteAccess } from "./use-quote-access";
 
@@ -77,7 +77,7 @@ export function PaymentsOverview() {
               <PlanCard
                 key={plan.id}
                 plan={plan}
-                teamName={plan.teamId ? (teamNames.get(plan.teamId) ?? "Una squadra") : "Tutte le squadre"}
+                teamName={teamNameOf(plan, teamNames)}
                 stats={statsOf(plan.id)}
               />
             ))}

@@ -1,16 +1,24 @@
 import { readFile } from "node:fs/promises";
 import { expect, test } from "@playwright/test";
-import { DEMO_PASSWORD, loginAs } from "./support/session";
+import { createDemoSociety, DEMO_PASSWORD, type DemoSociety } from "./support/demo-society";
+import { loginAs } from "./support/session";
 
 const PDF = { name: "documento.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4 documento di prova") };
 
 // Administration and personal area working together against the real API (SPEC addendum, docs/DECISIONS.md D-20..D-25).
 test.describe("iscrizione, area personale e amministrazione sul backend reale", () => {
+  let society: DemoSociety;
+
+  test.beforeAll(async () => {
+    test.setTimeout(180_000);
+    society = await createDemoSociety();
+  });
+
   test("l'atleta si iscrive da link, carica il certificato e l'amministrazione lo vede da sola", async ({ page }) => {
     const email = `nuova.atleta.${Date.now()}@example.it`;
 
-    await page.goto("/iscrizione/iscrizione-demo-u16");
-    await expect(page.getByRole("heading", { level: 1, name: /Ti stai iscrivendo a Aquile Volley/ })).toBeVisible();
+    await page.goto(`/iscrizione/${society.enrolmentCode}`);
+    await expect(page.getByRole("heading", { level: 1, name: new RegExp(`Ti stai iscrivendo a ${society.name}`) })).toBeVisible();
     await expect(page.getByRole("radio", { name: "Mi iscrivo io" })).toBeChecked();
     await page.getByRole("button", { name: "Continua" }).click();
     await page.getByRole("textbox", { name: "Nome", exact: true }).fill("Greta");
@@ -35,7 +43,7 @@ test.describe("iscrizione, area personale e amministrazione sul backend reale", 
     await page.getByRole("button", { name: "Esci" }).click();
     await expect(page).toHaveURL(/\/login/);
 
-    await loginAs(page, "admin", "/tesserati");
+    await loginAs(page, society.people.admin, "/tesserati");
     await page.getByRole("searchbox", { name: "Cerca tesserato" }).fill("Bellandi");
     const list = page.getByRole("list", { name: "Tesserati" });
     await expect(list.getByRole("listitem")).toHaveCount(1);
@@ -47,9 +55,9 @@ test.describe("iscrizione, area personale e amministrazione sul backend reale", 
   });
 
   test("il report per il commercialista si scarica come PDF, completo e per sezione", async ({ page }) => {
-    await loginAs(page, "admin", "/altro/bilancio");
+    await loginAs(page, society.people.admin, "/altro/bilancio");
     await expect(page.getByRole("heading", { name: "Report per il commercialista" })).toBeVisible();
-    await expect(page.getByRole("list", { name: "Sezioni del report" }).getByRole("listitem")).toHaveCount(5);
+    await expect(page.getByRole("list", { name: "Sezioni del report" }).getByRole("listitem")).toHaveCount(7);
 
     const full = page.waitForEvent("download");
     await page.getByRole("button", { name: "Scarica il report completo" }).click();
@@ -64,16 +72,17 @@ test.describe("iscrizione, area personale e amministrazione sul backend reale", 
   });
 
   test("un file allegato a una palestra resta legato alla voce e si può eliminare", async ({ page }) => {
-    await loginAs(page, "admin", "/altro/palestre");
-    await page.getByRole("button", { name: "Altre azioni di Palazzetto dello Sport" }).click();
-    await page.getByRole("menuitem", { name: "Allegati di Palazzetto dello Sport" }).click();
-    const dialog = page.getByRole("dialog", { name: "Allegati · Palazzetto dello Sport" });
+    const venue = society.venue;
+    await loginAs(page, society.people.admin, "/altro/palestre");
+    await page.getByRole("button", { name: `Altre azioni di ${venue}` }).click();
+    await page.getByRole("menuitem", { name: `Allegati di ${venue}` }).click();
+    const dialog = page.getByRole("dialog", { name: `Allegati · ${venue}` });
     await expect(dialog.getByText("Nessun allegato")).toBeVisible();
 
     await dialog.getByLabel("Nome del documento").fill("Contratto 2026");
-    await dialog.getByLabel("File da allegare a Palazzetto dello Sport").setInputFiles(PDF);
+    await dialog.getByLabel(`File da allegare a ${venue}`).setInputFiles(PDF);
     await expect(page.getByText("File allegato")).toBeVisible();
-    const attachments = dialog.getByRole("list", { name: "Allegati di Palazzetto dello Sport" });
+    const attachments = dialog.getByRole("list", { name: `Allegati di ${venue}` });
     await expect(attachments).toContainText("Contratto 2026");
 
     // A quick look first, then the download from the menu of the file

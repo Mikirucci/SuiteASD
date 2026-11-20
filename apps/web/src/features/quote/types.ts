@@ -1,4 +1,4 @@
-/** Wire types of the fees API. Keep in sync with apps/api/src/modules/fees/schema.ts. */
+/** Wire types of the fees API. Keep in sync with the backend OpenAPI contract (docs/api/openapi.yaml in the SuiteASD-backend repository). */
 
 export type FeeKind = "ENROLLMENT" | "MONTHLY" | "EXTRA";
 export type PaymentMethod = "CASH" | "BANK_TRANSFER" | "CARD";
@@ -26,8 +26,6 @@ export interface Receipt {
   /** Zero-padded number, e.g. "0147". */
   code: string;
   issuedAt: string;
-  /** When the receipt notification went out to the payer and the administration; null until then. */
-  sentAt: string | null;
 }
 
 export interface Fee {
@@ -38,7 +36,6 @@ export interface Fee {
   feePlanId: string | null;
   description: string;
   amountCents: number;
-  currency: string;
   /** Calendar day, "YYYY-MM-DD". */
   dueDate: string;
   status: PaymentStatusCode;
@@ -60,7 +57,6 @@ export interface FeesSummary {
   incassatoCents: number;
   daIncassareCents: number;
   scadutoCents: number;
-  promemoriaInviati: number;
   paidCount: number;
   pendingCount: number;
   overdueCount: number;
@@ -71,11 +67,9 @@ export interface FeePlan {
   name: string;
   kind: FeeKind;
   amountCents: number;
-  currency: string;
-  teamId: string | null;
-  seasonId: string | null;
-  installments: number | null;
-  dueDay: number | null;
+  /** The teams the plan bills; empty means every active member. */
+  teamIds: string[];
+  installments: number;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -89,25 +83,23 @@ export interface PayFeeBody {
   reference?: string;
 }
 
-export interface FeePlanBody {
+/** Creating a plan bills the members right away: one fee for each due date. */
+export interface CreateFeePlanBody {
   name: string;
   kind: FeeKind;
   amountCents: number;
-  teamId?: string | null;
-  installments?: number | null;
-  dueDay?: number | null;
+  teamIds: string[];
+  dueDates: string[];
+}
+
+/** Only these change after creation: amount, teams and dates are the ones the fees were generated with. */
+export interface UpdateFeePlanBody {
+  name?: string;
+  kind?: FeeKind;
   isActive?: boolean;
 }
 
-export interface GenerateFeesBody {
-  dueDate: string;
-  description?: string;
-}
-
-export interface GenerateFeesResult {
-  created: number;
-  skipped: number;
-}
+export type FeePlanBody = CreateFeePlanBody | UpdateFeePlanBody;
 
 /** Where a person stands in one plan: late if any fee is late, waiting if something is left to pay, settled otherwise. */
 export type PersonPaymentStatus = "PAID" | "PENDING" | "OVERDUE";

@@ -25,12 +25,6 @@ function Missing({ label }: { label: string }) {
   );
 }
 
-/** Role and jersey of a member in this team; the role on the court of the member fills in when the team has none. */
-function placementIn(member: MemberListItem, teamId: string) {
-  const ref = member.teams.find((team) => team.id === teamId);
-  return { role: ref?.position ?? member.fieldRole, jersey: ref?.jerseyNumber ?? null };
-}
-
 function QuotaCell({ memberId, fees }: { memberId: string; fees: TeamUnpaidFees }) {
   if (fees.isLoading) return <Skeleton className="h-6 w-20 rounded-full" />;
   if (fees.failed) return <span className={MUTED}>Non disponibile</span>;
@@ -77,16 +71,7 @@ function columnsFor(teamId: string, fees: TeamUnpaidFees | null): DataTableColum
       key: "role",
       header: "Ruolo",
       nowrap: true,
-      cell: (member) => placementIn(member, teamId).role ?? <Missing label="Non indicato" />,
-    },
-    {
-      key: "jersey",
-      header: "Maglia",
-      nowrap: true,
-      cell: (member) => {
-        const { jersey } = placementIn(member, teamId);
-        return jersey === null ? <Missing label="Non assegnata" /> : `n. ${jersey}`;
-      },
+      cell: (member) => member.fieldRole ?? <Missing label="Non indicato" />,
     },
     {
       key: "documents",
@@ -118,7 +103,7 @@ export interface TeamRosterProps {
   canAddMembers: boolean;
 }
 
-/** The roster of a team: members with role, jersey, documents and fees, searchable by name. */
+/** The roster of a team: members with role, documents and fees, searchable by name. */
 export function TeamRoster({ team, showFees, canAddMembers }: TeamRosterProps) {
   const headingId = useId();
   const [search, setSearch] = useState("");

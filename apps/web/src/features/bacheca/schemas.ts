@@ -2,7 +2,7 @@ import { z } from "zod";
 import { fromLocalInput } from "@/features/classifiche/format";
 import type { AnnouncementStatus, CreateAnnouncementBody, UpdateAnnouncementBody } from "./types";
 
-/** Limits mirror apps/api/src/modules/announcements/schema.ts so most mistakes are caught before the request. */
+/** Limits mirror the backend so most mistakes are caught before the request. */
 
 export type Publication = "keep" | "now" | "draft" | "scheduled";
 

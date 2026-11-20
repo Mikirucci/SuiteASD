@@ -2,9 +2,9 @@ import { z } from "zod";
 import { combineLocal, toDateInput, toTimeInput } from "./format";
 import type { CalendarEvent, CreateEventBody, RecurrenceBody, UpdateEventBody } from "./types";
 
-/** Limits mirror apps/api/src/modules/events/schema.ts so most mistakes are caught before the request. */
+/** Limits mirror the backend so most mistakes are caught before the request. */
 const MAX_OCCURRENCES = 100;
-/** Convocation slots when an event does not set its own (apps/api convocations/summary.ts). */
+/** Convocation slots when an event does not set its own (the backend convocations/summary.ts). */
 const DEFAULT_CONVOCATIONS = 12;
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 

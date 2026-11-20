@@ -6,10 +6,16 @@ import { KIND_LABELS } from "./format";
 import { PlanCounters } from "./plan-counters";
 import type { FeePlan, PlanStats } from "./types";
 
+/** Who a plan bills, in words: every active member, one team by name, or how many teams. */
+export function teamNameOf(plan: FeePlan, teamNames: ReadonlyMap<string, string>): string {
+  if (plan.teamIds.length === 0) return "Tutte le squadre";
+  if (plan.teamIds.length > 1) return `${plan.teamIds.length} squadre`;
+  return teamNames.get(plan.teamIds[0] ?? "") ?? "Una squadra";
+}
+
 export function describePlan(plan: FeePlan, teamName: string): string {
   const parts = [formatEuro(plan.amountCents), KIND_LABELS[plan.kind], teamName];
-  if (plan.installments !== null) parts.push(`${plan.installments} rate`);
-  if (plan.dueDay !== null) parts.push(`scade il ${plan.dueDay} del mese`);
+  if (plan.installments > 1) parts.push(`${plan.installments} rate`);
   return parts.join(" · ");
 }
 

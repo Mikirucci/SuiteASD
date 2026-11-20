@@ -69,7 +69,7 @@ function homeBackend({ fresh = false, withFeePlan = false }: BackendOptions = {}
       case "/documents/expirations":
         return { body: { from: "2026-10-01", to: "2027-04-01", overdue: [], months: [] } };
       case "/fees/summary":
-        return { body: { incassatoCents: 24000, daIncassareCents: 18000, scadutoCents: 6000, promemoriaInviati: 4, paidCount: 4, pendingCount: 2, overdueCount: 1 } };
+        return { body: { incassatoCents: 24000, daIncassareCents: 18000, scadutoCents: 6000, paidCount: 4, pendingCount: 2, overdueCount: 1 } };
       case "/fee-plans":
         return pageOf(withFeePlan ? [{ id: "plan-1" }] : []);
       case "/events":

@@ -134,7 +134,7 @@ test.describe("squadre", () => {
   });
 
   test("adds several athletes from the team page: search, tick, one request", async ({ page }) => {
-    const inTeam = { id: "t16", name: "Under 16", category: "U16", position: null, jerseyNumber: null };
+    const inTeam = { id: "t16", name: "Under 16", category: "U16" };
     let everyone = demoMembers().map((item) => ({ ...item, teams: item.id === "m-sara" ? [inTeam] : [] }));
     const handler: ApiHandler = ({ method, path, query, body }) => {
       switch (`${method} ${path}`) {
@@ -190,7 +190,7 @@ test.describe("squadre", () => {
 
   test("the roster shows every column in full, one line per athlete, and the cards sit above it", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
-    const inTeam = { id: "t16", name: "Under 16", category: "U16", position: "Palleggiatrice", jerseyNumber: 12 };
+    const inTeam = { id: "t16", name: "Under 16", category: "U16" };
     const roster = demoMembers().map((item) => ({ ...item, teams: [inTeam] }));
     await mockApi(page);
     await routeApi(

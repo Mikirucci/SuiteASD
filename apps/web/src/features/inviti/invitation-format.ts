@@ -1,6 +1,6 @@
 import type { Role } from "@/lib/api";
 
-/** Wire types of the invitations endpoints. Source of truth: apps/api/src/modules/invitations/schema.ts. */
+/** Wire types of the invitations endpoints. Source of truth: the backend OpenAPI contract (docs/api/openapi.yaml in the SuiteASD-backend repository). */
 export interface Invitation {
   id: string;
   /** Null for a link that names nobody: the person gives their email when joining. */

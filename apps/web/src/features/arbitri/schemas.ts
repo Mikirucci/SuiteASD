@@ -2,7 +2,7 @@ import { z } from "zod";
 import { parseEuroToCents } from "@/lib/format";
 import type { CreateAssignmentBody, RefereeBody, UpdateAssignmentBody } from "./types";
 
-/** Limits mirror apps/api/src/modules/referees/schema.ts so most mistakes are caught before the request. */
+/** Limits mirror the backend so most mistakes are caught before the request. */
 
 const FEE_MESSAGE = "Inserisci un importo valido, per esempio 25 o 25,50";
 

@@ -5,7 +5,7 @@ import { api, useApiMutation, useApiQuery, type SessionResponse } from "@/lib/ap
 
 export type JoinLinkStatus = "ACTIVE" | "EXPIRED" | "REVOKED" | "EXHAUSTED";
 
-/** Enrolment link, as the administration sees it. Source of truth: apps/api/src/modules/enrolment/schema.ts. */
+/** Enrolment link, as the administration sees it. Source of truth: the backend OpenAPI contract (docs/api/openapi.yaml in the SuiteASD-backend repository). */
 export interface JoinLink {
   id: string;
   code: string;
