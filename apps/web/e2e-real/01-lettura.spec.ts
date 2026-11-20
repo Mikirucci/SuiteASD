@@ -1,10 +1,18 @@
 import { expect, test } from "@playwright/test";
+import { createDemoSociety, dayLabel, type DemoSociety } from "./support/demo-society";
 import { loginAs } from "./support/session";
 
-// Read-only tour of the demo society (SPEC section 6) against the real API and the seeded database.
+// Read-only tour of a society built through the API (see support/demo-society.ts): the numbers asserted here are the ones it creates.
 test.describe("società demo, in sola lettura", () => {
+  let society: DemoSociety;
+
+  test.beforeAll(async () => {
+    test.setTimeout(180_000);
+    society = await createDemoSociety();
+  });
+
   test.beforeEach(async ({ page }) => {
-    await loginAs(page, "admin");
+    await loginAs(page, society.people.admin);
   });
 
   test("la home saluta e porta a tutti i moduli", async ({ page }) => {
@@ -30,59 +38,61 @@ test.describe("società demo, in sola lettura", () => {
 
   test("tesserati: ricerca di Sara Conti e scheda con il certificato in scadenza", async ({ page }) => {
     await page.goto("/tesserati");
-    await page.getByRole("searchbox", { name: "Cerca tesserato" }).fill("Sara Conti");
+    await page.getByRole("searchbox", { name: "Cerca tesserato" }).fill(society.sara.fullName);
     const list = page.getByRole("list", { name: "Tesserati" });
     await expect(list.getByRole("listitem")).toHaveCount(1);
-    await list.getByRole("link", { name: /Sara Conti/ }).click();
-    await expect(page.getByRole("heading", { level: 1, name: "Sara Conti" })).toBeVisible();
+    await list.getByRole("link", { name: new RegExp(society.sara.fullName) }).click();
+    await expect(page.getByRole("heading", { level: 1, name: society.sara.fullName })).toBeVisible();
     await expect(page.getByRole("list", { name: "Documenti del tesserato" })).toContainText("Certificato medico");
   });
 
   test("scadenze: il certificato di Sara Conti scade tra 15 giorni", async ({ page }) => {
     await page.goto("/scadenze");
-    await expect(page.getByText("Sara Conti · Certificato medico — Scade tra 15 giorni")).toBeVisible();
+    await expect(page.getByText(`${society.sara.fullName} · Certificato medico — Scade tra ${society.sara.certificateDays} giorni`)).toBeVisible();
   });
 
-  test("classifiche: Girone B di Serie D con Aquile Volley prima a 32 punti", async ({ page }) => {
+  test("classifiche: Girone B di Serie D con Aquile Volley prima", async ({ page }) => {
     await page.goto("/classifiche");
+    const { order } = society.standings;
     const rows = page.getByRole("row").filter({ hasNot: page.getByRole("columnheader") });
-    await expect(rows).toHaveCount(5);
-    await expect(rows.nth(0)).toContainText("Aquile Volley");
-    await expect(rows.nth(0)).toContainText("32");
-    await expect(rows.nth(1)).toContainText("Falchi Volley");
-    await expect(rows.nth(2)).toContainText("Delfini Volley");
-    await expect(rows.nth(3)).toContainText("Leoni Volley");
-    await expect(rows.nth(4)).toContainText("Tigri Volley");
+    await expect(rows).toHaveCount(order.length);
+    for (const [index, team] of order.entries()) {
+      await expect(rows.nth(index)).toContainText(team.name);
+    }
+    await expect(rows.nth(0)).toContainText(String(order[0]?.points));
   });
 
-  test("quote: incassati 240 euro da 4 quote, una scaduta", async ({ page }) => {
+  test("quote: incassati i soldi delle quote pagate, una scaduta", async ({ page }) => {
     await page.goto("/quote");
+    const { paid, amountEuro, overdue, overdueEuro } = society.feePlan;
     const report = page.getByRole("region", { name: "Rendiconto" });
-    await expect(report.getByText("Incassato", { exact: true }).locator("../..")).toContainText(/€\s240/);
-    await expect(report.getByText("4 quote pagate")).toBeVisible();
-    await expect(report.getByText(/di cui €\s60 scaduti \(1 quota\)/)).toBeVisible();
+    await expect(report.getByText("Incassato", { exact: true }).locator("../..")).toContainText(new RegExp(`€\\s${paid * amountEuro}`));
+    await expect(report.getByText(`${paid} quote pagate`)).toBeVisible();
+    await expect(report.getByText(new RegExp(`di cui €\\s${overdueEuro} scaduti \\(${overdue} quota\\)`))).toBeVisible();
   });
 
-  test("calendario: la partita Aquile-Delfini del 14 novembre con 5/12 confermate", async ({ page }) => {
+  test("calendario: la prossima partita con le presenze confermate", async ({ page }) => {
+    const { match, standings } = society;
     await page.goto("/calendario");
     // The week strip starts from the current week: walk forward to the week of the match.
     const next = page.getByRole("button", { name: "Settimana successiva" });
-    const saturday = page.getByRole("button", { name: /14 novembre/ });
-    for (let week = 0; week < 8 && !(await saturday.isVisible()); week += 1) await next.click();
-    await saturday.click();
-    await expect(page.getByText("Aquile Volley vs Delfini Volley").first()).toBeVisible();
-    await expect(page.getByText("SERIE D · GIRONE B · GIORNATA 6")).toBeVisible();
-    await expect(page.getByText("20:30").first()).toBeVisible();
-    await expect(page.getByText(/5\/12\s+confermate/)).toBeVisible();
+    const day = page.getByRole("button", { name: new RegExp(dayLabel(match.daysAhead)) });
+    for (let week = 0; week < 8 && !(await day.isVisible()); week += 1) await next.click();
+    await day.click();
+    await expect(page.getByText(match.title).first()).toBeVisible();
+    await expect(page.getByText(`${standings.competition} · ${standings.group} · GIORNATA ${match.round}`.toUpperCase())).toBeVisible();
+    await expect(page.getByText(match.time).first()).toBeVisible();
+    await expect(page.getByText(new RegExp(`${match.confirmed}/${match.slots}\\s+confermate`))).toBeVisible();
   });
 
-  test("automazioni: 10 attività su 10 attive, 100%", async ({ page }) => {
+  test("automazioni: tutte le attività attive, 100%", async ({ page }) => {
+    const { total } = society.automations;
     await page.goto("/automazioni");
-    await expect(page.getByText("10 su 10 attive · 100%")).toBeVisible();
+    await expect(page.getByText(`${total} su ${total} attive · 100%`)).toBeVisible();
     await expect(page.getByRole("heading", { name: "Inviare le convocazioni" })).toBeVisible();
   });
 
-  test("altro: le sezioni secondarie hanno dati dal seed", async ({ page }) => {
+  test("altro: le sezioni secondarie hanno dati", async ({ page }) => {
     for (const path of ["/altro/palestre", "/altro/sponsor", "/altro/bilancio", "/altro/bacheca", "/altro/arbitri", "/altro/statistiche"]) {
       await page.goto(path);
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();

@@ -149,6 +149,8 @@ export const REPORT_SUMMARY = {
   period: { from: "2026-01-01", to: "2026-12-31" },
   sections: [
     { section: "LEDGER", records: 12, amountCents: -39000 },
+    { section: "INCOME", records: 4, amountCents: 24000 },
+    { section: "EXPENSES", records: 8, amountCents: 63000 },
     { section: "FEES", records: 8, amountCents: 24000 },
     { section: "SPONSORS", records: 0, amountCents: 0 },
     { section: "TRIPS", records: 1, amountCents: 12050 },

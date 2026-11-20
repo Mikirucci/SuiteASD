@@ -8,7 +8,7 @@ import { toDayKey } from "@/lib/dates";
 import { formatEuro, pluralize } from "@/lib/format";
 import { saveFile } from "@/lib/save-file";
 
-type ReportSection = "LEDGER" | "FEES" | "SPONSORS" | "TRIPS" | "REFEREES";
+type ReportSection = "LEDGER" | "INCOME" | "EXPENSES" | "FEES" | "SPONSORS" | "TRIPS" | "REFEREES";
 
 interface ReportSummary {
   period: { from: string; to: string };
@@ -17,6 +17,8 @@ interface ReportSummary {
 
 const SECTION_INFO: Record<ReportSection, { label: string; amountLabel: string }> = {
   LEDGER: { label: "Bilancio", amountLabel: "saldo" },
+  INCOME: { label: "Entrate", amountLabel: "totale" },
+  EXPENSES: { label: "Uscite", amountLabel: "totale" },
   FEES: { label: "Quote e incassi", amountLabel: "incassato" },
   SPONSORS: { label: "Sponsor", amountLabel: "contratti" },
   TRIPS: { label: "Trasferte", amountLabel: "costi" },

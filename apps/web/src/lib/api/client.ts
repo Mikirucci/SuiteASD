@@ -15,6 +15,8 @@ export interface RequestOptions {
   auth?: boolean;
   /** Required by the API for sensitive writes (payments, sends): reuse the same key when retrying. */
   idempotencyKey?: string;
+  /** Media type the response may have; the API answers 406 to a PDF download that only accepts JSON. Default JSON. */
+  accept?: string;
 }
 
 export interface DownloadedFile {
@@ -83,7 +85,7 @@ export function createApiClient({ baseUrl, tokens, fetchImpl }: ApiClientConfig)
   const doFetch = (input: string, init: RequestInit): Promise<Response> => (fetchImpl ?? fetch)(input, init);
 
   async function send(path: string, options: RequestOptions): Promise<Response> {
-    const headers: Record<string, string> = { Accept: "application/json" };
+    const headers: Record<string, string> = { Accept: options.accept ?? "application/json" };
     if (options.body instanceof Blob) headers["Content-Type"] = options.body.type;
     else if (options.body !== undefined) headers["Content-Type"] = "application/json";
     if (options.idempotencyKey) headers["Idempotency-Key"] = options.idempotencyKey;
@@ -152,7 +154,7 @@ export function createApiClient({ baseUrl, tokens, fetchImpl }: ApiClientConfig)
     path: string,
     options: Omit<RequestOptions, "method" | "body"> = {},
   ): Promise<DownloadedFile> {
-    const response = await execute(path, { ...options, method: "GET" });
+    const response = await execute(path, { ...options, method: "GET", accept: "*/*" });
     return { blob: await response.blob(), filename: filenameOf(response) };
   }
 

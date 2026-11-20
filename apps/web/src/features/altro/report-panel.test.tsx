@@ -35,12 +35,15 @@ describe("ReportPanel", () => {
     expect(screen.getByRole("status", { name: "Calcolo del contenuto del report" })).toBeInTheDocument();
     const list = await screen.findByRole("list", { name: "Sezioni del report" });
     const rows = within(list).getAllByRole("listitem");
-    expect(rows).toHaveLength(5);
+    expect(rows).toHaveLength(7);
     expect(rows[0]).toHaveTextContent("Bilancio");
     expect(rows[0]).toHaveTextContent("12 voci · saldo");
-    expect(rows[1]).toHaveTextContent("8 voci · incassato");
-    expect(rows[2]).toHaveTextContent("Nessuna voce nel periodo");
-    expect(rows[3]).toHaveTextContent("1 voce · costi");
+    expect(rows[1]).toHaveTextContent("Entrate");
+    expect(rows[1]).toHaveTextContent("4 voci · totale");
+    expect(rows[2]).toHaveTextContent("Uscite");
+    expect(rows[3]).toHaveTextContent("8 voci · incassato");
+    expect(rows[4]).toHaveTextContent("Nessuna voce nel periodo");
+    expect(rows[5]).toHaveTextContent("1 voce · costi");
     expect(screen.getByLabelText("Dal")).toHaveValue("2025-01-01");
     expect(screen.getByLabelText("Al")).toHaveValue("2025-12-31");
     expect(api.calls[0]?.query.get("from")).toBe("2025-01-01");
@@ -56,7 +59,7 @@ describe("ReportPanel", () => {
     await userEvent.click(screen.getByRole("button", { name: "Scarica il report completo" }));
     await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
     const call = api.calls.find((entry) => entry.path === "/reports/accounting.pdf");
-    expect(call?.query.get("sections")).toBe("LEDGER,FEES,SPONSORS,TRIPS,REFEREES");
+    expect(call?.query.get("sections")).toBe("LEDGER,INCOME,EXPENSES,FEES,SPONSORS,TRIPS,REFEREES");
     expect(call?.query.get("from")).toBe("2025-01-01");
   });
 
@@ -81,9 +84,9 @@ describe("ReportPanel", () => {
     await userEvent.click(screen.getByRole("checkbox", { name: "Arbitri" }));
     await userEvent.click(screen.getByRole("button", { name: "Scarica le sezioni scelte" }));
     await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
-    expect(api.calls.find((entry) => entry.path === "/reports/accounting.pdf")?.query.get("sections")).toBe("LEDGER,FEES,TRIPS");
+    expect(api.calls.find((entry) => entry.path === "/reports/accounting.pdf")?.query.get("sections")).toBe("LEDGER,INCOME,EXPENSES,FEES,TRIPS");
 
-    for (const name of ["Bilancio", "Quote e incassi", "Trasferte"]) {
+    for (const name of ["Bilancio", "Entrate", "Uscite", "Quote e incassi", "Trasferte"]) {
       await userEvent.click(screen.getByRole("checkbox", { name }));
     }
     expect(screen.getByText("Scegli almeno una sezione.")).toBeInTheDocument();
