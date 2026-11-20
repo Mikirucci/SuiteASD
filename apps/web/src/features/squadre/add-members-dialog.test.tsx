@@ -8,8 +8,8 @@ import { json, page, problem, renderWithProviders, stubApi } from "@/test/stub-a
 import { AddMembersDialog } from "./add-members-dialog";
 
 const TEAM: Team = team("t16", "Under 16", "U16");
-const OTHER_TEAM = { id: "t14", name: "Under 14", category: "U14", position: null, jerseyNumber: null };
-const INSIDE = { id: "t16", name: "Under 16", category: "U16", position: null, jerseyNumber: null };
+const OTHER_TEAM = { id: "t14", name: "Under 14", category: "U14" };
+const INSIDE = { id: "t16", name: "Under 16", category: "U16" };
 
 const ANNA = member({ id: "m-anna", firstName: "Anna", lastName: "Ferri" });
 const SARA = member({ id: "m-sara", firstName: "Sara", lastName: "Conti", teams: [INSIDE] });

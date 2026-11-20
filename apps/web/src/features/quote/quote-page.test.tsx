@@ -63,7 +63,7 @@ describe("QuotePage for the secretariat: the plans overview", () => {
     const [monthly, enrollment] = cards as [HTMLElement, HTMLElement];
     expect(within(monthly).getByRole("link", { name: "Quota novembre" })).toHaveAttribute("href", "/quote/p-nov");
     expect(within(monthly).getByText("Attivo")).toBeInTheDocument();
-    expect(monthly).toHaveTextContent(/€\s60 · Mensile · Tutte le squadre · scade il 10 del mese/);
+    expect(monthly).toHaveTextContent(/€\s60 · Mensile · Tutte le squadre/);
     expect(within(monthly).getByText("persone in regola").previousElementSibling).toHaveTextContent("1");
     expect(within(monthly).getByText("persone in attesa").previousElementSibling).toHaveTextContent("1");
     expect(within(monthly).getByText("persone con quote scadute").previousElementSibling).toHaveTextContent("1");
@@ -108,7 +108,10 @@ describe("QuotePage for the secretariat: the plans overview", () => {
     await userEvent.type(within(dialog).getByLabelText(/Nome del piano/), "Quota dicembre");
     await userEvent.type(within(dialog).getByLabelText(/Importo in euro/), "60,50");
     await userEvent.selectOptions(within(dialog).getByLabelText("Squadra"), "t-u18");
-    await userEvent.type(within(dialog).getByLabelText("Giorno di scadenza"), "10");
+    await userEvent.clear(within(dialog).getByLabelText(/Numero di rate/));
+    await userEvent.type(within(dialog).getByLabelText(/Numero di rate/), "3");
+    await userEvent.clear(within(dialog).getByLabelText(/Prima scadenza/));
+    await userEvent.type(within(dialog).getByLabelText(/Prima scadenza/), "2026-11-30");
     await userEvent.click(within(dialog).getByRole("button", { name: "Crea il piano" }));
 
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
@@ -116,9 +119,8 @@ describe("QuotePage for the secretariat: the plans overview", () => {
       name: "Quota dicembre",
       kind: "MONTHLY",
       amountCents: 6050,
-      teamId: "t-u18",
-      dueDay: 10,
-      isActive: true,
+      teamIds: ["t-u18"],
+      dueDates: ["2026-11-30", "2026-12-30", "2027-01-30"],
     });
     expect(await screen.findByText("Piano creato")).toBeInTheDocument();
     await waitFor(() => expect(api.count("GET /fee-plans")).toBe(2));

@@ -142,7 +142,7 @@ export const TEAMS: Team[] = ["U14", "U16", "U18", "Serie D"].map((name, index) 
 function teamRef(name: string) {
   const team = TEAMS.find((candidate) => candidate.name === name);
   if (!team) throw new Error(`Unknown demo team ${name}`);
-  return { id: team.id, name: team.name, category: team.category, position: null, jerseyNumber: null };
+  return { id: team.id, name: team.name, category: team.category };
 }
 
 const CERTIFICATE_TYPE_ID = "type-certificate";

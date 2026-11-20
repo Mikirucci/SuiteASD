@@ -151,7 +151,7 @@ describe("event detail and squad", () => {
         "GET /events/ev-match/convocations": () =>
           json(200, { data: unsent, summary: { confirmed: 0, declined: 0, pending: 1, total: 1, capacity: 12 } }),
         "POST /events/ev-match/convocations/send": () =>
-          json(200, { eventId: "ev-match", sent: 1, notified: 2, convocationsSentAt: at(11, 12, 10, 0) }),
+          json(200, { eventId: "ev-match", sent: 1, convocationsSentAt: at(11, 12, 10, 0) }),
       }),
     );
     renderWithProviders(<CalendarioPage />);
@@ -174,7 +174,7 @@ describe("event detail and squad", () => {
       calendarRoutes({
         "GET /events/ev-match/convocations": () =>
           json(200, { data: unsent, summary: { confirmed: 0, declined: 0, pending: 1, total: 1, capacity: 12 } }),
-        "POST /events/ev-match/convocations/send": () => json(200, { eventId: "ev-match", sent: 0, notified: 0, convocationsSentAt: at(11, 9, 8, 0) }),
+        "POST /events/ev-match/convocations/send": () => json(200, { eventId: "ev-match", sent: 0, convocationsSentAt: at(11, 9, 8, 0) }),
       }),
     );
     renderWithProviders(<CalendarioPage />);
@@ -233,7 +233,7 @@ describe("event detail and squad", () => {
     let reminded = 2;
     const api = stubApi(
       calendarRoutes({
-        "POST /events/ev-match/convocations/remind": () => json(200, { eventId: "ev-match", reminded: reminded--, notified: 2 }),
+        "POST /events/ev-match/convocations/remind": () => json(200, { eventId: "ev-match", reminded: reminded-- }),
       }),
     );
     renderWithProviders(<CalendarioPage />);

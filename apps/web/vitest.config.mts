@@ -12,5 +12,7 @@ export default defineConfig({
     setupFiles: ["./src/test/setup.ts"],
     include: ["src/**/*.test.{ts,tsx}"],
     css: false,
+    // The app calls a relative /api/v1; the fetch stubs of the tests parse absolute URLs.
+    env: { NEXT_PUBLIC_API_URL: "http://localhost:3000/api/v1" },
   },
 });

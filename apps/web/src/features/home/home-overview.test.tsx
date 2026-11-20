@@ -163,7 +163,7 @@ describe("HomeOverview of a running society", () => {
       "GET /fees/summary": () =>
         ++attempts <= 1
           ? problem(500, "internal")
-          : { body: { incassatoCents: 1000, daIncassareCents: 4200, scadutoCents: 0, promemoriaInviati: 0, paidCount: 1, pendingCount: 0, overdueCount: 0 } },
+          : { body: { incassatoCents: 1000, daIncassareCents: 4200, scadutoCents: 0, paidCount: 1, pendingCount: 0, overdueCount: 0 } },
     });
     renderWithQuery(<HomeOverview />);
     const todo = await screen.findByRole("region", { name: "Da fare adesso" });

@@ -96,14 +96,12 @@ export interface EventConvocations {
 export interface SendConvocationsResult {
   eventId: string;
   sent: number;
-  notified: number;
   convocationsSentAt: string | null;
 }
 
 export interface RemindConvocationsResult {
   eventId: string;
   reminded: number;
-  notified: number;
 }
 
 export interface RespondBody {

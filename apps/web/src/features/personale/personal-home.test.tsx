@@ -53,7 +53,6 @@ function fee(overrides: Partial<Fee> = {}): Fee {
     feePlanId: null,
     description: "Quota novembre",
     amountCents: 6000,
-    currency: "EUR",
     dueDate: "2026-11-10",
     status: "PENDING",
     paidAt: null,
@@ -347,8 +346,8 @@ describe("PersonalHome: appointments of the week and after", () => {
     auth.me = guardianMe();
     const trainingEvent = training();
     api({
-      "GET /members/m-anna": () => ({ body: detailOf(member({ id: "m-anna", firstName: "Anna", lastName: "Conti", teams: [{ ...U16, category: null, position: null, jerseyNumber: null }] })) }),
-      "GET /members/m-marta": () => ({ body: detailOf(member({ id: "m-marta", firstName: "Marta", lastName: "Conti", teams: [{ ...U16, category: null, position: null, jerseyNumber: null }] })) }),
+      "GET /members/m-anna": () => ({ body: detailOf(member({ id: "m-anna", firstName: "Anna", lastName: "Conti", teams: [{ ...U16, category: null }] })) }),
+      "GET /members/m-marta": () => ({ body: detailOf(member({ id: "m-marta", firstName: "Marta", lastName: "Conti", teams: [{ ...U16, category: null }] })) }),
       "GET /fees": () => page([]),
       "GET /events": () => page([trainingEvent]),
       "GET /convocations": () =>
@@ -376,7 +375,7 @@ describe("PersonalHome: appointments of the week and after", () => {
             id: "m-sara",
             firstName: "Sara",
             lastName: "Conti",
-            teams: [{ ...U16, category: null, position: null, jerseyNumber: null }],
+            teams: [{ ...U16, category: null }],
             documents: [indicator({ key: "MEDICAL_CERTIFICATE", name: "Certificato medico", status: "EXPIRED", expiresAt: "2026-10-01", daysRemaining: -42 })],
           }),
         ),
@@ -395,7 +394,7 @@ describe("PersonalHome: appointments of the week and after", () => {
   it("does not claim the athlete cannot be convocated when nothing says so", async () => {
     api({
       "GET /members/m-sara": () => ({
-        body: detailOf(member({ id: "m-sara", firstName: "Sara", lastName: "Conti", teams: [{ ...U16, category: null, position: null, jerseyNumber: null }] })),
+        body: detailOf(member({ id: "m-sara", firstName: "Sara", lastName: "Conti", teams: [{ ...U16, category: null }] })),
       }),
     });
     renderScreen(<PersonalHome />);
@@ -514,8 +513,8 @@ describe("PersonalHome: answering from an appointment", () => {
     const marta = memberRef("m-marta", "Marta", "Conti");
     let martaStatus: ConvocationStatus = "PENDING";
     const calls = api({
-      "GET /members/m-anna": () => ({ body: detailOf(member({ id: "m-anna", firstName: "Anna", lastName: "Conti", teams: [{ ...U16, category: null, position: null, jerseyNumber: null }] })) }),
-      "GET /members/m-marta": () => ({ body: detailOf(member({ id: "m-marta", firstName: "Marta", lastName: "Conti", teams: [{ ...U16, category: null, position: null, jerseyNumber: null }] })) }),
+      "GET /members/m-anna": () => ({ body: detailOf(member({ id: "m-anna", firstName: "Anna", lastName: "Conti", teams: [{ ...U16, category: null }] })) }),
+      "GET /members/m-marta": () => ({ body: detailOf(member({ id: "m-marta", firstName: "Marta", lastName: "Conti", teams: [{ ...U16, category: null }] })) }),
       "GET /fees": () => page([]),
       "GET /events": () => page([trainingEvent]),
       "GET /convocations": () => page([convocationOf(trainingEvent, "PENDING", anna), convocationOf(trainingEvent, martaStatus, marta)]),

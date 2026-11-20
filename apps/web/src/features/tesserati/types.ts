@@ -28,8 +28,6 @@ export interface MemberTeamRef {
   id: string;
   name: string;
   category: string | null;
-  position: string | null;
-  jerseyNumber: number | null;
 }
 
 export interface MemberListItem {

@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CalendarEvent } from "@/features/calendario/types";
 import type { Fee, FeesSummary } from "@/features/quote/types";
-import { ANNA_FERRI, SARA_CONTI, member, team } from "@/features/tesserati/test-support";
+import { ANNA_FERRI, SARA_CONTI, team } from "@/features/tesserati/test-support";
 import type { MemberListItem, Team } from "@/features/tesserati/types";
 import { expectNoA11yViolations } from "@/test/a11y";
 import { json, page, problem, renderWithProviders, stubApi } from "@/test/stub-api";
@@ -35,11 +35,11 @@ const U16: Team = {
 const U16_REF = { id: "t16", name: "Under 16", category: "U16" };
 const SARA: MemberListItem = {
   ...SARA_CONTI,
-  teams: [{ ...U16_REF, position: "Libero", jerseyNumber: 7 }],
+  teams: [{ ...U16_REF }],
 };
 const ANNA: MemberListItem = {
   ...ANNA_FERRI,
-  teams: [{ ...U16_REF, position: null, jerseyNumber: null }],
+  teams: [{ ...U16_REF }],
   fieldRole: "Schiacciatrice",
 };
 
@@ -52,7 +52,6 @@ function feeOf(id: string, memberId: string, status: Fee["status"], amountCents:
     feePlanId: null,
     description: "Quota di novembre",
     amountCents,
-    currency: "EUR",
     dueDate: "2026-11-10",
     status,
     paidAt: null,
@@ -73,7 +72,6 @@ const SUMMARY: FeesSummary = {
   incassatoCents: 24_000,
   daIncassareCents: 18_000,
   scadutoCents: 6_000,
-  promemoriaInviati: 2,
   paidCount: 4,
   pendingCount: 2,
   overdueCount: 1,
@@ -134,7 +132,7 @@ describe("TeamDetailPage", () => {
     await expectNoA11yViolations(container);
   });
 
-  it("lists the roster with role, jersey number, documents and a link to each member", async () => {
+  it("lists the roster with role, documents and a link to each member", async () => {
     const api = stubApi(routes());
     renderWithProviders(<TeamDetailPage id="t16" />);
 
@@ -144,14 +142,11 @@ describe("TeamDetailPage", () => {
     expect(within(table).getByRole("link", { name: "Anna Ferri" })).toHaveAttribute("href", "/tesserati/m-anna");
 
     const saraRow = sara.closest("tr") as HTMLElement;
-    expect(saraRow).toHaveTextContent("Libero");
-    expect(saraRow).toHaveTextContent("n. 7");
     expect(saraRow).toHaveTextContent("1 in scadenza");
     const annaRow = within(table).getByRole("link", { name: "Anna Ferri" }).closest("tr") as HTMLElement;
-    // Without a position in this team the role on the court of the member is used
+    // The role on the court is the one of the member
     expect(annaRow).toHaveTextContent("Schiacciatrice");
     expect(annaRow).toHaveTextContent("1 documento mancante");
-    expect(annaRow).toHaveTextContent("Non assegnata");
     expect(api.calls.find((call) => call.path === "/members")?.query.get("teamId")).toBe("t16");
   });
 
@@ -355,23 +350,5 @@ describe("TeamDetailPage", () => {
     expect(await screen.findByText(/Il servizio non è disponibile/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Riprova" }));
     expect(await screen.findByRole("heading", { level: 1, name: /Under 16/ })).toBeInTheDocument();
-  });
-
-  it("does not need the jersey of other teams: only the position in this one counts", async () => {
-    const elsewhere = member({
-      id: "m-elena",
-      firstName: "Elena",
-      lastName: "Neri",
-      teams: [
-        { id: "td", name: "Serie D", category: "Serie D", position: "Palleggiatrice", jerseyNumber: 3 },
-        { ...U16_REF, position: "Opposto", jerseyNumber: 11 },
-      ],
-    });
-    stubApi(routes({ "GET /members": () => json(200, page([elsewhere])) }));
-    renderWithProviders(<TeamDetailPage id="t16" />);
-    const row = (await screen.findByRole("link", { name: "Elena Neri" })).closest("tr") as HTMLElement;
-    expect(row).toHaveTextContent("Opposto");
-    expect(row).toHaveTextContent("n. 11");
-    expect(row).not.toHaveTextContent("Palleggiatrice");
   });
 });

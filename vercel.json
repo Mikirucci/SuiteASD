@@ -5,10 +5,6 @@
       "name": "suiteasd-web",
       "directory": "apps/web",
       "framework": "nextjs"
-    },
-    {
-      "name": "suiteasd-api",
-      "directory": "apps/api"
     }
   ]
 }

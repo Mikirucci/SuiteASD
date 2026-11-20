@@ -92,7 +92,6 @@ function ProfileSections({ member }: { member: MemberDetail }) {
               <li key={team.id}>
                 <Badge>
                   {teamLabel(team)}
-                  {team.jerseyNumber !== null ? ` · n. ${team.jerseyNumber}` : ""}
                 </Badge>
               </li>
             ))}
