@@ -1,0 +1,13 @@
+**/node_modules
+**/.next
+**/.git
+**/test-results
+**/playwright-report
+**/coverage
+**/*.log
+.claude
+business
+docs
+tasks
+apps/web/e2e
+apps/web/e2e-real
