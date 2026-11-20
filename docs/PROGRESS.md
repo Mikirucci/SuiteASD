@@ -75,7 +75,7 @@ Principio: tutto automatico. Iscrizione da link generato dall'admin (nessuna app
 
 ### 13. Cose da sapere (rischi e anomalie)
 1. La cartella `asserts_personal_row/` nella root è tracciata da git: contiene il video promo (~26 MB) e `loghi`. Nome probabilmente da correggere; il video pesa nel repo.
-2. `vercel.json` descrive due progetti (web e API) ma l'API usa SQLite su file, upload su disco e scheduler in-process: su serverless non persisterebbero (non verificato). Per un deploy vero servono Postgres, storage S3, scheduler esterno.
+2. ~~`vercel.json`~~ Eliminato il 2026-11-20: l'utente non usa Vercel; il deploy previsto è Docker + Caddy su un VPS Aruba (vedi l'architettura target nel repository backend).
 3. Per la produzione mancano anche: cifratura dei dati sensibili, rate limit condiviso, chiave Resend (senza, le email sono `SKIPPED`), validazione fiscale delle ricevute da un commercialista.
 4. Non implementati per scelta: push web, WhatsApp/SMS, pagamenti online, 2FA, scraping dei siti federali (si importa da file).
 
