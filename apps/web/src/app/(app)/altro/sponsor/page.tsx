@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { SponsorsPage } from "@/features/altro/resource-pages";
+import { SponsorsPage } from "@/features/altro/sponsors-page";
 
 export const metadata: Metadata = { title: "Sponsor" };
 

@@ -1,13 +1,14 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { toDayKey } from "@/lib/dates";
 import { json, page, renderWithProviders, stubApi } from "@/test/stub-api";
 import { ResourceView } from "../crud/resource-view";
 import type { ResourceConfig } from "../crud/types";
-import { ALLENATORE, AFFITTO, MAGLIA, PALAZZETTO, PANIFICIO, QUOTE_NOVEMBRE, TRASFERTA, TUTA } from "../test-fixtures";
+import { ALLENATORE, MAGLIA, PALAZZETTO, PANIFICIO, QUOTE_NOVEMBRE, SCUOLA, TRASFERTA, TUTA } from "../test-fixtures";
+import { incomeConfig } from "./income";
 import { kitsConfig } from "./kits";
-import { ledgerConfig } from "./ledger";
-import { sponsorsConfig } from "./sponsors";
+import { contractAlert, sponsorsConfig } from "./sponsors";
 import { pickFromMenu } from "@/test/row-menu";
 import { staffConfig } from "./staff";
 import { tripsConfig } from "./trips";
@@ -125,11 +126,44 @@ describe("sponsors", () => {
     expect(result.error?.issues.map((issue) => issue.path[0])).toEqual(["email", "amount"]);
   });
 
-  it("describes the sponsor in the list", () => {
+  it("shows on the card only the email, the end of the contract, the state and the amount", () => {
     const text = rowText(sponsorsConfig, PANIFICIO);
-    expect(text).toMatch(/€\s1\.?500 · Contratto dal 1 set 2026 al 31 ago 2027/);
-    expect(text).toContain("Elena Rizzi · elena@panificiorizzi.it · 035 123456");
+    expect(text).toContain("elena@panificiorizzi.it");
+    expect(text).toContain("Fino al 31 ago 2027");
     expect(text).toContain("Attivo");
+    expect(text).toMatch(/€\s1\.?500/);
+    // the rest is in the detail that the card opens
+    expect(text).not.toContain("Elena Rizzi");
+    expect(text).not.toContain("035 123456");
+    expect(text).not.toContain("1 set 2026");
+    expect(rowText(sponsorsConfig, { ...PANIFICIO, amountCents: 0 })).toContain("Importo da definire");
+    expect(rowText(sponsorsConfig, { ...PANIFICIO, contractEnd: null, email: null })).toContain("Senza scadenza");
+  });
+
+  describe("the end of the contract", () => {
+    const today = new Date(2026, 10, 10, 15, 30);
+    const ending = (contractEnd: string | null, status: "ACTIVE" | "PROSPECT" | "EXPIRED" = "ACTIVE") => contractAlert({ ...PANIFICIO, contractEnd, status }, today);
+
+    it("counts down only in the last 30 days, and says when it is over", () => {
+      expect(ending("2027-08-31")).toBeNull();
+      expect(ending("2026-12-11")).toBeNull();
+      expect(ending("2026-12-10")).toBe("Scade tra 30 giorni");
+      expect(ending("2026-11-12")).toBe("Scade tra 2 giorni");
+      expect(ending("2026-11-11")).toBe("Scade domani");
+      expect(ending("2026-11-10")).toBe("Scade oggi");
+      expect(ending("2026-11-09")).toBe("Contratto terminato");
+    });
+
+    it("says nothing for a contract without an end, or of a sponsor that is not active", () => {
+      expect(ending(null)).toBeNull();
+      expect(ending("2026-11-12", "PROSPECT")).toBeNull();
+      expect(ending("2026-11-12", "EXPIRED")).toBeNull();
+    });
+
+    it("shows the countdown next to the state on the card", () => {
+      const soon = { ...PANIFICIO, contractEnd: toDayKey(new Date(Date.now() + 5 * 86_400_000)) };
+      expect(rowText(sponsorsConfig, soon)).toMatch(/Attivo.*Scade tra [45] giorni/);
+    });
   });
 });
 
@@ -176,46 +210,53 @@ describe("staff", () => {
   });
 });
 
-describe("ledger", () => {
-  it("requires an amount greater than zero and a valid day", () => {
-    const base = { kind: "EXPENSE", category: "Affitto palestra", amount: "450", occurredOn: "2026-11-02", description: "" };
-    expect(bodyOf(ledgerConfig, base, "create")).toEqual({
-      kind: "EXPENSE",
-      category: "Affitto palestra",
-      amountCents: 45000,
+describe("income", () => {
+  const base = { description: "Contributo del Comune", category: "Contributi", amount: "750,50", occurredOn: "2026-11-02", supplier: "", notes: "" };
+
+  it("requires a name, an amount greater than zero and a valid day, and registers it as an income", () => {
+    expect(bodyOf(incomeConfig, base, "create")).toEqual({
+      kind: "INCOME",
+      description: "Contributo del Comune",
+      category: "Contributi",
+      amountCents: 75050,
       occurredOn: "2026-11-02",
     });
-    expect(ledgerConfig.schema.safeParse({ ...base, amount: "0" }).success).toBe(false);
-    expect(ledgerConfig.schema.safeParse({ ...base, occurredOn: "02/11/2026" }).success).toBe(false);
+    expect(bodyOf(incomeConfig, base, "update")).not.toHaveProperty("kind");
+    expect(incomeConfig.schema.safeParse({ ...base, amount: "0" }).success).toBe(false);
+    expect(incomeConfig.schema.safeParse({ ...base, description: " " }).success).toBe(false);
+    expect(incomeConfig.schema.safeParse({ ...base, occurredOn: "02/11/2026" }).success).toBe(false);
   });
 
-  it("shows the sign and the kind of each entry, never colour alone", () => {
-    const expense = rowText(ledgerConfig, AFFITTO);
-    expect(expense).toMatch(/−\s€\s450/);
-    expect(expense).toContain("Uscita");
-    const income = rowText(ledgerConfig, QUOTE_NOVEMBRE);
-    expect(income).toMatch(/\+\s€\s60/);
-    expect(income).toContain("Entrata");
-    expect(income).toContain("Registrato dai pagamenti");
-    expect(rowText(ledgerConfig, { ...AFFITTO, source: "VENUE" })).toContain("Costo di una palestra: si modifica dalla palestra.");
-    expect(rowText(ledgerConfig, { ...AFFITTO, source: "KIT" })).toContain("Costo di una divisa");
-    expect(rowText(ledgerConfig, { ...AFFITTO, source: "TRIP" })).toContain("Costo di una trasferta");
+  it("shows the plus sign and where the income comes from, never colour alone", () => {
+    const manual = rowText(incomeConfig, { ...QUOTE_NOVEMBRE, source: null, sourceId: null, description: "Contributo del Comune" });
+    expect(manual).toMatch(/\+\s€\s60/);
+    expect(manual).toContain("Registrata qui");
+    expect(rowText(incomeConfig, QUOTE_NOVEMBRE)).toContain("Pagamento");
+    expect(rowText(incomeConfig, { ...QUOTE_NOVEMBRE, source: "SPONSOR", sourceId: "s-1" })).toContain("Sponsor");
   });
 
-  it("hides edit and delete on entries generated by a payment", async () => {
-    stubApi({ "GET /ledger/entries": () => json(200, page([QUOTE_NOVEMBRE, AFFITTO])) });
-    renderWithProviders(<ResourceView config={ledgerConfig} />);
-    await screen.findByText("Affitto palestra");
-    // The entry written by hand can be edited and deleted
-    await userEvent.click(screen.getByRole("button", { name: /^Altre azioni di Affitto palestra/ }));
-    expect(await screen.findByRole("menuitem", { name: /^Modifica Affitto palestra/ })).toBeInTheDocument();
-    expect(screen.getByRole("menuitem", { name: /^Elimina Affitto palestra/ })).toBeInTheDocument();
+  it("opens the income written by hand to change it, and the one that another section owns to read it, with the way there", async () => {
+    stubApi({
+      "GET /ledger/entries": () => json(200, page([QUOTE_NOVEMBRE, { ...QUOTE_NOVEMBRE, id: "l-contributo", description: "Contributo del Comune", source: null, sourceId: null }])),
+      "GET /attachments": () => json(200, { data: [] }),
+    });
+    renderWithProviders(<ResourceView config={incomeConfig} />);
+    await screen.findByText("Contributo del Comune");
+
+    // The income written by hand can be changed and deleted from its detail
+    await userEvent.click(screen.getByRole("button", { name: "Contributo del Comune" }));
+    const manual = await screen.findByRole("dialog", { name: "Contributo del Comune" });
+    expect(within(manual).getByRole("button", { name: "Salva le modifiche" })).toBeInTheDocument();
+    expect(within(manual).getByRole("button", { name: "Elimina" })).toBeInTheDocument();
+    expect(within(manual).queryByText(/Registrata da/)).not.toBeInTheDocument();
     await userEvent.keyboard("{Escape}");
-    // The one generated by a payment keeps only the attachments
-    await userEvent.click(screen.getByRole("button", { name: /^Altre azioni di Quote/ }));
-    expect(await screen.findByRole("menuitem", { name: /^Allegati di Quote/ })).toBeInTheDocument();
-    expect(screen.queryByRole("menuitem", { name: /^Modifica Quote/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole("menuitem", { name: /^Elimina Quote/ })).not.toBeInTheDocument();
+
+    // The one born from a payment is read only, and says where it is changed
+    await userEvent.click(screen.getByRole("button", { name: "Quota novembre di Anna Ferri" }));
+    const payment = await screen.findByRole("dialog", { name: "Quota novembre di Anna Ferri" });
+    expect(within(payment).getByText("Registrata da Pagamenti")).toBeInTheDocument();
+    expect(within(payment).getByRole("link", { name: "Vai a Pagamenti" })).toHaveAttribute("href", "/quote");
+    for (const name of ["Salva le modifiche", "Elimina"]) expect(within(payment).queryByRole("button", { name })).not.toBeInTheDocument();
   });
 });
 
@@ -232,8 +273,13 @@ describe("venues", () => {
     expect(() => bodyOf(venuesConfig, { ...venuesConfig.initialValues(PALAZZETTO), cost: "0" }, "create")).toThrow();
   });
 
-  it("shows the cost and the day it is booked on the row", () => {
-    expect(rowText(venuesConfig, PALAZZETTO)).toMatch(/Costo: €\s450 del 2 nov 2026/);
+  it("shows on the card where it is, how big and what it costs; hours and notes are in the detail", () => {
+    const text = rowText(venuesConfig, PALAZZETTO);
+    expect(text).toContain("Via dello Sport 12 · Bergamo");
+    expect(text).toContain("Capienza 400 persone");
+    expect(text).toMatch(/€\s450/);
+    expect(text).not.toContain("18:00");
+    expect(rowText(venuesConfig, SCUOLA)).not.toMatch(/€/);
   });
 });
 

@@ -14,7 +14,9 @@ export type FieldKind =
   | "money"
   | "date"
   | "datetime"
-  | "member";
+  | "member"
+  | "suggest"
+  | "slots";
 
 export interface FieldDef {
   /** Key in the form values. */
@@ -29,6 +31,8 @@ export interface FieldDef {
   half?: boolean;
   /** `member` only: form value that remembers the name of the chosen member (shown while editing). */
   labelName?: string;
+  /** `suggest` only: where the names to offer come from, `{ data: string[] }` at `path`. */
+  suggestions?: { path: string; query?: Record<string, string> };
 }
 
 /** Every form field is text: the resource converts to and from API types in `initialValues` and `toBody`. */
@@ -102,6 +106,13 @@ export interface ResourceConfig<T extends { id: string }> {
   nameOf: (item: T) => string;
   /** Rows whose actions are hidden because another module owns them. */
   isReadOnly?: (item: T) => boolean;
+  /**
+   * The whole card opens the record on the same page: its fields can be changed right there, with the attachments
+   * and the delete action inside, so the card has no menu of actions.
+   */
+  openOnClick?: boolean;
+  /** Shown above the fields of a record that is opened: for instance why it cannot be changed here. */
+  detailNote?: (item: T) => ReactNode;
   /** Text search sent as `q`. */
   searchLabel?: string;
   filter?: ResourceFilter;

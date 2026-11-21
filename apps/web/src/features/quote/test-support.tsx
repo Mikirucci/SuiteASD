@@ -67,6 +67,7 @@ export const SUMMARY: FeesSummary = {
   incassatoCents: 24000,
   daIncassareCents: 12000,
   scadutoCents: 6000,
+ 
   paidCount: 4,
   pendingCount: 1,
   overdueCount: 1,
@@ -96,6 +97,7 @@ export const SECOND_PLAN: FeePlan = {
   kind: "ENROLLMENT",
   amountCents: 15000,
   teamIds: ["t-u16"],
+  installments: 3,
   isActive: false,
 };
 

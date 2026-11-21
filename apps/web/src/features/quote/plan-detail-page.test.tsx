@@ -110,7 +110,7 @@ describe("PlanDetailPage: report and people", () => {
     expect(screen.getByText("Marta Bianchi")).toBeInTheDocument();
   });
 
-  it("says that nobody is billed yet when the plan has no fees", async () => {
+  it("says there are no fees when nobody was in the plan's teams at creation", async () => {
     stubApi(
       routes({
         "GET /fee-plans/p-nov/people": () =>
@@ -230,30 +230,34 @@ describe("PlanDetailPage: the fees of a person", () => {
 });
 
 describe("PlanDetailPage: managing the plan", () => {
-  it("edits the plan: only the name, the type and the state travel", async () => {
+  it("states the terms of the plan under its name", async () => {
+    stubApi(routes({ "GET /fee-plans/p-nov": () => json(200, { ...PLAN, installments: 4, teamIds: ["t-u16", "t-u18"] }) }));
+    renderWithProviders(<PlanDetailPage id="p-nov" />);
+    await screen.findByRole("heading", { level: 1, name: "Quota novembre" });
+    expect(await screen.findByText(/4 pagamenti da €\s60 · U16 e U18/)).toBeInTheDocument();
+  });
+
+  it("edits only what the fees do not depend on: name, type and whether the plan is in use", async () => {
     const api = stubApi(routes({ "PATCH /fee-plans/p-nov": () => json(200, PLAN) }));
     renderWithProviders(<PlanDetailPage id="p-nov" />);
     await userEvent.click(await screen.findByRole("button", { name: "Modifica" }));
     const dialog = await screen.findByRole("dialog", { name: "Modifica il piano" });
     expect(within(dialog).getByLabelText(/Nome del piano/)).toHaveValue("Quota novembre");
+    expect(within(dialog).queryByLabelText(/Importo/)).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole("checkbox")).not.toBeInTheDocument();
 
-    expect(within(dialog).queryByLabelText(/Importo in euro/)).not.toBeInTheDocument();
     await userEvent.click(within(dialog).getByRole("switch", { name: "Piano attivo" }));
     await userEvent.click(within(dialog).getByRole("button", { name: "Salva le modifiche" }));
 
     await waitFor(() => expect(api.count("PATCH /fee-plans/p-nov")).toBe(1));
-    expect(api.calls.find((call) => call.method === "PATCH")?.body).toEqual({
-      name: "Quota novembre",
-      kind: "MONTHLY",
-      isActive: false,
-    });
+    expect(api.calls.find((call) => call.method === "PATCH")?.body).toEqual({ name: "Quota novembre", kind: "MONTHLY", isActive: false });
   });
 
-  it("still offers editing for an inactive plan", async () => {
-    stubApi(routes({ "GET /fee-plans/p-nov": () => json(200, { ...PLAN, isActive: false }) }));
+  it("has no way to generate fees: they are created with the plan", async () => {
+    stubApi(routes());
     renderWithProviders(<PlanDetailPage id="p-nov" />);
-    await screen.findByRole("heading", { level: 1, name: "Quota novembre" });
-    expect(screen.getByRole("button", { name: "Modifica" })).toBeInTheDocument();
+    await screen.findByText("Anna Ferri");
+    expect(screen.queryByRole("button", { name: /Genera/ })).not.toBeInTheDocument();
   });
 
   it("is read-only for users without the write permission", async () => {

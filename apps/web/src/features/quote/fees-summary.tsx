@@ -72,23 +72,8 @@ export function FeesSummaryBar({ plans, report }: FeesSummaryBarProps) {
   const data = summary.data;
   return (
     <section aria-label="Rendiconto" className="grid gap-4 md:grid-cols-3">
-      <StatTile
-        label="Incassato"
-        tone="success"
-        icon={Coins}
-        value={formatEuro(data.incassatoCents)}
-        note={pluralize(data.paidCount, "quota pagata", "quote pagate")}
-      />
-      <StatTile
-        label="Da incassare"
-        icon={Hourglass}
-        value={formatEuro(data.daIncassareCents)}
-        note={
-          data.scadutoCents > 0
-            ? `di cui ${formatEuro(data.scadutoCents)} scaduti (${pluralize(data.overdueCount, "quota", "quote")})`
-            : `${pluralize(data.pendingCount, "quota", "quote")} in attesa, nessuna scaduta`
-        }
-      />
+      <StatTile label="Incassato" tone="success" icon={Coins} value={formatEuro(data.incassatoCents)} />
+      <StatTile label="Da incassare" icon={Hourglass} value={formatEuro(data.daIncassareCents)} />
       <PlanReportTile plans={plans} report={report} />
     </section>
   );

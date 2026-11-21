@@ -1,6 +1,7 @@
 "use client";
 
 import { SectionHeading } from "@/components/ui";
+import { RelatedLink } from "@/features/altro/related-link";
 import { FeesPanel } from "./fees-panel";
 import { PaymentsOverview } from "./payments-overview";
 import { useQuoteAccess } from "./use-quote-access";
@@ -26,6 +27,7 @@ export function QuotePage() {
         highlight="piano per piano."
         description={describeAudience(access)}
       />
+      {access.canSeeAll ? <RelatedLink href="/altro/entrate/Quote" label="Vedi le quote incassate nelle entrate" /> : null}
       {access.canSeeAll ? <PaymentsOverview /> : <FeesPanel />}
     </div>
   );

@@ -56,27 +56,28 @@ test.describe("iscrizione, area personale e amministrazione sul backend reale", 
 
   test("il report per il commercialista si scarica come PDF, completo e per sezione", async ({ page }) => {
     await loginAs(page, society.people.admin, "/altro/bilancio");
-    await expect(page.getByRole("heading", { name: "Report per il commercialista" })).toBeVisible();
-    await expect(page.getByRole("list", { name: "Sezioni del report" }).getByRole("listitem")).toHaveCount(7);
+    await page.getByRole("button", { name: "Report per il commercialista" }).click();
+    const report = page.getByRole("dialog", { name: "Report per il commercialista" });
+    await expect(report.getByRole("list", { name: "Sezioni del report" }).getByRole("listitem")).toHaveCount(7);
 
     const full = page.waitForEvent("download");
-    await page.getByRole("button", { name: "Scarica il report completo" }).click();
+    await report.getByRole("button", { name: "Scarica il report completo" }).click();
     const fullDownload = await full;
     expect(fullDownload.suggestedFilename()).toMatch(/^report-aquile-volley-\d{4}-\d{2}-\d{2}_\d{4}-\d{2}-\d{2}\.pdf$/);
     const header = (await readFile((await fullDownload.path()) ?? "")).subarray(0, 5).toString("latin1");
     expect(header).toBe("%PDF-");
 
     const single = page.waitForEvent("download");
-    await page.getByRole("button", { name: "Scarica solo Quote e incassi" }).click();
+    await report.getByRole("button", { name: "Solo questa: Quote e incassi" }).click();
     expect((await single).suggestedFilename()).toMatch(/\.pdf$/);
   });
 
   test("un file allegato a una palestra resta legato alla voce e si può eliminare", async ({ page }) => {
     const venue = society.venue;
     await loginAs(page, society.people.admin, "/altro/palestre");
-    await page.getByRole("button", { name: `Altre azioni di ${venue}` }).click();
-    await page.getByRole("menuitem", { name: `Allegati di ${venue}` }).click();
-    const dialog = page.getByRole("dialog", { name: `Allegati · ${venue}` });
+    // The card opens the detail of the venue, where the attachments are
+    await page.getByRole("button", { name: venue }).click();
+    const dialog = page.getByRole("dialog", { name: venue });
     await expect(dialog.getByText("Nessun allegato")).toBeVisible();
 
     await dialog.getByLabel("Nome del documento").fill("Contratto 2026");

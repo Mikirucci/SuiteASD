@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { ADMIN_ENTRIES, isNavGroup } from "@/features/shell/nav-items";
+import { ADMIN_ITEMS } from "@/features/shell/nav-items";
 import { SERVICES, resolveOtherSections, resolveServices } from "./services";
 import { ADMIN_PERMISSIONS } from "./test-fixtures";
 
-const ALL_ITEM_IDS = ADMIN_ENTRIES.flatMap((entry) => (isNavGroup(entry) ? entry.items.map((item) => item.id) : []));
+const ALL_ITEM_IDS = ADMIN_ITEMS.map((item) => item.id);
 
 describe("resolveServices", () => {
   it("offers the four services to the administration, links in the order of the menu", () => {

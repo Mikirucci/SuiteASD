@@ -11,7 +11,7 @@ import {
 } from "./nav-items";
 
 const ALL_PERMISSIONS = ADMIN_ITEMS.flatMap((item) => (item.permission ? [item.permission] : []));
-/** What the ALLENATORE role gets from the matrix in the permission matrix of the backend (docs/api/openapi.yaml lists the permission of each endpoint), limited to the menu permissions. */
+/** What the ALLENATORE role gets from the permission matrix of the backend (docs/api/openapi.yaml lists the permission of each endpoint), limited to the menu permissions. */
 const COACH_PERMISSIONS = [
   "members:read",
   "documents:read",
@@ -37,8 +37,8 @@ function group(entries: readonly NavEntry[], label: string) {
 }
 
 describe("administration menu", () => {
-  it("is Home followed by five topic groups with their items in order", () => {
-    expect(labels(ADMIN_ENTRIES)).toEqual(["Home", "Persone", "Attività sportiva", "Amministrazione", "Logistica", "Comunicazione"]);
+  it("is Home, five topic groups with their items in order, and Bilancio on its own", () => {
+    expect(labels(ADMIN_ENTRIES)).toEqual(["Home", "Persone", "Attività sportiva", "Amministrazione", "Movimenti", "Bilancio", "Logistica", "Comunicazione"]);
     expect(group(ADMIN_ENTRIES, "Persone").items.map((item) => item.label)).toEqual(["Tesserati", "Squadre", "Staff", "Accessi e inviti"]);
     expect(group(ADMIN_ENTRIES, "Attività sportiva").items.map((item) => item.label)).toEqual([
       "Calendario",
@@ -49,7 +49,10 @@ describe("administration menu", () => {
       "Arbitri",
       "Statistiche",
     ]);
-    expect(group(ADMIN_ENTRIES, "Amministrazione").items.map((item) => item.label)).toEqual(["Pagamenti", "Scadenze e documenti", "Bilancio", "Sponsor"]);
+    expect(group(ADMIN_ENTRIES, "Amministrazione").items.map((item) => item.label)).toEqual(["Pagamenti", "Scadenze e documenti", "Sponsor"]);
+    // the two lists of movements are one topic; the balance reads them and is not one of them
+    expect(group(ADMIN_ENTRIES, "Movimenti").items.map((item) => item.label)).toEqual(["Entrate", "Uscite"]);
+    expect(ADMIN_ENTRIES.some((entry) => !isNavGroup(entry) && entry.label === "Bilancio")).toBe(true);
     expect(group(ADMIN_ENTRIES, "Logistica").items.map((item) => item.label)).toEqual(["Palestre", "Trasferte", "Divise"]);
     expect(group(ADMIN_ENTRIES, "Comunicazione").items.map((item) => item.label)).toEqual(["Notifiche", "Bacheca", "Automazioni"]);
   });
@@ -62,6 +65,8 @@ describe("administration menu", () => {
       staff: "/altro/staff",
       presenze: "/calendario/presenze",
       scadenze: "/scadenze",
+      entrate: "/altro/entrate",
+      uscite: "/altro/uscite",
       bilancio: "/altro/bilancio",
       automazioni: "/automazioni",
     });
@@ -84,14 +89,14 @@ describe("administration menu", () => {
 describe("visibleEntries", () => {
   it("shows the administrator every group and every item", () => {
     const entries = visibleEntries(ADMIN_ENTRIES, ALL_PERMISSIONS);
-    expect(labels(entries)).toEqual(["Home", "Persone", "Attività sportiva", "Amministrazione", "Logistica", "Comunicazione"]);
+    expect(labels(entries)).toEqual(["Home", "Persone", "Attività sportiva", "Amministrazione", "Movimenti", "Bilancio", "Logistica", "Comunicazione"]);
     expect(entries.flatMap((entry) => (isNavGroup(entry) ? entry.items : [entry]))).toHaveLength(ADMIN_ITEMS.length);
   });
 
   it("hides from a coach what the permission matrix does not give", () => {
     const entries = visibleEntries(ADMIN_ENTRIES, COACH_PERMISSIONS);
     const shown = entries.flatMap((entry) => (isNavGroup(entry) ? entry.items : [entry])).map((item) => item.label);
-    for (const hidden of ["Squadre", "Staff", "Accessi e inviti", "Pagamenti", "Bilancio", "Sponsor", "Arbitri", "Statistiche", "Automazioni"]) {
+    for (const hidden of ["Squadre", "Staff", "Accessi e inviti", "Pagamenti", "Entrate", "Uscite", "Bilancio", "Sponsor", "Arbitri", "Statistiche", "Automazioni"]) {
       expect(shown).not.toContain(hidden);
     }
     expect(group(entries, "Attività sportiva").items.map((item) => item.label)).toEqual(["Calendario", "Presenze", "Classifiche", "Tornei", "Pagelle"]);
@@ -136,6 +141,8 @@ describe("findActiveItem", () => {
 
   it("finds the pages that live under /altro and the home", () => {
     expect(findActiveItem("/altro/bilancio", ADMIN_ENTRIES)?.label).toBe("Bilancio");
+    expect(findActiveItem("/altro/entrate", ADMIN_ENTRIES)?.label).toBe("Entrate");
+    expect(findActiveItem("/altro/uscite/Palestre", ADMIN_ENTRIES)?.label).toBe("Uscite");
     expect(findActiveItem("/", ADMIN_ENTRIES)?.label).toBe("Home");
   });
 

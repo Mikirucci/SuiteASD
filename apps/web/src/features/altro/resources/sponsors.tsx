@@ -1,7 +1,7 @@
 import { Handshake } from "lucide-react";
 import { z } from "zod";
-import { Badge, type BadgeVariant } from "@/components/ui";
-import { formatDay, formatEuro } from "@/lib/format";
+import { Avatar, Badge, type BadgeVariant } from "@/components/ui";
+import { dayToDate, formatDay, formatEuro } from "@/lib/format";
 import type { ResourceConfig } from "../crud/types";
 import {
   amountToInput,
@@ -14,7 +14,6 @@ import {
   requiredAmount,
   requiredText,
 } from "../crud/values";
-import { joinParts } from "../format";
 import type { Sponsor, SponsorStatus } from "../types";
 
 const STATUS_LABELS: Record<SponsorStatus, string> = { ACTIVE: "Attivo", PROSPECT: "Potenziale", EXPIRED: "Scaduto" };
@@ -37,11 +36,28 @@ const schema = z
     path: ["contractEnd"],
   });
 
-function contractPeriod(sponsor: Sponsor): string | null {
-  if (sponsor.contractStart && sponsor.contractEnd) return `Contratto dal ${formatDay(sponsor.contractStart)} al ${formatDay(sponsor.contractEnd)}`;
-  if (sponsor.contractEnd) return `Contratto fino al ${formatDay(sponsor.contractEnd)}`;
-  if (sponsor.contractStart) return `Contratto dal ${formatDay(sponsor.contractStart)}`;
-  return null;
+/** The one date a card shows: when the contract ends. The start and the rest are in the detail. */
+function contractEnd(sponsor: Sponsor): string {
+  return sponsor.contractEnd ? `Fino al ${formatDay(sponsor.contractEnd)}` : "Senza scadenza";
+}
+
+/** An active contract that ends within this many days is shown as expiring (the same reach as the API summary). */
+export const EXPIRING_WITHIN_DAYS = 30;
+
+const DAY_MS = 86_400_000;
+
+/**
+ * What the card says about the end of an active contract: nothing while it is far away, a countdown in the last month,
+ * "terminato" once the day has passed. Only an active sponsor can be expiring: the other states say it already.
+ */
+export function contractAlert(sponsor: Sponsor, today: Date): string | null {
+  if (sponsor.status !== "ACTIVE" || !sponsor.contractEnd) return null;
+  const midnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const days = Math.round((dayToDate(sponsor.contractEnd).getTime() - midnight.getTime()) / DAY_MS);
+  if (days < 0) return "Contratto terminato";
+  if (days === 0) return "Scade oggi";
+  if (days === 1) return "Scade domani";
+  return days <= EXPIRING_WITHIN_DAYS ? `Scade tra ${days} giorni` : null;
 }
 
 export const sponsorsConfig: ResourceConfig<Sponsor> = {
@@ -49,6 +65,7 @@ export const sponsorsConfig: ResourceConfig<Sponsor> = {
   path: "/sponsors",
   writePermission: "sponsors:write",
   attachmentType: "SPONSOR",
+  openOnClick: true,
   icon: Handshake,
   fieldAliases: { amountCents: "amount" },
   searchLabel: "Cerca per nome dello sponsor",
@@ -60,7 +77,7 @@ export const sponsorsConfig: ResourceConfig<Sponsor> = {
     createDescription: "Importo e scadenza del contratto, con il referente da contattare.",
     createSubmit: "Crea lo sponsor",
     editTitle: "Modifica lo sponsor",
-    editDescription: "Le modifiche valgono da subito per tutta la società.",
+    editDescription: "Cambia i dati del contratto e allega i documenti: le modifiche valgono da subito.",
     createdToast: "Sponsor creato",
     updatedToast: "Sponsor aggiornato",
     deletedToast: "Sponsor eliminato",
@@ -90,7 +107,7 @@ export const sponsorsConfig: ResourceConfig<Sponsor> = {
       label: "Importo del contratto in euro",
       kind: "money",
       required: true,
-      hint: "Scrivi 0 se non c'è ancora un importo.",
+      hint: "Finisce tra le entrate, nella categoria Sponsor, il giorno in cui inizia il contratto. Un potenziale non ha ancora entrate; scrivi 0 se non c'è un importo.",
       half: true,
     },
     {
@@ -132,13 +149,25 @@ export const sponsorsConfig: ResourceConfig<Sponsor> = {
     };
   },
   nameOf: (sponsor) => sponsor.name,
-  row: (sponsor) => ({
-    title: sponsor.name,
-    lines: [
-      joinParts([formatEuro(sponsor.amountCents), contractPeriod(sponsor)], " · "),
-      joinParts([sponsor.contactName, sponsor.email, sponsor.phone]),
-      sponsor.notes,
-    ],
-    status: <Badge variant={STATUS_VARIANTS[sponsor.status]}>{STATUS_LABELS[sponsor.status]}</Badge>,
-  }),
+  row: (sponsor) => {
+    const alert = contractAlert(sponsor, new Date());
+    return {
+      title: sponsor.name,
+      leading: <Avatar name={sponsor.name} decorative />,
+      // Only what is needed to tell sponsors apart at a glance: the card opens to the rest
+      lines: [sponsor.email, contractEnd(sponsor)],
+      status: (
+        <>
+          <Badge variant={STATUS_VARIANTS[sponsor.status]}>{STATUS_LABELS[sponsor.status]}</Badge>
+          {alert ? <Badge variant="warning">{alert}</Badge> : null}
+        </>
+      ),
+      figure:
+        sponsor.amountCents > 0 ? (
+          <span className="ml-auto text-base font-extrabold text-fg">{formatEuro(sponsor.amountCents)}</span>
+        ) : (
+          <span className="ml-auto text-sm text-fg-muted">Importo da definire</span>
+        ),
+    };
+  },
 };

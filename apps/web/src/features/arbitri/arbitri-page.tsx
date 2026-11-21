@@ -2,6 +2,7 @@
 
 import { Lock } from "lucide-react";
 import { useState } from "react";
+import { RelatedLink } from "@/features/altro/related-link";
 import { EmptyState, SectionHeading, Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui";
 import { useCursorQuery } from "@/lib/use-cursor-query";
 import { usePermission } from "@/hooks/use-permission";
@@ -28,6 +29,7 @@ export function ArbitriPage() {
         highlight="sotto controllo."
         description="Chi arbitra ogni partita, quanto spetta e chi è già stato rimborsato."
       />
+      <RelatedLink href="/altro/uscite/Arbitri" label="Vedi i compensi degli arbitri nelle uscite" />
       {canRead ? (
         <Tabs value={tab} onValueChange={(value) => setTab(value === "arbitri" ? "arbitri" : "designazioni")}>
           <TabsList aria-label="Sezioni degli arbitri">

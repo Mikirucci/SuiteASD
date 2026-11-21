@@ -15,7 +15,7 @@ import { ResourceFormDialog, type ResourceDialogState } from "./resource-form-di
 import { ResourceRow } from "./resource-row";
 import type { FormValues, ResourceConfig } from "./types";
 
-const PAGE_SIZE = 25;
+const DEFAULT_PAGE_SIZE = 25;
 
 export interface ResourceViewProps<T extends { id: string }> {
   config: ResourceConfig<T>;
@@ -32,6 +32,8 @@ export interface ResourceViewProps<T extends { id: string }> {
   columns?: 2 | 3;
   /** Fields of a new record filled in advance. */
   createPresets?: FormValues;
+  /** Records per page; a grid reads better with a number that fills whole rows (12 for two or three columns). */
+  pageSize?: number;
 }
 
 /**
@@ -47,6 +49,7 @@ export function ResourceView<T extends { id: string }>({
   layout = "list",
   columns = 3,
   createPresets,
+  pageSize = DEFAULT_PAGE_SIZE,
 }: ResourceViewProps<T>) {
   const { copy, filter } = config;
   const canWrite = usePermission(config.writePermission);
@@ -59,7 +62,7 @@ export function ResourceView<T extends { id: string }>({
   const [attachments, setAttachments] = useState<AttachmentsTarget | null>(null);
   const q = useDebouncedValue(search.trim());
 
-  const query: QueryParams = { ...extraQuery, q: q || undefined, ...(filter && filterValue ? { [filter.param]: filterValue } : {}), limit: PAGE_SIZE };
+  const query: QueryParams = { ...extraQuery, q: q || undefined, ...(filter && filterValue ? { [filter.param]: filterValue } : {}), limit: pageSize };
   const list = useCursorQuery<T>([config.key, query], config.path, query);
 
   const remove = useApiMutation((item: T, client) => client.delete<void>(`${config.path}/${item.id}`), {
@@ -71,6 +74,11 @@ export function ResourceView<T extends { id: string }>({
     setSearch("");
     setFilterValue("");
     onResetExtraFilters?.();
+  };
+
+  const askToDelete = (item: T) => {
+    remove.reset();
+    setDeleting(item);
   };
 
   const confirmDelete = () => {
@@ -138,10 +146,11 @@ export function ResourceView<T extends { id: string }>({
               content={config.row(item)}
               name={config.nameOf(item)}
               stacked={layout === "grid"}
-              onEdit={editable ? () => setForm({ mode: "edit", item }) : undefined}
-              onDelete={editable ? () => { remove.reset(); setDeleting(item); } : undefined}
+              onOpen={config.openOnClick ? () => setForm({ mode: "edit", item, readOnly: !editable }) : undefined}
+              onEdit={editable && !config.openOnClick ? () => setForm({ mode: "edit", item }) : undefined}
+              onDelete={editable && !config.openOnClick ? () => askToDelete(item) : undefined}
               onAttachments={
-                canWrite && config.attachmentType
+                canWrite && config.attachmentType && !config.openOnClick
                   ? () => setAttachments({ entityType: config.attachmentType as AttachmentEntityType, entityId: item.id, recordName: config.nameOf(item) })
                   : undefined
               }
@@ -171,7 +180,15 @@ export function ResourceView<T extends { id: string }>({
       />
       <LoadMore list={list} noun={copy.countNoun} moreLabel={copy.moreLabel} />
 
-      <ResourceFormDialog config={config} state={form} onClose={() => setForm(null)} />
+      <ResourceFormDialog
+        config={config}
+        state={form}
+        onClose={() => setForm(null)}
+        onDelete={(item) => {
+          setForm(null);
+          askToDelete(item);
+        }}
+      />
       <AttachmentsDialog target={attachments} onClose={() => setAttachments(null)} />
       <ConfirmDialog
         open={deleting !== null}

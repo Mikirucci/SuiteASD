@@ -130,31 +130,42 @@ describe("ExpirationsPage for staff: the document types", () => {
     expect(screen.queryByRole("list", { name: "Scadenze di ottobre 2026" })).not.toBeInTheDocument();
   });
 
-  it("keeps the timeline with the nearest expiry selected, and shows the card of the avatar you pick", async () => {
+  it("has no chart of the upcoming expiries: only the totals and the cards", async () => {
+    const api = standardApi();
+    renderScreen(<ExpirationsPage />);
+    await screen.findByRole("list", { name: "Documenti" });
+    expect(screen.queryByRole("heading", { name: "Prossime scadenze" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "Scadenze dei documenti nei prossimi mesi" })).not.toBeInTheDocument();
+    expect(api.calls.some((call) => call.path === "/documents/expirations")).toBe(false);
+  });
+
+  it("writes each total as a coloured number with its unit beside it, and nothing underneath", async () => {
     standardApi();
     renderScreen(<ExpirationsPage />);
-    const timeline = await screen.findByRole("list", { name: "Scadenze dei documenti nei prossimi mesi" });
-    expect(within(timeline).getAllByRole("listitem")).toHaveLength(2);
-    expect(screen.getByText(/Giulia Rossi · Certificato medico/).parentElement).toHaveTextContent("— Scade tra 5 giorni");
+    const report = await screen.findByRole("region", { name: "Rendiconto dei documenti" });
+    const tones = { "In regola": "text-success", "In scadenza": "text-warning", Scaduti: "text-danger", Mancanti: "text-danger" } as const;
+    for (const [label, tone] of Object.entries(tones)) {
+      const tile = within(report).getByText(label).parentElement?.parentElement;
+      const figure = tile?.lastElementChild;
+      expect(figure, label).toHaveClass(tone);
+      // the unit lives inside the same coloured line: no subtitle element follows it
+      expect(figure?.querySelector("span"), label).toHaveTextContent(/^documen(to|ti)$/);
+      expect(tile?.children, label).toHaveLength(2);
+    }
+  });
 
-    await userEvent.click(screen.getByRole("button", { name: /Sara Conti, scade il 27 novembre 2026/ }));
-    expect(screen.getByText(/Sara Conti · Certificato medico/).parentElement).toHaveTextContent("— Scade tra 15 giorni");
-    expect(screen.getByText("Automatico")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Apri la scheda" })).toHaveAttribute("href", "/tesserati/m-sara");
-    expect(screen.getByRole("link", { name: "Automazioni" })).toHaveAttribute("href", "/automazioni");
+  it("names the three previews of a card on hover", async () => {
+    standardApi();
+    renderScreen(<ExpirationsPage />);
+    const [certificate] = within(await screen.findByRole("list", { name: "Documenti" })).getAllByRole("listitem");
+    await userEvent.hover(within(certificate!).getByText("persone in regola").parentElement!);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("persone in regola");
   });
 
   it("explains that an expired certificate makes the athlete not callable", async () => {
     standardApi();
     renderScreen(<ExpirationsPage />);
     expect(await screen.findByText("Certificato scaduto, atleta non convocabile")).toBeInTheDocument();
-  });
-
-  it("shows the cards even when nothing is about to expire", async () => {
-    standardApi({ ...EXPIRATIONS, months: [{ month: "2026-10", items: [] }], overdue: [] });
-    renderScreen(<ExpirationsPage />);
-    expect(await screen.findByRole("list", { name: "Documenti" })).toBeInTheDocument();
-    expect(screen.queryByRole("list", { name: "Scadenze dei documenti nei prossimi mesi" })).not.toBeInTheDocument();
   });
 
   it("keeps the cards when only the previews cannot be loaded", async () => {
@@ -166,24 +177,6 @@ describe("ExpirationsPage for staff: the document types", () => {
     renderScreen(<ExpirationsPage />);
     expect(await screen.findByRole("link", { name: "Certificato medico" })).toBeInTheDocument();
     expect(await screen.findByText("Anteprima non disponibile")).toBeInTheDocument();
-  });
-
-  it("keeps the cards and offers a retry when only the timeline cannot be loaded", async () => {
-    let attempts = 0;
-    mockApi({
-      "GET /documents/expirations": () => {
-        attempts += 1;
-        return attempts === 1 ? problem(500, "internal_error") : { body: EXPIRATIONS };
-      },
-      "GET /document-types": () => page([CERTIFICATE_TYPE]),
-      "GET /document-types/report": () => ({ body: REPORT }),
-    });
-    renderScreen(<ExpirationsPage />);
-    expect(await screen.findByRole("link", { name: "Certificato medico" })).toBeInTheDocument();
-    const alert = await screen.findByRole("alert");
-    expect(within(alert).getByText("Scadenze non disponibili")).toBeInTheDocument();
-    await userEvent.click(within(alert).getByRole("button", { name: "Riprova" }));
-    expect(await screen.findByRole("list", { name: "Scadenze dei documenti nei prossimi mesi" })).toBeInTheDocument();
   });
 
   it("shows an error with a retry button when the document types cannot be loaded", async () => {

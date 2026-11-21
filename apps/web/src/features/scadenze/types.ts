@@ -66,14 +66,17 @@ export interface TypePerson {
   hasFile: boolean;
 }
 
-/** The stats describe the whole type whatever the filters; the people are filtered and ordered by name. */
+/** The stats describe the whole type whatever the filters; the people are one page of the filtered list, ordered by name. */
 export interface TypePeople {
   stats: TypeStats;
   people: TypePerson[];
+  pagination: { page: number; pageSize: number; total: number; totalPages: number };
 }
 
 export interface TypePeopleFilters {
   q: string;
   teamId: string;
   status: DocumentStatus | "";
+  /** 1-based. */
+  page: number;
 }

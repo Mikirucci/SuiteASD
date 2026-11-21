@@ -1,9 +1,10 @@
 import { Building2 } from "lucide-react";
 import { z } from "zod";
 import type { ResourceConfig } from "../crud/types";
-import { formatDay, formatEuro } from "@/lib/format";
+import { formatEuro } from "@/lib/format";
 import { amountToInput, bodyReader, numberToInput, optionalDay, optionalInteger, optionalPositiveAmount, optionalText, requiredText } from "../crud/values";
 import { joinParts } from "../format";
+import { parseSlots, serializeSlots, slotsProblem } from "../venue-slots";
 import type { Venue } from "../types";
 
 const schema = z.object({
@@ -11,6 +12,7 @@ const schema = z.object({
   address: optionalText(200),
   city: optionalText(80),
   capacity: optionalInteger(1, 100_000),
+  slots: z.string().refine((value) => slotsProblem(parseSlots(value)) === null, { message: "Controlla gli orari: la fine deve essere dopo l'inizio e due orari dello stesso giorno non possono sovrapporsi." }),
   availability: optionalText(500),
   notes: optionalText(1000),
   cost: optionalPositiveAmount(),
@@ -22,6 +24,7 @@ export const venuesConfig: ResourceConfig<Venue> = {
   path: "/venues",
   writePermission: "venues:write",
   attachmentType: "VENUE",
+  openOnClick: true,
   icon: Building2,
   fieldAliases: { costCents: "cost" },
   searchLabel: "Cerca per nome o città",
@@ -33,7 +36,7 @@ export const venuesConfig: ResourceConfig<Venue> = {
     createDescription: "Indirizzo e orari servono a tutti per sapere dove andare.",
     createSubmit: "Crea la palestra",
     editTitle: "Modifica la palestra",
-    editDescription: "Le modifiche valgono da subito per tutta la società.",
+    editDescription: "Cambia indirizzo, orari e costo, e allega i documenti: le modifiche valgono da subito.",
     createdToast: "Palestra creata",
     updatedToast: "Palestra aggiornata",
     deletedToast: "Palestra eliminata",
@@ -49,11 +52,12 @@ export const venuesConfig: ResourceConfig<Venue> = {
     { name: "city", label: "Città", kind: "text", half: true },
     { name: "capacity", label: "Capienza", kind: "integer", hint: "Facoltativa, numero di persone.", half: true },
     {
-      name: "availability",
-      label: "Orari di disponibilità",
-      kind: "textarea",
-      hint: "Per esempio: martedì e giovedì 18:00-21:00.",
+      name: "slots",
+      label: "Orari fissi",
+      kind: "slots",
+      hint: "Quando potete usare la palestra: scegli il giorno e dalle a che ora alle a che ora. Aggiungi un orario per ogni giorno.",
     },
+    { name: "availability", label: "Altro", kind: "textarea", hint: "Quello che gli orari non dicono, per esempio: anche il sabato per le gare." },
     { name: "cost", label: "Costo in euro", kind: "money", hint: "Facoltativo: finisce tra le uscite del bilancio.", half: true },
     { name: "costDate", label: "Data del costo", kind: "date", hint: "Se la lasci vuota vale oggi.", half: true },
     { name: "notes", label: "Note", kind: "textarea" },
@@ -64,6 +68,7 @@ export const venuesConfig: ResourceConfig<Venue> = {
     address: venue?.address ?? "",
     city: venue?.city ?? "",
     capacity: numberToInput(venue?.capacity ?? null),
+    slots: serializeSlots(venue?.slots ?? []),
     availability: venue?.availability ?? "",
     notes: venue?.notes ?? "",
     cost: amountToInput(venue?.costCents ?? null),
@@ -76,6 +81,8 @@ export const venuesConfig: ResourceConfig<Venue> = {
       address: read.text("address"),
       city: read.text("city"),
       capacity: read.integer("capacity"),
+      // Always sent: an empty list is how the hours are taken away
+      slots: parseSlots(read.raw("slots")),
       availability: read.text("availability"),
       notes: read.text("notes"),
       costCents: read.amount("cost"),
@@ -83,13 +90,15 @@ export const venuesConfig: ResourceConfig<Venue> = {
     };
   },
   nameOf: (venue) => venue.name,
+  // The card keeps what tells venues apart: where it is, how big, what it costs. Hours and notes are in the detail
   row: (venue) => ({
     title: venue.name,
-    lines: [
-      joinParts([venue.address, venue.city]),
-      venue.availability ? `Orari: ${venue.availability}` : null,
-      venue.capacity !== null ? `Capienza: ${venue.capacity} persone` : null,
-      venue.costCents !== null ? `Costo: ${formatEuro(venue.costCents)}${venue.costDate ? ` del ${formatDay(venue.costDate)}` : ""}` : null,
-    ],
+    leading: (
+      <span aria-hidden="true" className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary-soft text-brand-700">
+        <Building2 className="size-5" />
+      </span>
+    ),
+    lines: [joinParts([venue.address, venue.city]), venue.capacity !== null ? `Capienza ${venue.capacity} persone` : null],
+    figure: venue.costCents !== null ? <span className="ml-auto text-base font-extrabold text-fg">{formatEuro(venue.costCents)}</span> : undefined,
   }),
 };

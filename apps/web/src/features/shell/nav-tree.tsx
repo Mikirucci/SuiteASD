@@ -114,9 +114,10 @@ export function NavTree({
   const [open, setOpen] = useState<ReadonlySet<string>>(() => new Set(activeGroupId ? [activeGroupId] : []));
   const [seenPath, setSeenPath] = useState(pathname);
   if (seenPath !== pathname) {
-    // A new page: show where it lives and fold the rest
+    // A new page: show where it lives, and leave the other groups as the person had them, so the menu does not
+    // rearrange itself at every click
     setSeenPath(pathname);
-    setOpen(new Set(activeGroupId ? [activeGroupId] : []));
+    if (activeGroupId) setOpen((current) => new Set([...current, activeGroupId]));
   }
 
   function toggle(id: string) {
