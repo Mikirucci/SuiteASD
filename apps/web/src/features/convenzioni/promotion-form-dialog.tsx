@@ -8,7 +8,7 @@ import { useAuth } from "@/features/auth/auth-provider";
 import { useAllTeams } from "@/features/squadre/api";
 import { applyServerErrors } from "@/features/tesserati/server-errors";
 import { cn } from "@/lib/cn";
-import { useCreatePromotion, useUpdatePromotion } from "./api";
+import { useCreatePromotion, useSocietyLogoUrl, useUpdatePromotion } from "./api";
 import { CARD_TEMPLATES } from "./card-templates";
 import { PromotionCard } from "./promotion-card";
 import {
@@ -138,6 +138,7 @@ interface FormProps {
 function PromotionForm({ promotion, onClose, onBusyChange }: FormProps) {
   const { toast } = useToast();
   const auth = useAuth();
+  const logoUrl = useSocietyLogoUrl(true);
   const teams = useAllTeams();
   const create = useCreatePromotion();
   const update = useUpdatePromotion(promotion?.id ?? "");
@@ -222,6 +223,7 @@ function PromotionForm({ promotion, onClose, onBusyChange }: FormProps) {
             holderName: "Nome Cognome",
             representedBy: null,
           }}
+          logoUrl={logoUrl}
         />
         <TemplatePicker value={template} onChange={(template) => setValue("template", template, { shouldDirty: true })} />
       </div>

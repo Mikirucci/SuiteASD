@@ -80,4 +80,6 @@ export interface PromotionCard {
   holderMemberId: string | null;
   /** For a child, the guardian who acts for them. */
   representedBy: string | null;
+  /** Whether the society has a logo to print on the card. */
+  hasSocietyLogo: boolean;
 }

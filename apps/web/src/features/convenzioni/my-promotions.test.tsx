@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { expectNoA11yViolations } from "@/test/a11y";
@@ -30,6 +30,27 @@ describe("MyPromotions", () => {
     expect(cards[0]).toHaveTextContent("Genitore: Mario Verdi");
     expect(cards[1]).toHaveTextContent("Luca Conti");
     await expectNoA11yViolations(container);
+  });
+
+  it("prints the logo of the society on the cards when it has one", async () => {
+    vi.stubGlobal("URL", Object.assign(URL, { createObjectURL: () => "blob:logo", revokeObjectURL: () => undefined }));
+    const api = stubApi({
+      "GET /me/promotions": () => json(200, { data: [{ ...CARD, hasSocietyLogo: true }] }),
+      "GET /me/promotions/society-logo": () => new Response(new Uint8Array([137, 80, 78, 71]), { status: 200, headers: { "content-type": "image/png" } }),
+    });
+    const { container } = renderWithProviders(<MyPromotions />);
+
+    await screen.findByRole("article", { name: "Card Fisioterapia scontata" });
+    await waitFor(() => expect(container.querySelector("img")).toHaveAttribute("src", "blob:logo"));
+    expect(api.count("GET /me/promotions/society-logo")).toBe(1);
+  });
+
+  it("does not ask for the logo when the society has none", async () => {
+    const api = stubApi({ "GET /me/promotions": () => json(200, { data: [CARD] }) });
+    renderWithProviders(<MyPromotions />);
+
+    await screen.findByRole("article", { name: "Card Fisioterapia scontata" });
+    expect(api.count("GET /me/promotions/society-logo")).toBe(0);
   });
 
   it("says when a card is not valid yet", async () => {

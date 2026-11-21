@@ -50,4 +50,5 @@ export const CARD: PromotionCard = {
   holderName: "Marco Loiodice",
   holderMemberId: "m-marco",
   representedBy: null,
+  hasSocietyLogo: false,
 };

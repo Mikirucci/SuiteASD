@@ -4,7 +4,7 @@ import { BadgePercent } from "lucide-react";
 import { useState } from "react";
 import { Badge, DataBoundary, Dialog, DialogContent, DialogClose, Button, EmptyState, SectionHeading } from "@/components/ui";
 import { formatDay } from "@/lib/format";
-import { useMyCards } from "./api";
+import { useMyCards, useSocietyLogoUrl } from "./api";
 import { PromotionCard } from "./promotion-card";
 import type { PromotionCard as Card } from "./types";
 
@@ -13,7 +13,7 @@ function cardKey(card: Card): string {
 }
 
 /** What the partner offers, in words: opens from the card. */
-function CardDetailDialog({ card, onClose }: { card: Card | null; onClose: () => void }) {
+function CardDetailDialog({ card, logoUrl, onClose }: { card: Card | null; logoUrl: string | null; onClose: () => void }) {
   if (!card) return null;
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -27,7 +27,7 @@ function CardDetailDialog({ card, onClose }: { card: Card | null; onClose: () =>
         }
       >
         <div className="flex flex-col gap-4">
-          <PromotionCard card={card} />
+          <PromotionCard card={card} logoUrl={logoUrl} />
           <p className="text-sm text-fg">{card.terms ?? "Mostra la card al partner per ottenere l'agevolazione."}</p>
           <p className="text-sm text-fg-muted">
             Valida dal {formatDay(card.validFrom)} al {formatDay(card.validTo)}.
@@ -46,6 +46,7 @@ export function MyPromotions() {
   const cards = useMyCards();
   const [open, setOpen] = useState<Card | null>(null);
   const items = cards.data?.data ?? [];
+  const logoUrl = useSocietyLogoUrl(items.some((card) => card.hasSocietyLogo));
 
   return (
     <div className="flex flex-col gap-6">
@@ -74,7 +75,7 @@ export function MyPromotions() {
         <ul aria-label="Convenzioni" className="grid gap-5 md:grid-cols-2 2xl:grid-cols-3">
           {items.map((card) => (
             <li key={cardKey(card)} className="flex flex-col gap-2">
-              <PromotionCard card={card} />
+              <PromotionCard card={card} logoUrl={card.hasSocietyLogo ? logoUrl : null} />
               <div className="flex flex-wrap items-center gap-3">
                 <Button
                   variant="secondary"
@@ -90,7 +91,7 @@ export function MyPromotions() {
           ))}
         </ul>
       </DataBoundary>
-      <CardDetailDialog card={open} onClose={() => setOpen(null)} />
+      <CardDetailDialog card={open} logoUrl={open?.hasSocietyLogo ? logoUrl : null} onClose={() => setOpen(null)} />
     </div>
   );
 }

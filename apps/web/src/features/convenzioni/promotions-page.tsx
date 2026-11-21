@@ -8,10 +8,11 @@ import { useAllTeams } from "@/features/squadre/api";
 import { usePermission } from "@/hooks/use-permission";
 import { describeError } from "@/lib/api";
 import { formatDay } from "@/lib/format";
-import { useArchivePromotion, useDeletePromotion, usePromotions, usePublishPromotion } from "./api";
+import { useArchivePromotion, useDeletePromotion, usePromotions, usePublishPromotion, useSocietyLogoUrl } from "./api";
 import { PromotionCard } from "./promotion-card";
 import { PromotionFormDialog } from "./promotion-form-dialog";
 import { describeAudience } from "./promotion-schema";
+import { SocietyLogoPanel } from "./society-logo-panel";
 import type { Promotion, PromotionStatus } from "./types";
 
 const STATUS_LABELS: Record<PromotionStatus, string> = { DRAFT: "Bozza", PUBLISHED: "Pubblicata", ARCHIVED: "Archiviata" };
@@ -45,12 +46,14 @@ const CONFIRMATIONS: Record<Pending["action"], { title: string; confirmLabel: st
 function PromotionItem({
   promotion,
   audience,
+  logoUrl,
   canWrite,
   onEdit,
   onAsk,
 }: {
   promotion: Promotion;
   audience: string;
+  logoUrl: string | null;
   canWrite: boolean;
   onEdit: (promotion: Promotion) => void;
   onAsk: (pending: Pending) => void;
@@ -71,6 +74,7 @@ function PromotionItem({
           holderName: "Nome Cognome",
           representedBy: null,
         }}
+        logoUrl={logoUrl}
       />
       <div className="flex flex-col gap-1">
         <div className="flex items-center justify-between gap-3">
@@ -123,6 +127,7 @@ export function PromotionsPage() {
   const [editing, setEditing] = useState<Promotion | undefined>(undefined);
   const [pending, setPending] = useState<Pending | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const logoUrl = useSocietyLogoUrl(true);
 
   const teamNames = useMemo(() => new Map((teams.data ?? []).map((team) => [team.id, team.name])), [teams.data]);
   const promotions = useMemo(
@@ -174,6 +179,7 @@ export function PromotionsPage() {
         highlight="convenzioni"
         description="Crea la card di un accordo, scegli a chi è rivolta e pubblicala: chi la riceve la trova nella sua area e ne viene avvisato."
       />
+      {canWrite ? <SocietyLogoPanel logoUrl={logoUrl} /> : null}
       {promotions.length > 0 ? <div className="flex justify-end">{newButton}</div> : null}
       <DataBoundary
         isLoading={list.isPending}
@@ -201,6 +207,7 @@ export function PromotionsPage() {
               key={promotion.id}
               promotion={promotion}
               audience={describeAudience(promotion, teamNames)}
+              logoUrl={logoUrl}
               canWrite={canWrite}
               onEdit={openForm}
               onAsk={ask}
