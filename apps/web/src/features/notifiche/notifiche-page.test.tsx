@@ -248,8 +248,8 @@ describe("NotifichePage, preferenze", () => {
 
     expect(await screen.findByRole("heading", { name: "Dove ricevere gli avvisi" })).toBeInTheDocument();
     const list = await screen.findByRole("list", { name: "Preferenze per tipo di avviso" });
-    expect(within(list).getAllByRole("listitem")).toHaveLength(8);
-    expect(within(list).getAllByRole("switch")).toHaveLength(16);
+    expect(within(list).getAllByRole("listitem")).toHaveLength(9);
+    expect(within(list).getAllByRole("switch")).toHaveLength(18);
     expect(screen.getByRole("switch", { name: "Email per Eventi spostati o annullati" })).not.toBeChecked();
     expect(screen.getByRole("switch", { name: "Nell'app per Eventi spostati o annullati" })).toBeChecked();
     expect(screen.getByRole("switch", { name: "Email per Convocazioni" })).toBeChecked();

@@ -93,6 +93,7 @@ describe("PersonalFrame", () => {
       "Home",
       "Documenti",
       "Pagamenti",
+      "Convenzioni",
       "Calendario",
       "Classifica",
       "Notifiche",

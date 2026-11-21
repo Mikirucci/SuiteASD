@@ -244,6 +244,32 @@
   }
 }
 
+/* Always emitted: the cards name these variables at run time, where the class scanner cannot see them. */
+@theme static {
+  /*
+   * Backgrounds of the promotion cards: a gradient (from, to) and the ink written on it. The ink reaches AA (>= 4.5:1)
+   * on both ends (checked by card-templates.test.ts, which reads these values).
+   */
+  --color-card-elettrico-from: #3b5bff;
+  --color-card-elettrico-to: #2639c2;
+  --color-card-elettrico-ink: #ffffff;
+  --color-card-menta-from: #6ee7b7;
+  --color-card-menta-to: #10b981;
+  --color-card-menta-ink: #0b1020;
+  --color-card-oceano-from: #2639c2;
+  --color-card-oceano-to: #047857;
+  --color-card-oceano-ink: #ffffff;
+  --color-card-alba-from: #e0e7ff;
+  --color-card-alba-to: #d1fae5;
+  --color-card-alba-ink: #111827;
+  --color-card-notte-from: #0b1020;
+  --color-card-notte-to: #1b2a75;
+  --color-card-notte-ink: #ffffff;
+  --color-card-carbone-from: #1e293b;
+  --color-card-carbone-to: #111827;
+  --color-card-carbone-ink: #ffffff;
+}
+
 /* Semantic tokens: what components consume. Re-map these for a future dark theme. */
 @theme inline {
   --color-canvas: var(--color-ink-50);
