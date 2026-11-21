@@ -15,7 +15,7 @@ Ultimo aggiornamento: 2026-11-20. Questo repository contiene solo il frontend (`
 
 1. **Le intestazioni di sicurezza stanno solo in Caddy**, non in `apps/web/next.config.ts`: servire il sito senza Caddy le toglie. La CSP ammette `'unsafe-inline'` per gli script perché Next.js scrive script in pagina; una CSP con nonce è più forte ed è un miglioramento previsto.
 2. **Il token di rinnovo sta in `localStorage`** (compromesso già dichiarato in `docs/FRONTEND.md`). Chi riesce a eseguire script nella pagina (XSS) lo legge e ottiene una sessione lunga. Un cookie `HttpOnly` + `SameSite` è più sicuro, ma richiede una modifica di backend e frontend: decisione da prendere.
-3. **La CI non è mai girata su GitHub**: l'ho scritta (lint, tipi, test, build, audit, E2E con API simulata, immagine Docker) e ne ho provato i comandi in locale, ma il primo giro vero lo vedremo alla prima pull request o push.
+3. **La CI gira su GitHub** (`.github/workflows/ci.yml`: lint, tipi, test, build, audit, E2E con API simulata, immagine Docker) ed è verde sulle pull request e su `develop` (verificato il 2026-11-21). Non è mai stata provata la pubblicazione dell'immagine, che parte solo da un push su `main`.
 4. **Adempimenti GDPR non verificati.** Informativa, consenso del genitore per i minori, nomina dei responsabili del trattamento, tempi di conservazione, esportazione e cancellazione dei dati: vanno verificati con chi è titolare del trattamento.
 
 ## 3. Che cosa fare prima della produzione (parte frontend)
