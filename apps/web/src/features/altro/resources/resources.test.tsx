@@ -228,7 +228,7 @@ describe("income", () => {
   });
 
   it("shows the plus sign and where the income comes from, never colour alone", () => {
-    const manual = rowText(incomeConfig, { ...QUOTE_NOVEMBRE, source: null, sourceId: null, paymentId: null, description: "Contributo del Comune" });
+    const manual = rowText(incomeConfig, { ...QUOTE_NOVEMBRE, source: null, sourceId: null, description: "Contributo del Comune" });
     expect(manual).toMatch(/\+\s€\s60/);
     expect(manual).toContain("Registrata qui");
     expect(rowText(incomeConfig, QUOTE_NOVEMBRE)).toContain("Pagamento");
@@ -237,7 +237,7 @@ describe("income", () => {
 
   it("opens the income written by hand to change it, and the one that another section owns to read it, with the way there", async () => {
     stubApi({
-      "GET /ledger/entries": () => json(200, page([QUOTE_NOVEMBRE, { ...QUOTE_NOVEMBRE, id: "l-contributo", description: "Contributo del Comune", source: null, sourceId: null, paymentId: null }])),
+      "GET /ledger/entries": () => json(200, page([QUOTE_NOVEMBRE, { ...QUOTE_NOVEMBRE, id: "l-contributo", description: "Contributo del Comune", source: null, sourceId: null }])),
       "GET /attachments": () => json(200, { data: [] }),
     });
     renderWithProviders(<ResourceView config={incomeConfig} />);

@@ -27,9 +27,20 @@ export interface DemoSociety {
   alice: { fullName: string };
   match: { title: string; opponent: string; daysAhead: number; time: string; round: number; confirmed: number; slots: number };
   standings: { competition: string; group: string; order: { name: string; points: number }[] };
-  feePlan: { name: string; amountEuro: number; paid: number; overdue: number; overdueEuro: number };
+  feePlan: { name: string; amountEuro: number; paid: number; pending: number; overdue: number; overdueEuro: number; overduePlan: string };
   automations: { total: number; toggled: { key: string; name: string } };
   venue: string;
+  /** The money of the society: what is written by hand and what the other sections book on their own (euro cents) */
+  money: {
+    manualExpense: { name: string; category: string; supplier: string; cents: number };
+    manualIncome: { name: string; category: string; cents: number };
+    venueCostCents: number;
+    tripCostCents: number;
+    refereeFeeCents: number;
+    refereeName: string;
+    sponsor: { name: string; cents: number };
+    paidFeesCents: number;
+  };
   enrolmentCode: string;
 }
 
@@ -98,6 +109,11 @@ export function dayAhead(days: number): string {
   const date = new Date();
   date.setDate(date.getDate() + days);
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome" }).format(date);
+}
+
+/** How a date reads in the lists: "30 novembre 2026". */
+export function dateLabel(days: number): string {
+  return new Intl.DateTimeFormat("it-IT", { day: "numeric", month: "long", year: "numeric", timeZone: "Europe/Rome" }).format(new Date(`${dayAhead(days)}T12:00:00Z`));
 }
 
 /** How the week strip names a day, `days` ahead of today: "30 novembre". */
@@ -239,6 +255,16 @@ export async function createDemoSociety(): Promise<DemoSociety> {
   }
 
   // The next match, on the calendar and in the league (the return leg against Delfini, round 6)
+  const money = {
+    manualExpense: { name: "Palloni da gara e carrello", category: "Attrezzatura sportiva", supplier: "Volley Shop Emilia", cents: 64000 },
+    manualIncome: { name: "Contributo del Comune", category: "Contributi", cents: 50000 },
+    venueCostCents: 110000,
+    tripCostCents: 20500,
+    refereeFeeCents: 14500,
+    refereeName: "Mario Fabbri",
+    sponsor: { name: "Pasticceria Rossi", cents: 150000 },
+    paidFeesCents: 0,
+  };
   const matchDays = 10;
   const match = { title: "Aquile Volley vs Delfini Volley", opponent: "Delfini Volley", daysAhead: matchDays, time: "20:30", round: 6, confirmed: 5, slots: 12 };
   const venue = await call<Created>("POST", "/venues", token, {
@@ -246,6 +272,13 @@ export async function createDemoSociety(): Promise<DemoSociety> {
     address: "Via dello Sport 1",
     city: "Verona",
     capacity: 300,
+    costCents: money.venueCostCents,
+    costDate: dayAhead(-5),
+    slots: [
+      { weekday: 1, from: "18:00", to: "20:00" },
+      { weekday: 3, from: "18:00", to: "20:00" },
+      { weekday: 5, from: "17:00", to: "19:00" },
+    ],
   });
   const event = await call<Created>("POST", "/events", token, {
     type: "MATCH",
@@ -255,7 +288,7 @@ export async function createDemoSociety(): Promise<DemoSociety> {
     venueId: venue.id,
     maxConvocations: match.slots,
   });
-  await call("POST", `/competitions/${competition.id}/groups/${group.id}/matches`, token, {
+  const nextMatch = await call<Created>("POST", `/competitions/${competition.id}/groups/${group.id}/matches`, token, {
     round: match.round,
     homeTeamId: aquile,
     awayTeamId: delfini,
@@ -285,7 +318,7 @@ export async function createDemoSociety(): Promise<DemoSociety> {
   }
 
   // The fee plan: twelve fees, four paid; a second plan, long overdue, for the youngest team
-  const feePlan = { name: "Quota novembre", amountEuro: 60, paid: 4, overdue: 1, overdueEuro: 60 };
+  const feePlan = { name: "Quota novembre", amountEuro: 60, paid: 4, pending: ATHLETES_SERIE_D.length - 4, overdue: 1, overdueEuro: 60, overduePlan: "Quota ottobre" };
   await call("POST", "/fee-plans", token, {
     name: feePlan.name,
     kind: "MONTHLY",
@@ -294,7 +327,7 @@ export async function createDemoSociety(): Promise<DemoSociety> {
     dueDates: [dayAhead(20)],
   });
   await call("POST", "/fee-plans", token, {
-    name: "Quota ottobre",
+    name: feePlan.overduePlan,
     kind: "MONTHLY",
     amountCents: feePlan.overdueEuro * 100,
     teamIds: [teams.u12],
@@ -306,18 +339,40 @@ export async function createDemoSociety(): Promise<DemoSociety> {
     await call("POST", `/fees/${fee.id}/pay`, token, { method: "CASH" }, { "Idempotency-Key": randomUUID() });
   }
 
-  // Secondary sections
-  await call("POST", "/sponsors", token, { name: "Pasticceria Rossi", amountCents: 150000, status: "ACTIVE" });
+  // Secondary sections: a signed sponsor, an expense and an income written by hand, a trip and a referee fee that cost money
+  await call("POST", "/sponsors", token, {
+    name: money.sponsor.name,
+    email: "info@pasticceriarossi.example.it",
+    amountCents: money.sponsor.cents,
+    contractStart: dayAhead(-30),
+    contractEnd: dayAhead(300),
+    status: "ACTIVE",
+  });
   await call("POST", "/ledger/entries", token, {
     kind: "EXPENSE",
-    category: "Materiale",
-    description: "Palloni da gara",
-    amountCents: 18000,
-    occurredOn: dayAhead(-5),
+    category: money.manualExpense.category,
+    description: money.manualExpense.name,
+    supplier: money.manualExpense.supplier,
+    amountCents: money.manualExpense.cents,
+    occurredOn: dayAhead(-10),
+  });
+  await call("POST", "/ledger/entries", token, {
+    kind: "INCOME",
+    category: money.manualIncome.category,
+    description: money.manualIncome.name,
+    amountCents: money.manualIncome.cents,
+    occurredOn: dayAhead(-8),
   });
   await call("POST", "/announcements", token, { title: "Cena sociale", body: "Sabato sera, tutti invitati.", isPinned: false });
-  await call("POST", "/referees", token, { firstName: "Mario", lastName: "Fabbri" });
-  await call("POST", "/trips", token, { destination: "Bologna", departAt: romeInstant(dayAhead(9), "14:00"), transport: "MINIBUS", status: "PLANNED" });
+  const referee = await call<Created>("POST", "/referees", token, { firstName: "Mario", lastName: "Fabbri" });
+  await call("POST", "/referee-assignments", token, { refereeId: referee.id, matchId: nextMatch.id, feeCents: money.refereeFeeCents });
+  await call("POST", "/trips", token, {
+    destination: "Bologna",
+    departAt: romeInstant(dayAhead(-3), "14:00"),
+    transport: "MINIBUS",
+    status: "CONFIRMED",
+    costCents: money.tripCostCents,
+  });
   await call("POST", "/kits", token, { item: "Maglia gara" });
 
   // The enrolment link of the U16 squad, used by the registration spec
@@ -350,6 +405,7 @@ export async function createDemoSociety(): Promise<DemoSociety> {
     feePlan,
     automations: { total: automations.data.length, toggled: { key: toggled.key, name: toggled.name } },
     venue: "Palazzetto dello Sport",
+    money: { ...money, paidFeesCents: feePlan.paid * feePlan.amountEuro * 100 },
     enrolmentCode: link.code,
   };
 }

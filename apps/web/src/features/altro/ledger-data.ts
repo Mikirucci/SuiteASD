@@ -13,7 +13,6 @@ export const PALLONI: LedgerEntry = {
   notes: "Fattura 118",
   amountCents: 64000,
   occurredOn: "2026-09-18",
-  paymentId: null,
   source: null,
   sourceId: null,
   ...STAMPS,
@@ -57,7 +56,6 @@ export const QUOTA: LedgerEntry = {
   description: "Quota novembre · Anna Ferri",
   amountCents: 24000,
   occurredOn: "2026-11-05",
-  paymentId: "pay-1",
   source: "PAYMENT",
   sourceId: "pay-1",
 };

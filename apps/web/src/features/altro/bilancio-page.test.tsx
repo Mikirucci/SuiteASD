@@ -127,7 +127,6 @@ describe("BilancioPage", () => {
       occurredOn: "2026-10-05",
       supplier: null,
       notes: null,
-      paymentId: null,
       source: null,
       sourceId: null,
       createdAt: "2026-10-01T08:00:00.000Z",

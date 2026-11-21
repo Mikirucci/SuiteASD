@@ -1,4 +1,5 @@
 import { expect, test, type Locator } from "@playwright/test";
+import { createDemoSociety, type DemoSociety } from "./support/demo-society";
 import { loginAs } from "./support/session";
 
 // Palestre against the real API: the totals on top follow the venues, the weekly hours are rows written by the person,
@@ -24,15 +25,23 @@ async function totalsOf(tiles: Locator): Promise<Totals> {
 }
 
 test.describe("palestre sul backend reale", () => {
+  let society: DemoSociety;
+
+  test.beforeAll(async () => {
+    test.setTimeout(180_000);
+    society = await createDemoSociety();
+  });
+
   test("i totali in cima, gli orari fissi scritti a righe e il costo che arriva tra le uscite", async ({ page }) => {
-    await loginAs(page, "admin", "/altro/palestre");
+    await loginAs(page, society.people.admin, "/altro/palestre");
     const tiles = page.getByRole("region", { name: "Riepilogo delle palestre" });
     await expect(tiles.getByText("Ore a settimana")).toBeVisible();
     const before = await totalsOf(tiles);
-    // the demo venues alone have hours (Palazzetto, Carducci, Casalecchio) and a capacity
-    expect(before.venues).toBeGreaterThanOrEqual(3);
-    expect(before.slots).toBeGreaterThanOrEqual(6);
-    expect(before.capacity).toBeGreaterThanOrEqual(720);
+    // the venue of the society has three weekly windows (two hours each) and a capacity
+    expect(before.venues).toBe(1);
+    expect(before.slots).toBe(3);
+    expect(before.minutes).toBe(360);
+    expect(before.capacity).toBe(300);
     await expect(page.getByRole("link", { name: /costi delle palestre/ })).toHaveCount(0);
 
     // a new venue with its hours and its cost

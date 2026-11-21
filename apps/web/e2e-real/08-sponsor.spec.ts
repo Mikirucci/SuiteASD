@@ -1,14 +1,22 @@
 import { expect, test } from "@playwright/test";
+import { createDemoSociety, type DemoSociety } from "./support/demo-society";
 import { loginAs } from "./support/session";
 
 // Sponsor against the real API: the totals on top follow the contracts, and a contract can be attached while registering.
-// Demo society: 2026, Aquile Volley.
+// On a society built through the API (support/demo-society.ts).
 test.describe("sponsor sul backend reale", () => {
+  let society: DemoSociety;
+
+  test.beforeAll(async () => {
+    test.setTimeout(180_000);
+    society = await createDemoSociety();
+  });
+
   test("i totali seguono i contratti e un nuovo sponsor nasce con il contratto allegato", async ({ page }) => {
-    await loginAs(page, "admin", "/altro/sponsor");
+    await loginAs(page, society.people.admin, "/altro/sponsor");
     const tiles = page.getByRole("region", { name: "Riepilogo degli sponsor" });
     const cards = page.getByRole("list", { name: "Sponsor", exact: true });
-    await expect(cards.getByRole("listitem").filter({ hasText: "Autofficina Bianchi" })).toContainText("Attivo");
+    await expect(cards.getByRole("listitem").filter({ hasText: society.money.sponsor.name })).toContainText("Attivo");
     const activeBefore = Number(await tiles.getByText("Attivi").locator("../..").locator("p").nth(1).innerText());
 
     await page.getByRole("button", { name: "Nuovo sponsor" }).first().click();
@@ -31,7 +39,7 @@ test.describe("sponsor sul backend reale", () => {
   });
 
   test("uno sponsor firmato entra nelle entrate, ne segue il contratto e sparisce con lui", async ({ page }) => {
-    await loginAs(page, "admin", "/altro/sponsor");
+    await loginAs(page, society.people.admin, "/altro/sponsor");
     const incomes = () => page.getByRole("list", { name: "Entrate", exact: true });
     const entry = () => incomes().getByRole("listitem").filter({ hasText: "Cartoleria Neri" });
 

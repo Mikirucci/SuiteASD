@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { createDemoSociety, dayLabel, type DemoSociety } from "./support/demo-society";
+import { createDemoSociety, dateLabel, dayLabel, type DemoSociety } from "./support/demo-society";
 import { loginAs } from "./support/session";
 
 // Read-only tour of a society built through the API (see support/demo-society.ts): the numbers asserted here are the ones it creates.
@@ -48,7 +48,12 @@ test.describe("società demo, in sola lettura", () => {
 
   test("scadenze: il certificato di Sara Conti scade tra 15 giorni", async ({ page }) => {
     await page.goto("/scadenze");
-    await expect(page.getByText(`${society.sara.fullName} · Certificato medico — Scade tra ${society.sara.certificateDays} giorni`)).toBeVisible();
+    await page.getByRole("link", { name: "Certificato medico" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Certificato medico" })).toBeVisible();
+    const people = page.getByRole("list", { name: "Persone del documento" }).getByRole("listitem");
+    await expect(people.filter({ hasText: society.sara.fullName })).toContainText(`Scade il ${dateLabel(society.sara.certificateDays)}`);
+    // everybody else has not handed it in yet
+    await expect(people.filter({ hasText: "Alice Moretti" })).toContainText("Non ancora consegnato");
   });
 
   test("classifiche: Girone B di Serie D con Aquile Volley prima", async ({ page }) => {
@@ -62,13 +67,20 @@ test.describe("società demo, in sola lettura", () => {
     await expect(rows.nth(0)).toContainText(String(order[0]?.points));
   });
 
-  test("quote: incassati i soldi delle quote pagate, una scaduta", async ({ page }) => {
+  test("quote: incassati i soldi delle quote pagate, il resto da incassare, piano per piano", async ({ page }) => {
     await page.goto("/quote");
-    const { paid, amountEuro, overdue, overdueEuro } = society.feePlan;
+    const { paid, pending, amountEuro, overdue, overdueEuro, overduePlan, name } = society.feePlan;
     const report = page.getByRole("region", { name: "Rendiconto" });
     await expect(report.getByText("Incassato", { exact: true }).locator("../..")).toContainText(new RegExp(`€\\s${paid * amountEuro}`));
-    await expect(report.getByText(`${paid} quote pagate`)).toBeVisible();
-    await expect(report.getByText(new RegExp(`di cui €\\s${overdueEuro} scaduti \\(${overdue} quota\\)`))).toBeVisible();
+    await expect(report.getByText("Da incassare", { exact: true }).locator("../..")).toContainText(new RegExp(`€\\s${pending * amountEuro + overdue * overdueEuro}`));
+
+    const plans = page.getByRole("list", { name: "Piani", exact: true }).getByRole("listitem");
+    await expect(plans).toHaveCount(2);
+    const november = plans.filter({ hasText: name });
+    await expect(november.getByText("persone in regola").locator("xpath=preceding-sibling::span[1]")).toHaveText(String(paid));
+    await expect(november.getByText("persone in attesa").locator("xpath=preceding-sibling::span[1]")).toHaveText(String(pending));
+    const late = plans.filter({ hasText: overduePlan });
+    await expect(late.getByText("persone con quote scadute").locator("xpath=preceding-sibling::span[1]")).toHaveText(String(overdue));
   });
 
   test("calendario: la prossima partita con le presenze confermate", async ({ page }) => {
