@@ -1,4 +1,4 @@
-import type { Kit, LedgerEntry, LedgerReport, Sponsor, StaffMember, Trip, Venue } from "./types";
+import type { Kit, LedgerEntry, Sponsor, StaffMember, Trip, Venue } from "./types";
 
 /** Realistic demo data shared by the unit tests of the secondary modules. */
 
@@ -12,7 +12,11 @@ export const PALAZZETTO: Venue = {
   address: "Via dello Sport 12",
   city: "Bergamo",
   capacity: 400,
-  availability: "Martedì e giovedì 18:00-21:00",
+  availability: "Anche il sabato per le gare",
+  slots: [
+    { weekday: 2, from: "18:00", to: "21:00" },
+    { weekday: 4, from: "18:00", to: "21:00" },
+  ],
   notes: null,
   costCents: 45000,
   costDate: "2026-11-02",
@@ -26,6 +30,7 @@ export const SCUOLA: Venue = {
   city: "Seriate",
   capacity: null,
   availability: null,
+  slots: [],
   notes: "Chiavi in segreteria",
   costCents: null,
   costDate: null,
@@ -110,11 +115,11 @@ export const QUOTE_NOVEMBRE: LedgerEntry = {
   description: "Quota novembre di Anna Ferri",
   amountCents: 6000,
   occurredOn: "2026-11-05",
-  sponsorId: null,
   supplier: null,
   notes: null,
   paymentId: "pay-1",
   source: "PAYMENT",
+  sourceId: "pay-1",
   ...STAMPS,
 };
 
@@ -125,27 +130,12 @@ export const AFFITTO: LedgerEntry = {
   description: null,
   amountCents: 45000,
   occurredOn: "2026-11-02",
-  sponsorId: null,
   supplier: null,
   notes: null,
   paymentId: null,
   source: null,
+  sourceId: null,
   ...STAMPS,
-};
-
-export const REPORT: LedgerReport = {
-  year: 2026,
-  totals: { incomeCents: 6000, expenseCents: 45000, balanceCents: -39000 },
-  months: Array.from({ length: 12 }, (_, index) => ({
-    month: `2026-${String(index + 1).padStart(2, "0")}`,
-    incomeCents: index === 10 ? 6000 : 0,
-    expenseCents: index === 10 ? 45000 : 0,
-    balanceCents: index === 10 ? -39000 : 0,
-  })),
-  categories: [
-    { kind: "INCOME", category: "Quote", totalCents: 6000 },
-    { kind: "EXPENSE", category: "Affitto palestra", totalCents: 45000 },
-  ],
 };
 
 /** What GET /reports/accounting/summary answers for the demo year. */
@@ -153,8 +143,8 @@ export const REPORT_SUMMARY = {
   period: { from: "2026-01-01", to: "2026-12-31" },
   sections: [
     { section: "LEDGER", records: 12, amountCents: -39000 },
-    { section: "INCOME", records: 4, amountCents: 24000 },
-    { section: "EXPENSES", records: 8, amountCents: 63000 },
+    { section: "INCOME", records: 3, amountCents: 6000 },
+    { section: "EXPENSES", records: 9, amountCents: 45000 },
     { section: "FEES", records: 8, amountCents: 24000 },
     { section: "SPONSORS", records: 0, amountCents: 0 },
     { section: "TRIPS", records: 1, amountCents: 12050 },

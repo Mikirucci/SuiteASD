@@ -1,25 +1,24 @@
 import { expect, test } from "@playwright/test";
 import { loginAs } from "./support/session";
 
-// Spese against the real API: the expenses entered here and the costs that other sections book end up in one balance
-// (docs/DECISIONS.md D-50). Demo society: 2026, Aquile Volley.
-test.describe("spese e bilancio sul backend reale", () => {
+// Uscite against the real API: the expenses entered here and the costs that other sections book end up in one balance
+// (docs/DECISIONS.md D-50, D-60). Demo society: 2026, Aquile Volley.
+test.describe("uscite e bilancio sul backend reale", () => {
   test("le spese registrate e i costi di trasferte e arbitri stanno insieme, per categoria, con il fornitore", async ({ page }) => {
-    await loginAs(page, "admin", "/altro/spese");
-    await expect(page.getByRole("heading", { level: 1, name: /Ogni spesa, al suo posto/ })).toBeVisible();
+    await loginAs(page, "admin", "/altro/uscite");
+    await expect(page.getByRole("heading", { level: 1, name: /Dove vanno i soldi/ })).toBeVisible();
 
-    const tiles = page.getByRole("region", { name: "Rendiconto delle spese" });
+    const tiles = page.getByRole("region", { name: "Rendiconto delle uscite" });
     // 4133 euro entered by hand + 205 euro of trips + 145 euro of referees
     await expect(tiles.getByText("Spese del periodo").locator("../..")).toContainText(/€\s4483/);
     await expect(tiles.getByText("Registrate qui").locator("../..")).toContainText(/€\s4133/);
     await expect(tiles.getByText("Da altre sezioni").locator("../..")).toContainText(/€\s350/);
 
-    // one card per category, the same ones the ring shows
+    // one card per category
     const cards = page.getByRole("list", { name: "Categorie", exact: true });
     for (const category of ["Palestre", "Attrezzatura sportiva", "Arbitri", "Trasferte", "Assicurazioni"]) {
       await expect(cards.getByRole("listitem").filter({ hasText: category }).first()).toBeVisible();
     }
-    await expect(page.getByRole("group", { name: "Spese per categoria" }).getByRole("button")).toHaveCount(await cards.getByRole("listitem").count());
 
     // the page of a category lists its expenses
     await cards.getByRole("link", { name: "Attrezzatura sportiva" }).click();
@@ -28,19 +27,23 @@ test.describe("spese e bilancio sul backend reale", () => {
     await expect(palloni).toContainText("Attrezzatura sportiva · Volley Shop Emilia");
     await expect(palloni).toContainText(/−\s€\s640/);
 
-    // the fees of the referees and the cost of the trips are booked by their own sections: read-only here
-    await page.getByRole("link", { name: "Tutte le spese" }).click();
+    // the fees of the referees and the cost of the trips are booked by their own sections: read-only here, with the way there
+    await page.getByRole("link", { name: "Tutte le uscite" }).click();
     await cards.getByRole("link", { name: "Arbitri" }).click();
+    await expect(page.getByRole("link", { name: "Vai a Arbitri" }).first()).toHaveAttribute("href", "/altro/arbitri");
     const referee = page.getByRole("list", { name: "Spese", exact: true }).getByRole("listitem").filter({ hasText: "Roberto Cattaneo" }).first();
     await expect(referee.getByText("Arbitro", { exact: true })).toBeVisible();
-    await expect(referee).toContainText("si modifica dalla designazione");
-    await page.getByRole("link", { name: "Tutte le spese" }).click();
+    await referee.getByRole("button", { name: /Roberto Cattaneo/ }).click();
+    await expect(page.getByRole("dialog", { name: /Roberto Cattaneo/ }).getByText(/si cambia dalla designazione/)).toBeVisible();
+    await page.keyboard.press("Escape");
+    await page.getByRole("link", { name: "Tutte le uscite" }).click();
     await cards.getByRole("link", { name: "Trasferte" }).click();
-    await expect(page.getByRole("list", { name: "Spese", exact: true }).getByRole("listitem").first()).toContainText("si modifica dalla trasferta");
+    await page.getByRole("list", { name: "Spese", exact: true }).getByRole("listitem").first().getByRole("button").click();
+    await expect(page.getByRole("dialog").getByText(/si cambia dalla trasferta/)).toBeVisible();
   });
 
   test("il periodo si sceglie una volta, sta nell'indirizzo e vale anche dentro una categoria", async ({ page }) => {
-    await loginAs(page, "admin", "/altro/spese");
+    await loginAs(page, "admin", "/altro/uscite");
     const cards = page.getByRole("list", { name: "Categorie", exact: true });
     await expect(cards.getByRole("listitem").first()).toBeVisible();
 
@@ -66,12 +69,12 @@ test.describe("spese e bilancio sul backend reale", () => {
     await cards.getByRole("link", { name: "Palestre" }).click();
     await expect(page.getByRole("group", { name: "Periodo", exact: true })).toContainText("Ottobre 2026");
     await expect(page.getByRole("list", { name: "Spese", exact: true }).getByRole("listitem")).toHaveCount(2);
-    await page.getByRole("link", { name: "Tutte le spese" }).click();
+    await page.getByRole("link", { name: "Tutte le uscite" }).click();
     await expect(page.getByRole("group", { name: "Periodo", exact: true })).toContainText("Ottobre 2026");
   });
 
   test("una spesa nuova entra nel bilancio con la sua categoria, e una categoria già usata si riconosce anche scritta diversamente", async ({ page }) => {
-    await loginAs(page, "admin", "/altro/spese");
+    await loginAs(page, "admin", "/altro/uscite");
     await page.getByRole("button", { name: "Nuova spesa" }).first().click();
     const form = page.getByRole("dialog", { name: "Nuova spesa" });
     await form.getByLabel(/Nome della spesa/).fill("Gazebo per il torneo");
@@ -100,11 +103,23 @@ test.describe("spese e bilancio sul backend reale", () => {
     // same page, now with both expenses and their total
     await expect(list.getByRole("listitem").filter({ hasText: "Bandierine" })).toContainText("Eventi del club");
     await expect(page.getByRole("region", { name: "Rendiconto della categoria" })).toContainText(/€\s150/);
+  });
+
+  test("il bilancio legge le stesse uscite delle uscite, e lo stesso vale per le entrate", async ({ page }) => {
+    const figure = async (region: string, label: string): Promise<string> => {
+      const text = await page.getByRole("region", { name: region }).getByText(label, { exact: true }).locator("../..").innerText();
+      return /€\s?([\d.]+)/.exec(text)?.[1] ?? "";
+    };
+    await loginAs(page, "admin", "/altro/uscite");
+    const spent = await figure("Rendiconto delle uscite", "Spese del periodo");
+    await page.goto("/altro/entrate");
+    const earned = await figure("Rendiconto delle entrate", "Entrate del periodo");
+    expect(spent).not.toBe("");
+    expect(earned).not.toBe("");
 
     await page.goto("/altro/bilancio");
-    const expenses = page.getByRole("region", { name: "Uscite per categoria" });
-    await expect(expenses.getByText("Eventi del club", { exact: true })).toHaveCount(1);
-    await expect(expenses.getByText("Eventi del club", { exact: true }).locator("..")).toContainText(/€\s150/);
-    await expect(page.getByRole("list", { name: "Movimenti", exact: true })).toContainText("Gazebo per il torneo");
+    await expect(page.getByRole("region", { name: "Riepilogo del periodo" })).toBeVisible();
+    expect(await figure("Riepilogo del periodo", "Uscite")).toBe(spent);
+    expect(await figure("Riepilogo del periodo", "Entrate")).toBe(earned);
   });
 });

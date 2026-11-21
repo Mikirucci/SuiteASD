@@ -275,9 +275,9 @@ test.describe("società nuova, dalla registrazione alle convocazioni, sul backen
     await expect(page).toHaveURL(/\/notifiche$/);
     await expect(page.getByRole("list", { name: "Notifiche", exact: true })).toContainText(SARA.fullName);
 
-    await menu.getByRole("button", { name: /^Amministrazione/ }).click();
+    // the balance is a link of the menu, not inside a topic
     await menu.getByRole("link", { name: "Bilancio" }).click();
     await expect(page).toHaveURL(/\/altro\/bilancio$/);
-    await expect(page.getByRole("heading", { name: "Report per il commercialista" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Report per il commercialista" })).toBeVisible();
   });
 });

@@ -44,7 +44,7 @@ export function isDefaultRange(range: DayRange, today: Date): boolean {
 }
 
 /** Whole days between two calendar days, both included (a week is 7): UTC keeps a change of daylight time out of it. */
-function lengthInDays({ from, to }: DayRange): number {
+export function lengthInDays({ from, to }: DayRange): number {
   const day = (date: Date) => Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
   return Math.round((day(to) - day(from)) / 86_400_000) + 1;
 }

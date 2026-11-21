@@ -2,15 +2,15 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo } from "react";
-import { defaultRange, isDefaultRange, parseRange, rangeSearch, type DayRange } from "./spese-period";
+import { defaultRange, isDefaultRange, parseRange, rangeSearch, type DayRange } from "./period";
 
-/** An address of the Spese section that carries the period, so going back or sharing the link keeps it. */
+/** An address of a section with a period that carries the period, so going back or sharing the link keeps it. */
 export function periodHref(path: string, range: DayRange): string {
   const search = rangeSearch(range, new Date());
   return search ? `${path}?${search}` : path;
 }
 
-export interface SpesePeriod {
+export interface Period {
   range: DayRange;
   setRange: (range: DayRange) => void;
   /** Back to the current year. */
@@ -20,7 +20,7 @@ export interface SpesePeriod {
 }
 
 /** The period of the page, kept in the address (\`?dal=2026-10-01&al=2026-10-31\`) so the list and the page of a category agree on it. */
-export function useSpesePeriod(): SpesePeriod {
+export function usePeriod(): Period {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();

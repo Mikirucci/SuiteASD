@@ -210,7 +210,7 @@ describe("PlanDetailPage: the fees of a person", () => {
       status: "PAID" as const,
       paidAt: "2026-11-12T10:00:00.000Z",
       method: "BANK_TRANSFER" as const,
-      receipt: { id: "r148", number: 148, code: "0148", issuedAt: "2026-11-12T10:00:00.000Z", sentAt: null },
+      receipt: { id: "r148", number: 148, code: "0148", issuedAt: "2026-11-12T10:00:00.000Z" },
     };
     const api = stubApi(routes({ "POST /fees/f-overdue/pay": () => json(200, PAID_NOW) }));
     renderWithProviders(<PlanDetailPage id="p-nov" />);

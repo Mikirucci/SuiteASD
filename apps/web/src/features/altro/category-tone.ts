@@ -12,23 +12,13 @@ const USUAL_TONES: Readonly<Record<string, AvatarTone>> = {
   assicurazioni: "rose",
   utenze: "amber",
   "compensi e rimborsi": "lime",
+  sponsor: "indigo",
+  quote: "emerald",
+  contributi: "cyan",
+  "eventi e raccolte fondi": "orange",
 };
 
-/** The same colours as text colour, for the parts of a chart that are drawn with `currentColor`. */
-const TEXT_CLASSES: Record<AvatarTone, string> = {
-  blue: "text-avatar-blue",
-  amber: "text-avatar-amber",
-  rose: "text-avatar-rose",
-  emerald: "text-avatar-emerald",
-  violet: "text-avatar-violet",
-  orange: "text-avatar-orange",
-  cyan: "text-avatar-cyan",
-  red: "text-avatar-red",
-  lime: "text-avatar-lime",
-  indigo: "text-avatar-indigo",
-};
-
-const OTHER = { background: "bg-ink-500", text: "text-ink-500" } as const;
+const OTHER_BACKGROUND = "bg-ink-500";
 
 const nameOf = (category: string): string => category.trim().toLocaleLowerCase("it-IT");
 
@@ -41,11 +31,5 @@ function toneOf(category: string): AvatarTone | null {
 /** Solid background of the colour of a category: the dot, the tile of its card and of its expenses share it. */
 export function categoryBackground(category: string): string {
   const tone = toneOf(category);
-  return tone ? avatarToneClasses[tone] : OTHER.background;
-}
-
-/** The colour of a category as text colour: a chart segment drawn in \`currentColor\` takes it. */
-export function categoryText(category: string): string {
-  const tone = toneOf(category);
-  return tone ? TEXT_CLASSES[tone] : OTHER.text;
+  return tone ? avatarToneClasses[tone] : OTHER_BACKGROUND;
 }

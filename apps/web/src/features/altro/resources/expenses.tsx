@@ -6,8 +6,8 @@ import { formatDay, formatEuro } from "@/lib/format";
 import { CategoryTile } from "../category-tile";
 import type { ResourceConfig } from "../crud/types";
 import { amountToInput, bodyReader, optionalText, parseAmount, requiredAmount, requiredDay, requiredText } from "../crud/values";
-import type { LedgerEntry, LedgerSource } from "../types";
-import { SOURCE_NOTES } from "./ledger";
+import { SOURCES, SourceAlert } from "../ledger-sources";
+import type { LedgerEntry } from "../types";
 
 const schema = z.object({
   description: requiredText(120, "Dai un nome alla spesa"),
@@ -18,15 +18,6 @@ const schema = z.object({
   notes: optionalText(1000),
 });
 
-/** What a linked expense comes from, in one word: the badge on the card says where to change it. */
-const SOURCE_LABELS: Record<LedgerSource, string> = {
-  PAYMENT: "Pagamento",
-  VENUE: "Palestra",
-  KIT: "Divisa",
-  TRIP: "Trasferta",
-  REFEREE: "Arbitro",
-};
-
 /**
  * The expenses of the club: the ones entered here (balls, nets, insurance, fees...) and, read-only, the costs that
  * the other sections book on their own (venues, kits, trips, referees). All of them are entries of the balance.
@@ -36,10 +27,12 @@ export const expensesConfig: ResourceConfig<LedgerEntry> = {
   path: "/ledger/entries",
   writePermission: "ledger:write",
   attachmentType: "LEDGER_ENTRY",
+  openOnClick: true,
   icon: Receipt,
   fieldAliases: { amountCents: "amount" },
   // The cost of a venue, kit, trip or referee follows its source: it is changed there, not here
   isReadOnly: (entry) => entry.source !== null,
+  detailNote: (entry) => (entry.source ? <SourceAlert source={entry.source} /> : null),
   copy: {
     plural: "Spese",
     loadingLabel: "Caricamento delle spese",
@@ -109,10 +102,10 @@ export const expensesConfig: ResourceConfig<LedgerEntry> = {
   row: (entry) => {
     return {
       title: entry.description ?? entry.category,
-      lines: [[entry.category, entry.supplier].filter(Boolean).join(" · "), formatDay(entry.occurredOn), entry.source ? SOURCE_NOTES[entry.source] : null],
+      lines: [[entry.category, entry.supplier].filter(Boolean).join(" · "), formatDay(entry.occurredOn)],
       // The colour is the one of the category in the summary above the list
       leading: <CategoryTile category={entry.category} />,
-      status: entry.source ? <Badge variant="warning">{SOURCE_LABELS[entry.source]}</Badge> : <Badge variant="success">Registrata qui</Badge>,
+      status: entry.source ? <Badge variant="warning">{SOURCES[entry.source].label}</Badge> : <Badge variant="success">Registrata qui</Badge>,
       figure: <span className="ml-auto text-base font-extrabold text-fg">− {formatEuro(entry.amountCents)}</span>,
     };
   },

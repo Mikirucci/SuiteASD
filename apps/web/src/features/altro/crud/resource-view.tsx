@@ -76,6 +76,11 @@ export function ResourceView<T extends { id: string }>({
     onResetExtraFilters?.();
   };
 
+  const askToDelete = (item: T) => {
+    remove.reset();
+    setDeleting(item);
+  };
+
   const confirmDelete = () => {
     if (!deleting) return;
     remove.mutate(deleting, {
@@ -141,10 +146,11 @@ export function ResourceView<T extends { id: string }>({
               content={config.row(item)}
               name={config.nameOf(item)}
               stacked={layout === "grid"}
-              onEdit={editable ? () => setForm({ mode: "edit", item }) : undefined}
-              onDelete={editable ? () => { remove.reset(); setDeleting(item); } : undefined}
+              onOpen={config.openOnClick ? () => setForm({ mode: "edit", item, readOnly: !editable }) : undefined}
+              onEdit={editable && !config.openOnClick ? () => setForm({ mode: "edit", item }) : undefined}
+              onDelete={editable && !config.openOnClick ? () => askToDelete(item) : undefined}
               onAttachments={
-                canWrite && config.attachmentType
+                canWrite && config.attachmentType && !config.openOnClick
                   ? () => setAttachments({ entityType: config.attachmentType as AttachmentEntityType, entityId: item.id, recordName: config.nameOf(item) })
                   : undefined
               }
@@ -174,7 +180,15 @@ export function ResourceView<T extends { id: string }>({
       />
       <LoadMore list={list} noun={copy.countNoun} moreLabel={copy.moreLabel} />
 
-      <ResourceFormDialog config={config} state={form} onClose={() => setForm(null)} />
+      <ResourceFormDialog
+        config={config}
+        state={form}
+        onClose={() => setForm(null)}
+        onDelete={(item) => {
+          setForm(null);
+          askToDelete(item);
+        }}
+      />
       <AttachmentsDialog target={attachments} onClose={() => setAttachments(null)} />
       <ConfirmDialog
         open={deleting !== null}

@@ -1,5 +1,5 @@
 import {
-  Banknote,
+  ArrowLeftRight,
   Bell,
   Building2,
   Bus,
@@ -14,8 +14,10 @@ import {
   Megaphone,
   Medal,
   MessagesSquare,
-  Receipt,
+  Scale,
   Shirt,
+  TrendingDown,
+  TrendingUp,
   Trophy,
   Truck,
   UserCog,
@@ -102,11 +104,20 @@ export const ADMIN_ENTRIES: readonly NavEntry[] = [
     items: [
       { id: "quote", label: "Pagamenti", href: "/quote", icon: Wallet, permission: "payments:read" },
       { id: "scadenze", label: "Scadenze e documenti", href: "/scadenze", icon: CalendarClock, permission: "documents:read" },
-      { id: "spese", label: "Spese", href: "/altro/spese", icon: Receipt, permission: "ledger:read" },
-      { id: "bilancio", label: "Bilancio", href: "/altro/bilancio", icon: Banknote, permission: "ledger:read" },
       { id: "sponsor", label: "Sponsor", href: "/altro/sponsor", icon: Handshake, permission: "sponsors:read" },
     ],
   },
+  {
+    id: "movimenti",
+    label: "Movimenti",
+    icon: ArrowLeftRight,
+    items: [
+      { id: "entrate", label: "Entrate", href: "/altro/entrate", icon: TrendingUp, permission: "ledger:read" },
+      { id: "uscite", label: "Uscite", href: "/altro/uscite", icon: TrendingDown, permission: "ledger:read" },
+    ],
+  },
+  // The balance reads the movements: it is a section of its own, not one of the two
+  { id: "bilancio", label: "Bilancio", href: "/altro/bilancio", icon: Scale, permission: "ledger:read" },
   {
     id: "logistica",
     label: "Logistica",

@@ -8,11 +8,13 @@ export interface PageShellProps {
   title: string;
   highlight: string;
   description: string;
+  /** A way to the movements this section produces (see RelatedLink), under the heading. */
+  related?: ReactNode;
   children: ReactNode;
 }
 
 /** Frame of a secondary module: way back to the hub, then the page title and the content. */
-export function PageShell({ label, title, highlight, description, children }: PageShellProps) {
+export function PageShell({ label, title, highlight, description, related, children }: PageShellProps) {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-3">
@@ -24,6 +26,7 @@ export function PageShell({ label, title, highlight, description, children }: Pa
           Altro
         </Link>
         <SectionHeading as="h1" label={label} title={title} highlight={highlight} description={description} />
+        {related}
       </div>
       {children}
     </div>

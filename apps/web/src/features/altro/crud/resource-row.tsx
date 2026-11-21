@@ -2,6 +2,7 @@
 
 import { MoreHorizontal, Paperclip, Pencil, Trash2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, IconButton } from "@/components/ui";
+import { cn } from "@/lib/cn";
 import type { RowContent } from "./types";
 
 export interface ResourceRowProps {
@@ -15,13 +16,15 @@ export interface ResourceRowProps {
   onAttachments?: () => void;
   /** In a grid of cards the status and the figure go to the foot of the card, leaving the width to the text. */
   stacked?: boolean;
+  /** Makes the whole card the way to open the record; the menu of actions is then not shown. */
+  onOpen?: () => void;
 }
 
 /**
  * One entry of a resource list: who or what it is, its detail lines and its status. The actions are not spread
  * over the card: they sit behind one quiet menu in the corner, so a card is read before it is operated.
  */
-export function ResourceRow({ content, name, onEdit, onDelete, onAttachments, stacked = false }: ResourceRowProps) {
+export function ResourceRow({ content, name, onEdit, onDelete, onAttachments, stacked = false, onOpen }: ResourceRowProps) {
   const lines = content.lines.filter((line): line is string => Boolean(line));
   const hasActions = Boolean(onEdit || onDelete || onAttachments);
   const summary = content.figure || content.status ? (
@@ -31,10 +34,24 @@ export function ResourceRow({ content, name, onEdit, onDelete, onAttachments, st
     </>
   ) : null;
   return (
-    <div className="flex h-full items-start gap-3 p-4">
+    <div
+      className={cn(
+        "relative flex h-full items-start gap-3 p-4",
+        onOpen && "rounded-lg transition-colors duration-150 ease-soft focus-within:ring-2 focus-within:ring-primary hover:bg-ink-50",
+      )}
+    >
       {content.leading}
       <div className="flex h-full min-w-0 flex-1 flex-col">
-        <p className="break-words text-sm font-bold text-fg">{content.title}</p>
+        <p className="break-words text-sm font-bold text-fg">
+          {onOpen ? (
+            // The button stretches over the whole card: one real control, no nested ones
+            <button type="button" aria-haspopup="dialog" onClick={onOpen} className="text-left after:absolute after:inset-0 after:rounded-lg focus-visible:outline-none">
+              {content.title}
+            </button>
+          ) : (
+            content.title
+          )}
+        </p>
         {lines.map((line) => (
           <p key={line} className="break-words text-sm text-fg-muted">
             {line}

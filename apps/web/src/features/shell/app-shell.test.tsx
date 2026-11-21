@@ -9,7 +9,7 @@ import { AppShell } from "./app-shell";
 import { ADMIN_ITEMS, BOTTOM_BAR_ITEMS } from "./nav-items";
 
 const ALL_PERMISSIONS = ADMIN_ITEMS.flatMap((item) => (item.permission ? [item.permission] : []));
-/** What the ALLENATORE role gets from the matrix in the permission matrix of the backend (docs/api/openapi.yaml lists the permission of each endpoint), limited to the menu permissions. */
+/** What the ALLENATORE role gets from the permission matrix of the backend (docs/api/openapi.yaml lists the permission of each endpoint), limited to the menu permissions. */
 const COACH_PERMISSIONS = [
   "members:read",
   "documents:read",
@@ -117,7 +117,9 @@ describe("AppShell", () => {
       const nav = sidebar();
       expect(within(nav).getByRole("link", { name: "Home" })).toHaveAttribute("href", "/");
       const buttons = within(nav).getAllByRole("button").map((button) => button.textContent?.trim());
-      expect(buttons).toEqual(["Persone", "Attività sportiva", "Amministrazione", "Logistica", "Comunicazione"]);
+      expect(buttons).toEqual(["Persone", "Attività sportiva", "Amministrazione", "Movimenti", "Logistica", "Comunicazione"]);
+      // the balance is a page of its own, a link and not a group
+      expect(within(nav).getByRole("link", { name: "Bilancio" })).toHaveAttribute("href", "/altro/bilancio");
       expect(within(nav).queryByRole("link", { name: "Altro" })).not.toBeInTheDocument();
     });
 
@@ -127,11 +129,11 @@ describe("AppShell", () => {
       expect(within(nav).getByRole("button", { name: "Persone" })).toHaveAttribute("aria-expanded", "true");
       expect(within(nav).getByRole("link", { name: "Tesserati" })).toHaveAttribute("aria-current", "page");
       expect(within(nav).getByRole("link", { name: "Squadre" })).not.toHaveAttribute("aria-current");
-      for (const closed of ["Attività sportiva", "Amministrazione", "Logistica", "Comunicazione"]) {
+      for (const closed of ["Attività sportiva", "Amministrazione", "Movimenti", "Logistica", "Comunicazione"]) {
         expect(within(nav).getByRole("button", { name: closed })).toHaveAttribute("aria-expanded", "false");
       }
       expect(within(nav).queryByRole("link", { name: "Pagamenti" })).not.toBeInTheDocument();
-      expect(within(nav).getAllByRole("link")).toHaveLength(1 + 4);
+      expect(within(nav).getAllByRole("link")).toHaveLength(1 + 4 + 1);
     });
 
     it("links each button to the panel it controls", () => {
@@ -152,11 +154,20 @@ describe("AppShell", () => {
     });
 
     it("finds the pages that live under /altro in their topic", () => {
+      mocks.pathname.current = "/altro/uscite/Palestre";
+      renderShell();
+      const nav = sidebar();
+      expect(within(nav).getByRole("button", { name: "Movimenti" })).toHaveAttribute("aria-expanded", "true");
+      expect(within(nav).getByRole("link", { name: "Uscite" })).toHaveAttribute("aria-current", "page");
+      expect(within(nav).getByRole("link", { name: "Entrate" })).not.toHaveAttribute("aria-current");
+    });
+
+    it("marks Bilancio on its own, without opening the movements", () => {
       mocks.pathname.current = "/altro/bilancio";
       renderShell();
       const nav = sidebar();
-      expect(within(nav).getByRole("button", { name: "Amministrazione" })).toHaveAttribute("aria-expanded", "true");
       expect(within(nav).getByRole("link", { name: "Bilancio" })).toHaveAttribute("aria-current", "page");
+      expect(within(nav).getByRole("button", { name: "Movimenti" })).toHaveAttribute("aria-expanded", "false");
     });
 
     it("opens a group with a click and closes it with another, leaving the open one alone", async () => {
@@ -188,14 +199,26 @@ describe("AppShell", () => {
       expect(within(nav).getByRole("button", { name: "Comunicazione" })).toHaveFocus();
     });
 
-    it("opens the group of the new page when the user navigates, and folds the one that was open", async () => {
+    it("opens the group of the new page when the user navigates, and leaves the one that was open as it was", async () => {
       renderWithQuery(<Host />);
       const nav = sidebar();
       expect(within(nav).getByRole("button", { name: "Persone" })).toHaveAttribute("aria-expanded", "true");
       await userEvent.click(screen.getByRole("button", { name: "Vai alle quote" }));
       expect(within(nav).getByRole("button", { name: "Amministrazione" })).toHaveAttribute("aria-expanded", "true");
       expect(within(nav).getByRole("link", { name: "Pagamenti" })).toHaveAttribute("aria-current", "page");
+      expect(within(nav).getByRole("button", { name: "Persone" })).toHaveAttribute("aria-expanded", "true");
+    });
+
+    it("keeps the menu as the person arranged it when moving to another page: what they opened stays open, what they closed stays closed", async () => {
+      renderWithQuery(<Host />);
+      const nav = sidebar();
+      await userEvent.click(within(nav).getByRole("button", { name: "Persone" }));
+      await userEvent.click(within(nav).getByRole("button", { name: "Logistica" }));
+      await userEvent.click(screen.getByRole("button", { name: "Vai alle quote" }));
       expect(within(nav).getByRole("button", { name: "Persone" })).toHaveAttribute("aria-expanded", "false");
+      expect(within(nav).getByRole("button", { name: "Logistica" })).toHaveAttribute("aria-expanded", "true");
+      expect(within(nav).getByRole("button", { name: "Amministrazione" })).toHaveAttribute("aria-expanded", "true");
+      expect(within(nav).getByRole("button", { name: "Attività sportiva" })).toHaveAttribute("aria-expanded", "false");
     });
 
     it("keeps every group closed on a page that is not in the menu", () => {
@@ -218,7 +241,7 @@ describe("AppShell", () => {
       const nav = sidebar();
       await openEveryGroup(nav);
       expect(within(nav).getAllByRole("link")).toHaveLength(ADMIN_ITEMS.length);
-      for (const label of ["Squadre", "Accessi e inviti", "Pagamenti", "Bilancio", "Sponsor", "Automazioni", "Statistiche"]) {
+      for (const label of ["Squadre", "Accessi e inviti", "Pagamenti", "Entrate", "Uscite", "Bilancio", "Sponsor", "Automazioni", "Statistiche"]) {
         expect(within(nav).getByRole("link", { name: label })).toBeInTheDocument();
       }
     });
@@ -236,7 +259,7 @@ describe("AppShell", () => {
       expect(within(nav).getByRole("link", { name: "Tesserati" })).toHaveAttribute("href", "/tesserati");
       expect(within(nav).getByRole("link", { name: "Scadenze e documenti" })).toHaveAttribute("href", "/scadenze");
       await openEveryGroup(nav);
-      for (const hidden of ["Squadre", "Staff", "Accessi e inviti", "Pagamenti", "Bilancio", "Sponsor", "Arbitri", "Statistiche", "Automazioni"]) {
+      for (const hidden of ["Squadre", "Staff", "Accessi e inviti", "Pagamenti", "Entrate", "Uscite", "Bilancio", "Sponsor", "Arbitri", "Statistiche", "Automazioni"]) {
         expect(within(nav).queryByRole("link", { name: hidden })).not.toBeInTheDocument();
       }
       expect(within(nav).getByRole("link", { name: "Pagelle" })).toBeInTheDocument();

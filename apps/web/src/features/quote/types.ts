@@ -1,4 +1,4 @@
-/** Wire types of the fees API. Keep in sync with apps/api/src/modules/fees/schema.ts. */
+/** Wire types of the fees API. Keep in sync with the backend OpenAPI contract (docs/api/openapi.yaml in the SuiteASD-backend repository). */
 
 export type FeeKind = "ENROLLMENT" | "MONTHLY" | "EXTRA";
 export type PaymentMethod = "CASH" | "BANK_TRANSFER" | "CARD";
@@ -26,8 +26,6 @@ export interface Receipt {
   /** Zero-padded number, e.g. "0147". */
   code: string;
   issuedAt: string;
-  /** When the receipt notification went out to the payer and the administration; null until then. */
-  sentAt: string | null;
 }
 
 export interface Fee {
@@ -38,7 +36,6 @@ export interface Fee {
   feePlanId: string | null;
   description: string;
   amountCents: number;
-  currency: string;
   /** Calendar day, "YYYY-MM-DD". */
   dueDate: string;
   status: PaymentStatusCode;
@@ -60,7 +57,6 @@ export interface FeesSummary {
   incassatoCents: number;
   daIncassareCents: number;
   scadutoCents: number;
-  promemoriaInviati: number;
   paidCount: number;
   pendingCount: number;
   overdueCount: number;
@@ -71,10 +67,8 @@ export interface FeePlan {
   name: string;
   kind: FeeKind;
   amountCents: number;
-  currency: string;
   /** Teams the plan is billed to; empty = every active member of the society. */
   teamIds: string[];
-  seasonId: string | null;
   /** How many times the plan is paid. */
   installments: number;
   isActive: boolean;

@@ -1,4 +1,4 @@
-import { Building2, Bus, Receipt, Shirt, Whistle, type LucideIcon } from "lucide-react";
+import { Building2, Bus, Handshake, Landmark, PartyPopper, Receipt, Shirt, Wallet, Whistle, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { categoryBackground } from "./category-tone";
 
@@ -8,6 +8,10 @@ const USUAL_ICONS: Readonly<Record<string, LucideIcon>> = {
   divise: Shirt,
   trasferte: Bus,
   arbitri: Whistle,
+  sponsor: Handshake,
+  quote: Wallet,
+  contributi: Landmark,
+  "eventi e raccolte fondi": PartyPopper,
 };
 
 /** The square at the start of an expense or of a group: the colour of its category, with the icon of its section if it has one. */

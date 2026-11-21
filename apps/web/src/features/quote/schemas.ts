@@ -3,7 +3,7 @@ import { toDayKey } from "@/lib/dates";
 import { parseEuroToCents } from "@/lib/format";
 import type { CreateFeePlanBody, PayFeeBody } from "./types";
 
-/** Limits mirror apps/api/src/modules/fees/schema.ts so most mistakes are caught before the request. */
+/** Limits mirror the fee requests of the backend (docs/api/openapi.yaml) so most mistakes are caught before the request. */
 const dayText = z.iso.date("Inserisci una data valida");
 
 // ---------------------------------------------------------------------------

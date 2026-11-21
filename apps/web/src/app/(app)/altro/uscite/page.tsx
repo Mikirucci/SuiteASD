@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { SpesePage } from "@/features/altro/spese-page";
+import { LedgerOverviewPage } from "@/features/altro/ledger-overview-page";
 
-export const metadata: Metadata = { title: "Spese" };
+export const metadata: Metadata = { title: "Uscite" };
 
-export default function SpeseRoute() {
+export default function UsciteRoute() {
   // The period lives in the address (useSearchParams), which needs a Suspense boundary for static rendering
   return (
     <Suspense fallback={null}>
-      <SpesePage />
+      <LedgerOverviewPage kind="EXPENSE" />
     </Suspense>
   );
 }

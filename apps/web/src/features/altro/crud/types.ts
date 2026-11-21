@@ -15,7 +15,8 @@ export type FieldKind =
   | "date"
   | "datetime"
   | "member"
-  | "suggest";
+  | "suggest"
+  | "slots";
 
 export interface FieldDef {
   /** Key in the form values. */
@@ -105,6 +106,13 @@ export interface ResourceConfig<T extends { id: string }> {
   nameOf: (item: T) => string;
   /** Rows whose actions are hidden because another module owns them. */
   isReadOnly?: (item: T) => boolean;
+  /**
+   * The whole card opens the record on the same page: its fields can be changed right there, with the attachments
+   * and the delete action inside, so the card has no menu of actions.
+   */
+  openOnClick?: boolean;
+  /** Shown above the fields of a record that is opened: for instance why it cannot be changed here. */
+  detailNote?: (item: T) => ReactNode;
   /** Text search sent as `q`. */
   searchLabel?: string;
   filter?: ResourceFilter;

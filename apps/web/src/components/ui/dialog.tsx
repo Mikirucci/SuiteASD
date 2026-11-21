@@ -34,9 +34,11 @@ export interface DialogContentProps {
   /** Action row, usually a secondary and a primary Button. */
   footer?: ReactNode;
   className?: string;
+  /** For a long body with nothing to focus in it (every field is off): lets the keyboard reach it to scroll. */
+  scrollable?: boolean;
 }
 
-export function DialogContent({ title, description, children, footer, className }: DialogContentProps) {
+export function DialogContent({ title, description, children, footer, className, scrollable = false }: DialogContentProps) {
   return (
     <DialogPrimitive.Portal>
       <DialogOverlay />
@@ -53,7 +55,14 @@ export function DialogContent({ title, description, children, footer, className 
         {description ? (
           <DialogPrimitive.Description className="mt-1 text-sm text-fg-muted">{description}</DialogPrimitive.Description>
         ) : null}
-        {children ? <div className="mt-4 overflow-y-auto">{children}</div> : null}
+        {children ? (
+          <div
+            className={cn("mt-4 overflow-y-auto", scrollable && "rounded-md focus-visible:outline-2 focus-visible:outline-focus")}
+            {...(scrollable ? { tabIndex: 0, role: "region", "aria-label": title } : {})}
+          >
+            {children}
+          </div>
+        ) : null}
         {footer ? <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">{footer}</div> : null}
         <CloseButton />
       </DialogPrimitive.Content>

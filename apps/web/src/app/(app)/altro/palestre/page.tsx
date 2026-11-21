@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { VenuesPage } from "@/features/altro/resource-pages";
+import { VenuesPage } from "@/features/altro/venues-page";
 
 export const metadata: Metadata = { title: "Palestre" };
 

@@ -4,8 +4,8 @@ import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, RotateCcw } from 
 import { useState } from "react";
 import { Button, IconButton, Popover, PopoverContent, PopoverTrigger, RangeCalendar, Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import { formatPeriod, modeOf, rangeOf, shiftRange, type DayRange, type PeriodMode } from "./spese-period";
-import type { SpesePeriod } from "./use-spese-period";
+import { formatPeriod, modeOf, rangeOf, shiftRange, type DayRange, type PeriodMode } from "./period";
+import type { Period } from "./use-period";
 
 const TABS: ReadonlyArray<{ value: PeriodMode; label: string }> = [
   { value: "week", label: "Settimana" },
@@ -101,7 +101,7 @@ function YearGrid({ range, onPick }: { range: DayRange; onPick: (range: DayRange
  * period between them opens a panel to choose a week, a month, a year or any range. "Azzera filtri" appears when it is
  * not the current year.
  */
-export function SpesePeriodBar({ period }: { period: SpesePeriod }) {
+export function PeriodBar({ period }: { period: Period }) {
   const { range, setRange, reset, changed } = period;
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<PeriodMode>(() => modeOf(range));

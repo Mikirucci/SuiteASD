@@ -63,9 +63,7 @@ export const FEE_PLAN: FeePlan = {
   name: "Mensilità",
   kind: "MONTHLY",
   amountCents: 6000,
-  currency: "EUR",
   teamIds: [],
-  seasonId: null,
   installments: 9,
   isActive: true,
   createdAt: inDays(-10),
@@ -104,7 +102,7 @@ export const ROUTES: FakeRoutes = {
     },
   },
   "GET /fees/summary": {
-    body: { incassatoCents: 24000, daIncassareCents: 18000, scadutoCents: 6000, promemoriaInviati: 4, paidCount: 4, pendingCount: 2, overdueCount: 1 },
+    body: { incassatoCents: 24000, daIncassareCents: 18000, scadutoCents: 6000, paidCount: 4, pendingCount: 2, overdueCount: 1 },
   },
   "GET /fee-plans": pageOf([FEE_PLAN]),
   "GET /events": (request) => {
@@ -139,7 +137,7 @@ export const QUIET_ROUTES: FakeRoutes = {
   ...ROUTES,
   "GET /members/summary": { body: { tesserati: 118, squadre: 6, documentiMancanti: 0 } },
   "GET /fees/summary": {
-    body: { incassatoCents: 24000, daIncassareCents: 18000, scadutoCents: 0, promemoriaInviati: 4, paidCount: 4, pendingCount: 2, overdueCount: 0 },
+    body: { incassatoCents: 24000, daIncassareCents: 18000, scadutoCents: 0, paidCount: 4, pendingCount: 2, overdueCount: 0 },
   },
   "GET /events": (request) => {
     const answered = event({ convocations: { confirmed: 11, declined: 1, pending: 0, total: 12, capacity: 12 } });

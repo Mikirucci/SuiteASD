@@ -69,7 +69,9 @@ export async function routeApi(page: Page, me: MeOptions, handler: ApiHandler): 
     const url = new URL(request.url());
     const path = url.pathname.replace(/^\/api\/v1/, "");
     const key = `${request.method()} ${path}`;
-    const body = request.postDataJSON() as unknown;
+    // An uploaded file travels as the raw body: it has no JSON to record
+    const isJson = (request.headers()["content-type"] ?? "").includes("json");
+    const body = isJson ? (request.postDataJSON() as unknown) : null;
 
     const answer: ApiAnswer | undefined =
       key === "GET /me" && request.headers().authorization?.startsWith("Bearer ")

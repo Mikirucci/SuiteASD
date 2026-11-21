@@ -12,7 +12,7 @@ import {
   rangeSearch,
   shiftRange,
   type DayRange,
-} from "./spese-period";
+} from "./period";
 
 const day = (year: number, month: number, date: number) => new Date(year, month - 1, date);
 const keys = (range: DayRange) => [toDayKey(range.from), toDayKey(range.to)];
