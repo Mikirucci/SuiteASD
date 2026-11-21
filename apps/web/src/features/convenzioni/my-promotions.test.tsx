@@ -43,7 +43,7 @@ describe("MyPromotions", () => {
     stubApi({ "GET /me/promotions": () => json(200, { data: [CARD] }) });
     renderWithProviders(<MyPromotions />);
 
-    await userEvent.click(await screen.findByRole("button", { name: /Apri i dettagli della convenzione Fisioterapia scontata/ }));
+    await userEvent.click(await screen.findByRole("button", { name: "Mostra i dettagli di Fisioterapia scontata per Marco Loiodice" }));
     const dialog = await screen.findByRole("dialog", { name: "Fisioterapia scontata" });
     expect(dialog).toHaveTextContent("10% su ogni seduta");
     expect(dialog).toHaveTextContent("Valida dal 1 set 2026 al 31 mag 2027");

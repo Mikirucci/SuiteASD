@@ -74,15 +74,18 @@ export function MyPromotions() {
         <ul aria-label="Convenzioni" className="grid gap-5 md:grid-cols-2 2xl:grid-cols-3">
           {items.map((card) => (
             <li key={cardKey(card)} className="flex flex-col gap-2">
-              <button
-                type="button"
-                onClick={() => setOpen(card)}
-                aria-label={`Apri i dettagli della convenzione ${card.title}${card.holderName ? ` di ${card.holderName}` : ""}`}
-                className="rounded-xl text-left outline-offset-4 focus-visible:outline-2 focus-visible:outline-focus"
-              >
-                <PromotionCard card={card} />
-              </button>
-              {card.state === "UPCOMING" ? <Badge variant="warning">Valida dal {formatDay(card.validFrom)}</Badge> : null}
+              <PromotionCard card={card} />
+              <div className="flex flex-wrap items-center gap-3">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setOpen(card)}
+                  aria-label={`Mostra i dettagli di ${card.title} per ${card.holderName}`}
+                >
+                  Mostra i dettagli
+                </Button>
+                {card.state === "UPCOMING" ? <Badge variant="warning">Valida dal {formatDay(card.validFrom)}</Badge> : null}
+              </div>
             </li>
           ))}
         </ul>
