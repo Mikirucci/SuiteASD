@@ -14,6 +14,7 @@ export function makeFee(overrides: Partial<Fee> = {}): Fee {
     feePlanId: "p-nov",
     description: "Quota novembre",
     amountCents: 6000,
+    currency: "EUR",
     dueDate: "2026-11-10",
     status: "PENDING",
     paidAt: null,
@@ -40,7 +41,7 @@ export const PAID_FEE = makeFee({
   paidAt: "2026-11-05T10:00:00.000Z",
   method: "CASH",
   payerName: "Paolo Ferri",
-  receipt: { id: "r147", number: 147, code: "0147", issuedAt: "2026-11-05T10:00:00.000Z" },
+  receipt: { id: "r147", number: 147, code: "0147", issuedAt: "2026-11-05T10:00:00.000Z", sentAt: "2026-11-05T10:00:05.000Z" },
 });
 export const PENDING_FEE = makeFee();
 export const OVERDUE_FEE = makeFee({
@@ -67,6 +68,7 @@ export const SUMMARY: FeesSummary = {
   incassatoCents: 24000,
   daIncassareCents: 12000,
   scadutoCents: 6000,
+  promemoriaInviati: 4,
   paidCount: 4,
   pendingCount: 1,
   overdueCount: 1,
@@ -82,7 +84,9 @@ export const PLAN: FeePlan = {
   name: "Quota novembre",
   kind: "MONTHLY",
   amountCents: 6000,
+  currency: "EUR",
   teamIds: [],
+  seasonId: null,
   installments: 1,
   isActive: true,
   createdAt: "2026-10-01T08:00:00.000Z",
@@ -96,6 +100,7 @@ export const SECOND_PLAN: FeePlan = {
   kind: "ENROLLMENT",
   amountCents: 15000,
   teamIds: ["t-u16"],
+  installments: 3,
   isActive: false,
 };
 

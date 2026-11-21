@@ -62,8 +62,8 @@ test.describe("società nuova: documento, pagamento segnalato, ricevuta", () => 
     await page.getByRole("button", { name: "Nuovo piano" }).first().click();
     const plan = page.getByRole("dialog", { name: "Nuovo piano quota" });
     await plan.getByLabel(/Nome del piano/).fill(PLAN);
-    await plan.getByLabel(/Importo in euro/).fill("60");
-    await plan.getByLabel(/Prima scadenza/).fill(dayAhead(5));
+    await plan.getByLabel(/Importo di ogni pagamento/).fill("60");
+    await plan.getByLabel(/Data di scadenza/).fill(dayAhead(5));
     await plan.getByRole("button", { name: "Crea il piano" }).click();
     await expect(page.getByText("Piano creato")).toBeVisible();
 
@@ -122,12 +122,14 @@ test.describe("società nuova: documento, pagamento segnalato, ricevuta", () => 
     await page.keyboard.press("Escape");
   });
 
-  test("Gianni trova la quota già addebitata a Marco e il suo certificato, senza il pulsante Aggiungi documento", async ({ page }) => {
+  test("Gianni trova la quota di Marco, arrivato dopo il piano, e vede il certificato senza il pulsante Aggiungi documento", async ({ page }) => {
     await signIn(page, gianni, "/quote");
+
+    // The plan existed before Marco enrolled: he owes it without anybody generating anything
     await page.getByRole("link", { name: PLAN }).click();
-    // Marco joined after the plan was created: the fee was billed to him when he enrolled, nobody generates it
+    await expect(page.getByRole("list", { name: "Persone del piano" }).getByRole("listitem")).toHaveCount(1);
     await expect(page.getByRole("list", { name: "Persone del piano" })).toContainText(MARCO_NAME);
-    await expect(page.getByRole("button", { name: "Genera quote" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /Genera/ })).toHaveCount(0);
 
     await page.goto("/tesserati");
     await page.getByRole("list", { name: "Tesserati" }).getByRole("link", { name: new RegExp(MARCO_NAME) }).click();

@@ -15,7 +15,7 @@ import { ResourceFormDialog, type ResourceDialogState } from "./resource-form-di
 import { ResourceRow } from "./resource-row";
 import type { FormValues, ResourceConfig } from "./types";
 
-const PAGE_SIZE = 25;
+const DEFAULT_PAGE_SIZE = 25;
 
 export interface ResourceViewProps<T extends { id: string }> {
   config: ResourceConfig<T>;
@@ -32,6 +32,8 @@ export interface ResourceViewProps<T extends { id: string }> {
   columns?: 2 | 3;
   /** Fields of a new record filled in advance. */
   createPresets?: FormValues;
+  /** Records per page; a grid reads better with a number that fills whole rows (12 for two or three columns). */
+  pageSize?: number;
 }
 
 /**
@@ -47,6 +49,7 @@ export function ResourceView<T extends { id: string }>({
   layout = "list",
   columns = 3,
   createPresets,
+  pageSize = DEFAULT_PAGE_SIZE,
 }: ResourceViewProps<T>) {
   const { copy, filter } = config;
   const canWrite = usePermission(config.writePermission);
@@ -59,7 +62,7 @@ export function ResourceView<T extends { id: string }>({
   const [attachments, setAttachments] = useState<AttachmentsTarget | null>(null);
   const q = useDebouncedValue(search.trim());
 
-  const query: QueryParams = { ...extraQuery, q: q || undefined, ...(filter && filterValue ? { [filter.param]: filterValue } : {}), limit: PAGE_SIZE };
+  const query: QueryParams = { ...extraQuery, q: q || undefined, ...(filter && filterValue ? { [filter.param]: filterValue } : {}), limit: pageSize };
   const list = useCursorQuery<T>([config.key, query], config.path, query);
 
   const remove = useApiMutation((item: T, client) => client.delete<void>(`${config.path}/${item.id}`), {

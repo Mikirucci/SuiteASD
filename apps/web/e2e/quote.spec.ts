@@ -117,9 +117,28 @@ test.describe("pagamenti, segreteria", () => {
     await page.getByRole("button", { name: "Nuovo piano" }).click();
     const dialog = page.getByRole("dialog", { name: "Nuovo piano quota" });
     await dialog.getByLabel(/Nome del piano/).fill("Quota dicembre");
-    await dialog.getByLabel(/Importo in euro/).fill("65");
+    await dialog.getByLabel(/Importo di ogni pagamento/).fill("65");
+    await dialog.getByRole("checkbox", { name: "U16" }).check();
+    await dialog.getByRole("checkbox", { name: "U18" }).check();
+    await dialog.getByLabel(/Quante volte si paga/).fill("3");
+    await expect(dialog.getByLabel(/° pagamento/)).toHaveCount(3);
+    const requestBody = page.waitForRequest((request) => request.method() === "POST" && request.url().endsWith("/fee-plans"));
     await dialog.getByRole("button", { name: "Crea il piano" }).click();
     await expect(page.getByText("Piano creato")).toBeVisible();
+    expect((await requestBody).postDataJSON()).toMatchObject({
+      name: "Quota dicembre",
+      amountCents: 6500,
+      teamIds: ["t-u16", "t-u18"],
+    });
+  });
+
+  test("names the icons of a plan on hover", async ({ page }) => {
+    await mockQuoteApi(page);
+    await page.goto("/quote");
+    await settle(page);
+
+    await page.getByRole("list", { name: "Piani" }).getByText("persone in regola").locator("..").hover();
+    await expect(page.getByRole("tooltip")).toHaveText("persone in regola");
   });
 });
 

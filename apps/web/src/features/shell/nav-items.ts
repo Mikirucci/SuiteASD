@@ -14,6 +14,7 @@ import {
   Megaphone,
   Medal,
   MessagesSquare,
+  Receipt,
   Shirt,
   Trophy,
   Truck,
@@ -101,6 +102,7 @@ export const ADMIN_ENTRIES: readonly NavEntry[] = [
     items: [
       { id: "quote", label: "Pagamenti", href: "/quote", icon: Wallet, permission: "payments:read" },
       { id: "scadenze", label: "Scadenze e documenti", href: "/scadenze", icon: CalendarClock, permission: "documents:read" },
+      { id: "spese", label: "Spese", href: "/altro/spese", icon: Receipt, permission: "ledger:read" },
       { id: "bilancio", label: "Bilancio", href: "/altro/bilancio", icon: Banknote, permission: "ledger:read" },
       { id: "sponsor", label: "Sponsor", href: "/altro/sponsor", icon: Handshake, permission: "sponsors:read" },
     ],

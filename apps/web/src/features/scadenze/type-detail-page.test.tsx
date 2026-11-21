@@ -63,14 +63,42 @@ function peopleRoute(request: MockRequest): { body: TypePeople } {
       (!teamId || candidate.teams.some((team) => team.id === teamId)) &&
       (!status || candidate.status === status),
   );
-  return { body: { stats: STATS, people } };
+  return { body: { stats: STATS, people, pagination: { page: 1, pageSize: 20, total: people.length, totalPages: people.length === 0 ? 0 : 1 } } };
 }
+
+/** The API cuts the filtered, ordered list in pages of `pageSize` and counts what matches. */
+function pagedRoute(everyone: TypePerson[]) {
+  return (request: MockRequest): { body: TypePeople } => {
+    const pageNumber = Number(request.query.get("page") ?? 1);
+    const pageSize = Number(request.query.get("pageSize") ?? 20);
+    const status = request.query.get("status");
+    const matching = everyone.filter((candidate) => !status || candidate.status === status);
+    const start = (pageNumber - 1) * pageSize;
+    return {
+      body: {
+        stats: STATS,
+        people: matching.slice(start, start + pageSize),
+        pagination: { page: pageNumber, pageSize, total: matching.length, totalPages: Math.ceil(matching.length / pageSize) },
+      },
+    };
+  };
+}
+
+const lastPeopleCall = (calls: { path: string; query: URLSearchParams }[]) => calls.filter((call) => call.path.endsWith("/people")).at(-1);
+
+const MANY: TypePerson[] = Array.from({ length: 45 }, (_, index) =>
+  person({
+    memberId: `m-${index + 1}`,
+    memberName: `Atleta ${String(index + 1).padStart(2, "0")}`,
+    status: index % 3 === 0 ? "EXPIRED" : "OK",
+  }),
+);
 
 function api(extra: Parameters<typeof mockApi>[0] = {}) {
   return mockApi({
     "GET /document-types": () => page([CERTIFICATE_TYPE, FORM_TYPE]),
     "GET /document-types/type-MEDICAL_CERTIFICATE/people": peopleRoute,
-    "GET /document-types/type-MEMBERSHIP_FORM/people": () => ({ body: { stats: { ...STATS, expiringPeople: 0, expiredPeople: 0 }, people: [PEOPLE[4]!] } }),
+    "GET /document-types/type-MEMBERSHIP_FORM/people": () => ({ body: { stats: { ...STATS, expiringPeople: 0, expiredPeople: 0 }, people: [PEOPLE[4]!], pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 } } }),
     "GET /teams": () => page(TEAMS),
     ...extra,
   });
@@ -141,6 +169,58 @@ describe("TypeDetailPage", () => {
     expect(screen.getByText("Sara Conti")).toBeInTheDocument();
   });
 
+  describe("pages of people", () => {
+    const manyApi = () => api({ "GET /document-types/type-MEDICAL_CERTIFICATE/people": pagedRoute(MANY) });
+    const items = () => within(screen.getByRole("list", { name: "Persone del documento" })).getAllByRole("listitem");
+
+    it("shows twenty people at a time with where the reader is, and walks through the pages", async () => {
+      const { calls } = manyApi();
+      renderScreen(<TypeDetailPage id="type-MEDICAL_CERTIFICATE" />);
+      await screen.findByText("Atleta 01");
+      expect(items()).toHaveLength(20);
+      const pages = screen.getByRole("navigation", { name: "Pagine delle persone" });
+      expect(pages).toHaveTextContent("1-20 di 45");
+      expect(pages).toHaveTextContent("Pagina 1 di 3");
+      expect(within(pages).getByRole("button", { name: "Precedente" })).toBeDisabled();
+      expect(lastPeopleCall(calls)?.query.get("pageSize")).toBe("20");
+
+      await userEvent.click(within(pages).getByRole("button", { name: "Successiva" }));
+      expect(await screen.findByText("Atleta 21")).toBeInTheDocument();
+      expect(screen.queryByText("Atleta 01")).not.toBeInTheDocument();
+      expect(pages).toHaveTextContent("21-40 di 45");
+      expect(lastPeopleCall(calls)?.query.get("page")).toBe("2");
+
+      await userEvent.click(within(pages).getByRole("button", { name: "Successiva" }));
+      expect(await screen.findByText("Atleta 45")).toBeInTheDocument();
+      expect(items()).toHaveLength(5);
+      expect(pages).toHaveTextContent("41-45 di 45");
+      expect(within(pages).getByRole("button", { name: "Successiva" })).toBeDisabled();
+
+      await userEvent.click(within(pages).getByRole("button", { name: "Precedente" }));
+      expect(await screen.findByText("Atleta 21")).toBeInTheDocument();
+    });
+
+    it("starts again from the first page when the search or a filter changes", async () => {
+      const { calls } = manyApi();
+      renderScreen(<TypeDetailPage id="type-MEDICAL_CERTIFICATE" />);
+      await screen.findByText("Atleta 01");
+      await userEvent.click(within(screen.getByRole("navigation", { name: "Pagine delle persone" })).getByRole("button", { name: "Successiva" }));
+      await screen.findByText("Atleta 21");
+
+      await userEvent.click(screen.getByRole("button", { name: "Scaduto" }));
+      await waitFor(() => expect(lastPeopleCall(calls)?.query.get("status")).toBe("EXPIRED"));
+      expect(lastPeopleCall(calls)?.query.get("page")).toBe("1");
+      expect(await screen.findByText("Atleta 01")).toBeInTheDocument();
+    });
+
+    it("has no page controls when everybody fits on one page", async () => {
+      api();
+      renderScreen(<TypeDetailPage id="type-MEDICAL_CERTIFICATE" />);
+      await screen.findByText("Anna Ferri");
+      expect(screen.queryByRole("navigation", { name: "Pagine delle persone" })).not.toBeInTheDocument();
+    });
+  });
+
   it("leaves out the expiry figures and filters for a document without expiry", async () => {
     api();
     renderScreen(<TypeDetailPage id="type-MEMBERSHIP_FORM" />);
@@ -157,7 +237,7 @@ describe("TypeDetailPage", () => {
   it("explains when nobody has this document yet", async () => {
     api({
       "GET /document-types/type-MEDICAL_CERTIFICATE/people": () => ({
-        body: { stats: { validPeople: 0, expiringPeople: 0, expiredPeople: 0, missingPeople: 0 }, people: [] },
+        body: { stats: { validPeople: 0, expiringPeople: 0, expiredPeople: 0, missingPeople: 0 }, people: [], pagination: { page: 1, pageSize: 20, total: 0, totalPages: 0 } },
       }),
     });
     renderScreen(<TypeDetailPage id="type-MEDICAL_CERTIFICATE" />);

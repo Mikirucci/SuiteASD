@@ -8,6 +8,7 @@ import { useForm, type UseFormReturn } from "react-hook-form";
 import { Alert, Button, Dialog, DialogClose, DialogContent, Input, Select, Textarea, useToast } from "@/components/ui";
 import { ApiError, describeError, useApiMutation } from "@/lib/api";
 import { MemberField } from "./member-field";
+import { SuggestField } from "./suggest-field";
 import type { FieldDef, FormValues, ResourceConfig } from "./types";
 
 /** `presets` fill fields of a new record in advance (the item name when adding a piece to its group). */
@@ -43,6 +44,8 @@ function FormFields({ fields, form }: FieldsProps) {
               <Select {...common} options={field.options ?? []} {...register(field.name)} />
             ) : field.kind === "member" ? (
               <MemberField field={field} form={form} error={error} />
+            ) : field.kind === "suggest" ? (
+              <SuggestField field={field} form={form} error={error} />
             ) : (
               <Input
                 {...common}

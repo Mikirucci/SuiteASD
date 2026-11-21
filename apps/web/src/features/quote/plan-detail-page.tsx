@@ -7,10 +7,10 @@ import { Button, EmptyState, ErrorState, Input, PillFilter, SectionHeading, Sele
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { ApiError, describeError } from "@/lib/api";
 import { formatEuro, pluralize } from "@/lib/format";
+import { describePlan } from "./format";
 import { useFeePlan, usePlanPeople, useQuoteTeams, type PlanPeopleFilters } from "./api";
 import { PersonCard } from "./person-card";
 import { PersonFeesDialog } from "./person-fees-dialog";
-import { describePlan, teamNameOf } from "./plan-card";
 import { PlanFormDialog, type PlanDialogState } from "./plan-form-dialog";
 import type { FeePlan, PersonPaymentStatus, PlanPerson, PlanStats } from "./types";
 import { useQuoteAccess } from "./use-quote-access";
@@ -103,7 +103,6 @@ function PlanPeopleSection({ plan }: { plan: FeePlan }) {
     setStatus("");
   };
   const teamOptions = [{ value: "", label: "Tutte le squadre" }, ...(teams.items ?? []).map((team) => ({ value: team.id, label: team.name }))];
-  const teamName = teamNameOf(plan, new Map((teams.items ?? []).map((team) => [team.id, team.name])));
 
   if (people.isLoading) return <DetailSkeleton />;
   if (people.error || !people.data) {
@@ -122,7 +121,7 @@ function PlanPeopleSection({ plan }: { plan: FeePlan }) {
   return (
     <>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <SectionHeading as="h1" label="Piano" title={plan.name} description={describePlan(plan, teamName)} />
+        <SectionHeading as="h1" label="Piano" title={plan.name} description={describePlan(plan, teams.items ?? [], Infinity)} />
         {canWrite ? (
           <div className="flex flex-wrap gap-2">
             <Button variant="secondary" leftIcon={<Pencil />} onClick={() => setForm({ mode: "edit", plan })}>
@@ -142,7 +141,7 @@ function PlanPeopleSection({ plan }: { plan: FeePlan }) {
           <EmptyState
             icon={Users}
             title="Nessuna quota in questo piano"
-            description="Le quote si addebitano ai tesserati attivi quando il piano viene creato e a chi si iscrive dopo: per ora nessuno risulta da addebitare."
+            description="Nessun tesserato attivo nelle squadre del piano: le quote compaiono qui da sole appena qualcuno ne fa parte."
           />
         ) : (
           <>
