@@ -7,6 +7,7 @@ import { useAuth } from "@/features/auth/auth-provider";
 import { hasAdministration, hasPersonalArea } from "@/features/auth/areas";
 import { FullPageLoader } from "@/features/auth/guards";
 import { AppShell, type AreaLink } from "./app-shell";
+import { PermissionGuard } from "./permission-guard";
 import { ADMIN_NAVIGATION, PERSONAL_HOME_HREF, PERSONAL_NAVIGATION } from "./nav-items";
 
 const TO_PERSONAL: AreaLink = { href: PERSONAL_HOME_HREF, label: "La mia area personale", icon: UserRound };
@@ -32,7 +33,7 @@ export function AdministrationFrame({ children }: FrameProps) {
   if (me === null || !allowed) return <FullPageLoader label="Reindirizzamento in corso" />;
   return (
     <AppShell navigation={ADMIN_NAVIGATION} areaLink={hasPersonalArea(me.roles) ? TO_PERSONAL : undefined}>
-      {children}
+      <PermissionGuard>{children}</PermissionGuard>
     </AppShell>
   );
 }

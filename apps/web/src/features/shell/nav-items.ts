@@ -180,6 +180,17 @@ export function isActivePath(pathname: string, href: string, exact = href === "/
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+/**
+ * Permission a path of the administration requires: the one of the most specific menu item the path belongs to
+ * (any path below an item's href counts, e.g. /tesserati/abc). Paths outside the menu need none.
+ */
+export function requiredPermission(pathname: string): string | undefined {
+  return ADMIN_ITEMS.filter((item) => item.href !== "/" && isActivePath(pathname, item.href, false)).reduce<NavItem | undefined>(
+    (best, item) => (best === undefined || item.href.length > best.href.length ? item : best),
+    undefined,
+  )?.permission;
+}
+
 function canSee(item: NavItem, permissions: readonly string[]): boolean {
   return item.permission === undefined || permissions.includes(item.permission);
 }

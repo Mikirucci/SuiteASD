@@ -6,6 +6,7 @@ import {
   findActiveItem,
   isActivePath,
   isNavGroup,
+  requiredPermission,
   visibleEntries,
   type NavEntry,
 } from "./nav-items";
@@ -158,5 +159,31 @@ describe("isActivePath", () => {
     expect(isActivePath("/tesserati-archivio", "/tesserati")).toBe(false);
     expect(isActivePath("/quote", "/")).toBe(false);
     expect(isActivePath("/", "/")).toBe(true);
+  });
+});
+
+describe("requiredPermission", () => {
+  it("is the permission of the menu item the path belongs to", () => {
+    expect(requiredPermission("/altro/staff")).toBe("staff:read");
+    expect(requiredPermission("/tesserati/abc/documenti")).toBe("members:read");
+    expect(requiredPermission("/convenzioni")).toBe("promotions:read");
+  });
+
+  it("prefers the most specific item", () => {
+    expect(requiredPermission("/calendario")).toBe("events:read");
+    expect(requiredPermission("/calendario/presenze")).toBe("attendance:read");
+    expect(requiredPermission("/convenzioni/mie")).toBe("promotions:readOwn");
+  });
+
+  it("asks nothing for the home and for paths outside the menu", () => {
+    expect(requiredPermission("/")).toBeUndefined();
+    expect(requiredPermission("/altro")).toBeUndefined();
+    expect(requiredPermission("/non-esiste")).toBeUndefined();
+  });
+
+  it("refuses to a coach every section the menu hides from them", () => {
+    const hidden = ADMIN_ITEMS.filter((item) => item.permission && !COACH_PERMISSIONS.includes(item.permission));
+    expect(hidden.length).toBeGreaterThan(0);
+    for (const item of hidden) expect(COACH_PERMISSIONS).not.toContain(requiredPermission(item.href));
   });
 });
