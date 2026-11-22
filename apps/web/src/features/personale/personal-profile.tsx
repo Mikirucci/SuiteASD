@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { Button, Card, DataBoundary, EmptyState, SectionHeading } from "@/components/ui";
 import { useAuth } from "@/features/auth/auth-provider";
+import { LogoutButton } from "@/features/shell/logout-button";
 import { describeRoles } from "@/features/shell/role-labels";
 import { useMember } from "@/features/tesserati/api";
 import { formatDateOnly, teamLabel } from "@/features/tesserati/document-format";
@@ -118,6 +119,9 @@ export function PersonalProfile() {
           <Fact label="Ruolo">{describeRoles(me.roles)}</Fact>
         </dl>
         <PasswordForm />
+        <div className="border-t border-line pt-4">
+          <LogoutButton />
+        </div>
       </Card>
 
       <Card as="section" aria-labelledby="alerts-title" className="flex flex-wrap items-center justify-between gap-3">

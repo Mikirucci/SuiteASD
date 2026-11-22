@@ -24,6 +24,7 @@ const mocks = vi.hoisted(() => ({
   logout: vi.fn<() => Promise<void>>(),
   adoptSession: vi.fn<(session: unknown) => void>(),
   expireSession: { current: (): void => undefined },
+  otherTab: { current: (_change: "signed-in" | "signed-out"): void => undefined },
   replace: vi.fn<(url: string) => void>(),
   pathname: { current: "/tesserati" },
   search: { current: "" },
@@ -37,6 +38,10 @@ vi.mock("@/lib/api", () => ({
     register: mocks.register,
     logout: mocks.logout,
     adoptSession: mocks.adoptSession,
+    onOtherTabChange: (listener: (change: "signed-in" | "signed-out") => void) => {
+      mocks.otherTab.current = listener;
+      return () => undefined;
+    },
   },
   api: {
     onSessionExpired: (listener: () => void) => {
@@ -161,6 +166,24 @@ describe("AuthProvider", () => {
     expect(screen.getByTestId("status")).toHaveTextContent("unauthenticated");
   });
 
+  it("goes unauthenticated when another tab signs out", async () => {
+    mocks.hasStoredSession.mockReturnValue(true);
+    mocks.me.mockResolvedValue(ME);
+    render(wrap(<Probe />));
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("authenticated"));
+    act(() => mocks.otherTab.current("signed-out"));
+    expect(screen.getByTestId("status")).toHaveTextContent("unauthenticated");
+  });
+
+  it("picks up the session when another tab signs in", async () => {
+    mocks.hasStoredSession.mockReturnValue(false);
+    mocks.me.mockResolvedValue(ME);
+    render(wrap(<Probe />));
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("unauthenticated"));
+    act(() => mocks.otherTab.current("signed-in"));
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("authenticated"));
+  });
+
   it("requires a provider", () => {
     const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
     expect(() => render(<Probe />)).toThrow("useAuth must be used inside <AuthProvider>");
@@ -194,6 +217,23 @@ describe("AuthGuard", () => {
     );
     await waitFor(() => expect(mocks.replace).toHaveBeenCalledWith("/login?next=%2Ftesserati"));
     expect(screen.queryByText("Contenuto privato")).not.toBeInTheDocument();
+  });
+
+  it("says why when the session ended, but not after a plain logout", async () => {
+    mocks.hasStoredSession.mockReturnValue(true);
+    mocks.me.mockResolvedValue(ME);
+    render(
+      wrap(
+        <AuthGuard>
+          <p>Contenuto privato</p>
+        </AuthGuard>,
+      ),
+    );
+    await screen.findByText("Contenuto privato");
+    act(() => mocks.expireSession.current());
+    await waitFor(() =>
+      expect(mocks.replace).toHaveBeenCalledWith("/login?next=%2Ftesserati&motivo=sessione-scaduta"),
+    );
   });
 
   it("does not add a next parameter for the home page", async () => {

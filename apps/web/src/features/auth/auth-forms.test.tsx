@@ -6,6 +6,9 @@ import { expectNoA11yViolations } from "@/test/a11y";
 import { LoginForm } from "./login-form";
 import { RegisterForm } from "./register-form";
 
+const search = vi.hoisted(() => ({ current: "" }));
+vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(search.current) }));
+
 const login = vi.fn();
 const registerSociety = vi.fn();
 
@@ -18,6 +21,7 @@ function problem(status: number, code: string, errors?: Array<{ path: string; me
 }
 
 beforeEach(() => {
+  search.current = "";
   login.mockReset();
   registerSociety.mockReset();
 });
@@ -46,7 +50,44 @@ describe("LoginForm", () => {
     await userEvent.type(screen.getByLabelText(/^Email/), "a@b.it");
     await userEvent.type(screen.getByLabelText(/^Password/), "sbagliata");
     await userEvent.click(screen.getByRole("button", { name: "Accedi" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("Credenziali non valide");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Email o password non corretta.");
+  });
+
+  async function submitWith(error: unknown) {
+    login.mockRejectedValue(error);
+    render(<LoginForm />);
+    await userEvent.type(screen.getByLabelText(/^Email/), "a@b.it");
+    await userEvent.type(screen.getByLabelText(/^Password/), "sbagliata");
+    await userEvent.click(screen.getByRole("button", { name: "Accedi" }));
+    return screen.findByRole("alert");
+  }
+
+  it("tells how long to wait when there are too many attempts", async () => {
+    const error = new ApiError(429, { type: "about:blank", title: "t", status: 429, code: "rate_limited" }, 600);
+    expect(await submitWith(error)).toHaveTextContent("Troppi tentativi, riprova tra 10 minuti.");
+  });
+
+  it("rounds a short wait up to one minute, and copes with a missing Retry-After", async () => {
+    const short = new ApiError(429, { type: "about:blank", title: "t", status: 429, code: "rate_limited" }, 20);
+    expect(await submitWith(short)).toHaveTextContent("Troppi tentativi, riprova tra 1 minuto.");
+  });
+
+  it("falls back to a generic wait when the server gives no Retry-After", async () => {
+    expect(await submitWith(problem(429, "rate_limited"))).toHaveTextContent("Troppi tentativi, riprova tra qualche minuto.");
+  });
+
+  it("keeps the generic wording for errors that are not about the credentials", async () => {
+    expect(await submitWith(problem(500, "internal"))).toHaveTextContent("Il servizio non è disponibile");
+  });
+
+  it("explains that the session ended only when the user was sent here for that reason", async () => {
+    search.current = "motivo=sessione-scaduta";
+    const { unmount } = render(<LoginForm />);
+    expect(screen.getByRole("status")).toHaveTextContent("Sessione scaduta, accedi di nuovo.");
+    unmount();
+    search.current = "";
+    render(<LoginForm />);
+    expect(screen.queryByText("Sessione scaduta, accedi di nuovo.")).not.toBeInTheDocument();
   });
 
   it("has no detectable accessibility violations, with and without errors", async () => {

@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   signedIn: { current: true },
   replace: vi.fn<(url: string) => void>(),
   pathname: { current: "/" },
+  permissions: { current: ["members:read"] as string[] },
 }));
 
 vi.mock("next/navigation", () => ({
@@ -28,7 +29,7 @@ vi.mock("@/features/auth/auth-provider", () => ({
   useAuth: () => ({
     status: mocks.signedIn.current ? "authenticated" : "loading",
     me: mocks.signedIn.current
-      ? { user: { firstName: "Sara", lastName: "Conti" }, society: { name: "Aquile Volley" }, roles: mocks.roles.current as Role[], permissions: ["members:read"] }
+      ? { user: { firstName: "Sara", lastName: "Conti" }, society: { name: "Aquile Volley" }, roles: mocks.roles.current as Role[], permissions: mocks.permissions.current }
       : null,
     logout: vi.fn(),
   }),
@@ -38,12 +39,49 @@ beforeEach(() => {
   mocks.roles.current = ["ADMIN"];
   mocks.signedIn.current = true;
   mocks.pathname.current = "/";
+  mocks.permissions.current = ["members:read"];
   mocks.replace.mockReset();
   installFakeApi({ "GET /notifications/unread-count": { body: { count: 0 } } });
 });
 
 afterEach(() => {
   vi.unstubAllGlobals();
+});
+
+describe("AdministrationFrame route guard", () => {
+  it("replaces a section the role cannot use with a clear page, and never mounts it", () => {
+    mocks.roles.current = ["ALLENATORE"];
+    mocks.pathname.current = "/altro/staff";
+    renderWithQuery(<AdministrationFrame>contenuto riservato</AdministrationFrame>);
+    expect(screen.getByRole("heading", { level: 1, name: "Non hai accesso a questa sezione" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Torna alla home" })).toHaveAttribute("href", "/");
+    expect(screen.queryByText("contenuto riservato")).not.toBeInTheDocument();
+    expect(mocks.replace).not.toHaveBeenCalled();
+  });
+
+  it("guards the pages below a section too", () => {
+    mocks.pathname.current = "/tesserati/abc";
+    mocks.permissions.current = [];
+    renderWithQuery(<AdministrationFrame>contenuto riservato</AdministrationFrame>);
+    expect(screen.getByRole("heading", { level: 1, name: "Non hai accesso a questa sezione" })).toBeInTheDocument();
+  });
+
+  it("shows the section to a role that has the permission, and the home to everybody", () => {
+    mocks.pathname.current = "/tesserati";
+    renderWithQuery(<AdministrationFrame>contenuto riservato</AdministrationFrame>);
+    expect(screen.getByText("contenuto riservato")).toBeInTheDocument();
+  });
+
+  it("does not guard the home nor addresses outside the menu", () => {
+    mocks.permissions.current = [];
+    mocks.pathname.current = "/";
+    const { unmount } = renderWithQuery(<AdministrationFrame>contenuto riservato</AdministrationFrame>);
+    expect(screen.getByText("contenuto riservato")).toBeInTheDocument();
+    unmount();
+    mocks.pathname.current = "/sezione-inesistente";
+    renderWithQuery(<AdministrationFrame>contenuto riservato</AdministrationFrame>);
+    expect(screen.getByText("contenuto riservato")).toBeInTheDocument();
+  });
 });
 
 describe("AdministrationFrame", () => {

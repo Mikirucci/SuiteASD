@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { auditAccessibility } from "./support/axe";
+import { expectPhoneLayout } from "./support/phone";
 import { mockApi, seedStoredSession } from "./support/mock-api";
 import { pageOf, routeApi, type ApiHandler, type RoutedApi } from "./support/route-api";
 
@@ -172,5 +173,63 @@ test.describe("convenzioni, le mie card", () => {
     await open(page, "/convenzioni/mie", ["promotions:readOwn"], ({ method, path }) => (method === "GET" && path === "/me/promotions" ? { body: { data: [] } } : undefined));
     await expect(page.getByRole("heading", { name: "Nessuna convenzione per ora" })).toBeVisible();
     expect(await auditAccessibility(page)).toEqual([]);
+  });
+});
+
+test.describe("convenzioni su telefono", () => {
+  test.use({ viewport: { width: 320, height: 640 } });
+
+  const mine = {
+    promotionId: "p-fisio",
+    title: "Fisioterapia scontata con un titolo piuttosto lungo",
+    partnerName: "Therapia Centro di Fisioterapia e Riabilitazione",
+    partnerLabel: "Medical partner",
+    city: "Bitonto",
+    badge: "Sconti",
+    terms: "10% su ogni seduta",
+    template: "OCEANO",
+    validFrom: "2026-09-01",
+    validTo: "2027-05-31",
+    state: "ACTIVE",
+    societyName: "Aquile Volley",
+    holderName: "Anna Conti",
+    holderMemberId: "m-anna",
+    representedBy: "Michele Rucci",
+  };
+
+  test("the admin page fits 320px, empty, and so does the form", async ({ page }) => {
+    await open(page, "/convenzioni", ADMIN, promotionsBackend([]));
+    await expect(page.getByRole("heading", { name: "Nessuna convenzione ancora" })).toBeVisible();
+    await expectPhoneLayout(page);
+
+    await page.getByRole("button", { name: "Nuova convenzione" }).click();
+    await expect(page.getByRole("dialog", { name: "Nuova convenzione" })).toBeVisible();
+    await expectPhoneLayout(page);
+  });
+
+  test("the admin list fits 320px with long titles", async ({ page }) => {
+    await open(
+      page,
+      "/convenzioni",
+      ADMIN,
+      promotionsBackend([
+        promotion({ id: "p-fisio", title: "Fisioterapia scontata con un titolo piuttosto lungo", partnerName: "Therapia Centro di Fisioterapia e Riabilitazione" }),
+        promotion({ id: "p-bozza", title: "Palestra convenzionata", status: "DRAFT", publishedAt: null, allMembers: true, teamIds: [] }),
+      ]),
+    );
+    await expect(page.getByRole("list", { name: "Convenzioni" })).toContainText("Palestra convenzionata");
+    await expectPhoneLayout(page);
+  });
+
+  test("my cards fit 320px, and so do the details of a card", async ({ page }) => {
+    await open(page, "/convenzioni/mie", ["promotions:readOwn"], ({ method, path }) =>
+      method === "GET" && path === "/me/promotions" ? { body: { data: [mine, { ...mine, holderName: "Luca Conti", holderMemberId: "m-luca" }] } } : undefined,
+    );
+    await expect(page.getByRole("list", { name: "Convenzioni" }).getByRole("article")).toHaveCount(2);
+    await expectPhoneLayout(page);
+
+    await page.getByRole("button", { name: /Mostra i dettagli.*Anna Conti/ }).click();
+    await expect(page.getByRole("dialog", { name: /Fisioterapia scontata/ })).toBeVisible();
+    await expectPhoneLayout(page);
   });
 });

@@ -1,5 +1,5 @@
 import type { ApiClient } from "./client";
-import type { TokenStore } from "./token-store";
+import type { SessionChange, TokenStore } from "./token-store";
 import type { LoginBody, MeResponse, RegisterBody, SessionResponse } from "./types";
 
 export interface AuthApi {
@@ -11,6 +11,8 @@ export interface AuthApi {
   /** Starts the session a public flow returned (enrolment with a link): the person is signed in. */
   adoptSession(session: SessionResponse): void;
   hasStoredSession(): boolean;
+  /** Another tab of the browser signed in or out: this one must follow. Returns an unsubscribe function. */
+  onOtherTabChange(listener: (change: SessionChange) => void): () => void;
 }
 
 export function createAuthApi(client: ApiClient, tokens: TokenStore): AuthApi {
@@ -36,5 +38,6 @@ export function createAuthApi(client: ApiClient, tokens: TokenStore): AuthApi {
     me: (signal) => client.get<MeResponse>("/me", { signal }),
     adoptSession: (session) => tokens.setTokens({ accessToken: session.accessToken, refreshToken: session.refreshToken }),
     hasStoredSession: () => tokens.getRefreshToken() !== null,
+    onOtherTabChange: (listener) => tokens.subscribe(listener),
   };
 }
