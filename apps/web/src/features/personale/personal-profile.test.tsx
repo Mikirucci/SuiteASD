@@ -12,9 +12,10 @@ const auth = vi.hoisted(() => ({
   me: null as MeResponse | null,
   adoptSession: vi.fn<(session: unknown) => Promise<void>>(),
   refresh: vi.fn<() => Promise<void>>(),
+  logout: vi.fn<() => Promise<void>>(),
 }));
 vi.mock("@/features/auth/auth-provider", () => ({
-  useAuth: () => ({ status: "authenticated", me: auth.me, adoptSession: auth.adoptSession, refresh: auth.refresh }),
+  useAuth: () => ({ status: "authenticated", me: auth.me, adoptSession: auth.adoptSession, refresh: auth.refresh, logout: auth.logout }),
 }));
 vi.mock("next/link", () => ({
   default: ({ href, children, ...props }: { href: string; children: ReactNode } & Record<string, unknown>) => (
@@ -35,6 +36,8 @@ beforeEach(() => {
   auth.adoptSession.mockResolvedValue(undefined);
   auth.refresh.mockReset();
   auth.refresh.mockResolvedValue(undefined);
+  auth.logout.mockReset();
+  auth.logout.mockResolvedValue(undefined);
 });
 
 afterEach(() => {
@@ -42,6 +45,14 @@ afterEach(() => {
 });
 
 describe("PersonalProfile", () => {
+  it("lets the user log out from the account card", async () => {
+    mockApi({ "GET /members/m-sara": () => ({ body: SARA }) });
+    renderScreen(<PersonalProfile />);
+    const account = screen.getByRole("region", { name: "Il tuo account" });
+    await userEvent.click(within(account).getByRole("button", { name: "Esci" }));
+    expect(auth.logout).toHaveBeenCalledTimes(1);
+  });
+
   it("shows what the society knows and the contact details in a form", async () => {
     mockApi({ "GET /members/m-sara": () => ({ body: SARA }) });
     const { container } = renderScreen(<PersonalProfile />);
