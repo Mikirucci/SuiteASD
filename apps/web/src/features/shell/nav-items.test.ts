@@ -13,6 +13,7 @@ import {
 const ALL_PERMISSIONS = ADMIN_ITEMS.flatMap((item) => (item.permission ? [item.permission] : []));
 /** What the ALLENATORE role gets from the permission matrix of the backend (docs/api/openapi.yaml lists the permission of each endpoint), limited to the menu permissions. */
 const COACH_PERMISSIONS = [
+  "promotions:readOwn",
   "members:read",
   "documents:read",
   "events:read",
@@ -49,12 +50,12 @@ describe("administration menu", () => {
       "Arbitri",
       "Statistiche",
     ]);
-    expect(group(ADMIN_ENTRIES, "Amministrazione").items.map((item) => item.label)).toEqual(["Pagamenti", "Scadenze e documenti", "Sponsor"]);
+    expect(group(ADMIN_ENTRIES, "Amministrazione").items.map((item) => item.label)).toEqual(["Pagamenti", "Scadenze e documenti", "Sponsor", "Convenzioni"]);
     // the two lists of movements are one topic; the balance reads them and is not one of them
     expect(group(ADMIN_ENTRIES, "Movimenti").items.map((item) => item.label)).toEqual(["Entrate", "Uscite"]);
     expect(ADMIN_ENTRIES.some((entry) => !isNavGroup(entry) && entry.label === "Bilancio")).toBe(true);
     expect(group(ADMIN_ENTRIES, "Logistica").items.map((item) => item.label)).toEqual(["Palestre", "Trasferte", "Divise"]);
-    expect(group(ADMIN_ENTRIES, "Comunicazione").items.map((item) => item.label)).toEqual(["Notifiche", "Bacheca", "Automazioni"]);
+    expect(group(ADMIN_ENTRIES, "Comunicazione").items.map((item) => item.label)).toEqual(["Notifiche", "Bacheca", "Le mie convenzioni", "Automazioni"]);
   });
 
   it("keeps the URLs of the pages that already exist and points the new ones at /squadre and /inviti", () => {
@@ -100,7 +101,7 @@ describe("visibleEntries", () => {
       expect(shown).not.toContain(hidden);
     }
     expect(group(entries, "Attività sportiva").items.map((item) => item.label)).toEqual(["Calendario", "Presenze", "Classifiche", "Tornei", "Pagelle"]);
-    expect(group(entries, "Comunicazione").items.map((item) => item.label)).toEqual(["Notifiche", "Bacheca"]);
+    expect(group(entries, "Comunicazione").items.map((item) => item.label)).toEqual(["Notifiche", "Bacheca", "Le mie convenzioni"]);
   });
 
   it("turns a group with a single visible item into a direct link to it", () => {

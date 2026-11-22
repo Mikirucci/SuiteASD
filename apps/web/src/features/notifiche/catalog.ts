@@ -1,4 +1,5 @@
 import {
+  BadgePercent,
   CalendarCheck,
   CalendarX2,
   ClipboardList,
@@ -34,6 +35,7 @@ export const NOTIFICATION_TYPES: readonly NotificationType[] = [
   "EVENT_CHANGED",
   "EVALUATION_PUBLISHED",
   "ANNOUNCEMENT",
+  "PROMOTION_ASSIGNED",
   "ADMIN_PAYMENT_CLAIMED",
   "ADMIN_PAYMENT_RECEIVED",
   "ADMIN_FEE_OVERDUE",
@@ -84,6 +86,11 @@ export const TYPE_INFO: Record<NotificationType, NotificationTypeInfo> = {
     label: "Comunicazioni della bacheca",
     description: "Gli annunci che la società pubblica per la squadra.",
     icon: Megaphone,
+  },
+  PROMOTION_ASSIGNED: {
+    label: "Nuove convenzioni",
+    description: "Quando la società ti assegna la card di una convenzione con un partner.",
+    icon: BadgePercent,
   },
   ADMIN_PAYMENT_CLAIMED: {
     label: "Pagamenti segnalati",

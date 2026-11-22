@@ -170,3 +170,7 @@ Principio: **tutto automatico**. Chi ha un dato da consegnare lo carica da sé e
 - **Documenti** (D-35): scadenza colorata solo nel testo, anteprima del file nella piattaforma, niente pulsante generale se esiste già un documento.
 - **Pagamenti** (D-33, D-34): "Ho pagato" avvisa l'amministrazione, che verifica e registra; la ricevuta si vede in anteprima e arriva per notifica a pagante e amministrazione.
 - **Squadre** (D-36): card con filtri e pagina di dettaglio con rosa, appuntamenti e quote. **Statistiche**: numeri principali in alto, poi blocchi con "Come leggere".
+
+## 11. Addendum: Convenzioni (richiesta del 2026-11-21)
+
+- **Convenzioni** (D-62): la società crea la card di un accordo con un partner (titolo, partner, scritta, città, condizioni, validità, uno di sei sfondi nei colori del marchio) e sceglie a chi va: tutti i tesserati, squadre, ruoli di chi lavora per la società. La card riporta logo e nome della società, partner, intestatario e scadenza; un genitore ha una card per ogni figlio con i due nomi. Chi la riceve ha una notifica e un'email in HTML alla pubblicazione. Logo della società caricabile dalla pagina. Solo sul web, niente wallet né QR.

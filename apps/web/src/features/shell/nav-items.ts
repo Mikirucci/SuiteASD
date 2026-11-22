@@ -1,5 +1,6 @@
 import {
   ArrowLeftRight,
+  BadgePercent,
   Bell,
   Building2,
   Bus,
@@ -105,6 +106,7 @@ export const ADMIN_ENTRIES: readonly NavEntry[] = [
       { id: "quote", label: "Pagamenti", href: "/quote", icon: Wallet, permission: "payments:read" },
       { id: "scadenze", label: "Scadenze e documenti", href: "/scadenze", icon: CalendarClock, permission: "documents:read" },
       { id: "sponsor", label: "Sponsor", href: "/altro/sponsor", icon: Handshake, permission: "sponsors:read" },
+      { id: "convenzioni", label: "Convenzioni", href: "/convenzioni", icon: BadgePercent, exact: true, permission: "promotions:read" },
     ],
   },
   {
@@ -135,6 +137,7 @@ export const ADMIN_ENTRIES: readonly NavEntry[] = [
     items: [
       { id: "notifiche", label: "Notifiche", href: "/notifiche", icon: Bell, permission: "notifications:readOwn" },
       { id: "bacheca", label: "Bacheca", href: "/altro/bacheca", icon: Megaphone, permission: "announcements:read" },
+      { id: "mie-convenzioni", label: "Le mie convenzioni", href: "/convenzioni/mie", icon: BadgePercent, permission: "promotions:readOwn" },
       { id: "automazioni", label: "Automazioni", href: "/automazioni", icon: Zap, permission: "automations:read" },
     ],
   },
@@ -157,6 +160,7 @@ export const PERSONAL_NAV_ITEMS: readonly NavItem[] = [
   { id: "casa", label: "Home", href: PERSONAL_HOME_HREF, icon: House, exact: true },
   { id: "documenti", label: "Documenti", href: `${PERSONAL_HOME_HREF}/documenti`, icon: FileText },
   { id: "pagamenti", label: "Pagamenti", href: `${PERSONAL_HOME_HREF}/pagamenti`, icon: Wallet },
+  { id: "convenzioni", label: "Convenzioni", href: `${PERSONAL_HOME_HREF}/convenzioni`, icon: BadgePercent },
   { id: "calendario", label: "Calendario", href: `${PERSONAL_HOME_HREF}/calendario`, icon: CalendarDays },
   { id: "classifica", label: "Classifica", href: `${PERSONAL_HOME_HREF}/classifica`, icon: Trophy },
   { id: "notifiche", label: "Notifiche", href: `${PERSONAL_HOME_HREF}/notifiche`, icon: Bell },
