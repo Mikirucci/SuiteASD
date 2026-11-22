@@ -169,6 +169,11 @@ describe("requiredPermission", () => {
     expect(requiredPermission("/convenzioni")).toBe("promotions:read");
   });
 
+  it("lets readers open a page whose menu item is shown to writers only", () => {
+    expect(requiredPermission("/squadre")).toBe("teams:read");
+    expect(requiredPermission("/squadre/t16")).toBe("teams:read");
+  });
+
   it("prefers the most specific item", () => {
     expect(requiredPermission("/calendario")).toBe("events:read");
     expect(requiredPermission("/calendario/presenze")).toBe("attendance:read");

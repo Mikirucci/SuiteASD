@@ -43,6 +43,8 @@ export interface NavItem {
   exact?: boolean;
   /** Permission the user needs to see the item; absent = visible to everybody in the area. */
   permission?: string;
+  /** Permission needed to open the page, when it is weaker than the one that shows the menu item (readers can open it by address). */
+  access?: string;
 }
 
 /** A topic of the administration menu: an accordion that holds several items. */
@@ -79,7 +81,7 @@ export const ADMIN_ENTRIES: readonly NavEntry[] = [
     icon: Users,
     items: [
       { id: "tesserati", label: "Tesserati", href: "/tesserati", icon: Users, permission: "members:read" },
-      { id: "squadre", label: "Squadre", href: "/squadre", icon: UsersRound, permission: "teams:write" },
+      { id: "squadre", label: "Squadre", href: "/squadre", icon: UsersRound, permission: "teams:write", access: "teams:read" },
       { id: "staff", label: "Staff", href: "/altro/staff", icon: UserCog, permission: "staff:read" },
       { id: "inviti", label: "Accessi e inviti", href: "/inviti", icon: UserPlus, permission: "invitations:write" },
     ],
@@ -185,10 +187,10 @@ export function isActivePath(pathname: string, href: string, exact = href === "/
  * (any path below an item's href counts, e.g. /tesserati/abc). Paths outside the menu need none.
  */
 export function requiredPermission(pathname: string): string | undefined {
-  return ADMIN_ITEMS.filter((item) => item.href !== "/" && isActivePath(pathname, item.href, false)).reduce<NavItem | undefined>(
-    (best, item) => (best === undefined || item.href.length > best.href.length ? item : best),
-    undefined,
-  )?.permission;
+  const item = ADMIN_ITEMS.filter((candidate) => candidate.href !== "/" && isActivePath(pathname, candidate.href, false)).reduce<
+    NavItem | undefined
+  >((best, candidate) => (best === undefined || candidate.href.length > best.href.length ? candidate : best), undefined);
+  return item?.access ?? item?.permission;
 }
 
 function canSee(item: NavItem, permissions: readonly string[]): boolean {

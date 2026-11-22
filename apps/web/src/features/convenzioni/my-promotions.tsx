@@ -18,6 +18,7 @@ function CardDetailDialog({ card, logoUrl, onClose }: { card: Card | null; logoU
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent
+        scrollable
         title={card.title}
         description={`${card.partnerName}${card.city ? ` · ${card.city}` : ""}`}
         footer={
