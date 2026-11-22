@@ -32,7 +32,7 @@ test.describe("convenzioni sul backend reale", () => {
 
     // The athlete has her own card, with her name
     const athlete = await (await browser.newContext()).newPage();
-    await loginAs(athlete, society.people.atleta, "/convenzioni/mie");
+    await loginAs(athlete, society.people.atleta, "/area-personale/convenzioni");
     const athleteCards = athlete.getByRole("list", { name: "Convenzioni" }).getByRole("article");
     await expect(athleteCards).toHaveCount(1);
     await expect(athleteCards.first()).toContainText("Giulia Ferri");
@@ -40,14 +40,14 @@ test.describe("convenzioni sul backend reale", () => {
 
     // The guardian has the card of her child, with both names
     const guardian = await (await browser.newContext()).newPage();
-    await loginAs(guardian, society.people.genitore, "/convenzioni/mie");
+    await loginAs(guardian, society.people.genitore, "/area-personale/convenzioni");
     const guardianCards = guardian.getByRole("list", { name: "Convenzioni" }).getByRole("article");
     await expect(guardianCards).toHaveCount(1);
     await expect(guardianCards.first()).toContainText("Sara Conti");
     await expect(guardianCards.first()).toContainText("Genitore: Elena Conti");
 
     // And both were told: the notification is in their list
-    await athlete.goto("/notifiche");
+    await athlete.goto("/area-personale/notifiche");
     await expect(athlete.getByRole("list", { name: "Notifiche", exact: true })).toContainText("Fisioterapia scontata");
   });
 
@@ -70,7 +70,7 @@ test.describe("convenzioni sul backend reale", () => {
     await expect(coach.getByRole("list", { name: "Convenzioni" })).toContainText("Abbigliamento tecnico");
 
     const athlete = await (await browser.newContext()).newPage();
-    await loginAs(athlete, society.people.atleta, "/convenzioni/mie");
+    await loginAs(athlete, society.people.atleta, "/area-personale/convenzioni");
     await expect(athlete.getByRole("list", { name: "Convenzioni" })).not.toContainText("Abbigliamento tecnico");
   });
 });
