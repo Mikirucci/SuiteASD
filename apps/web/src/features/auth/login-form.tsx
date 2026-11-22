@@ -3,18 +3,20 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { LogIn } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { describeError } from "@/lib/api";
 import { useAuth } from "./auth-provider";
+import { describeLoginError, SESSION_EXPIRED_MESSAGE, SESSION_EXPIRED_PARAM, SESSION_EXPIRED_VALUE } from "./login-errors";
 import { PasswordInput } from "./password-input";
 import { loginSchema, type LoginValues } from "./schemas";
 
 export function LoginForm() {
   const { login } = useAuth();
+  const sessionExpired = useSearchParams().get(SESSION_EXPIRED_PARAM) === SESSION_EXPIRED_VALUE;
   const [formError, setFormError] = useState<string | null>(null);
   const {
     register,
@@ -27,12 +29,13 @@ export function LoginForm() {
     try {
       await login({ email: values.email.trim(), password: values.password });
     } catch (error) {
-      setFormError(describeError(error));
+      setFormError(describeLoginError(error));
     }
   });
 
   return (
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-5">
+      {sessionExpired ? <Alert tone="info">{SESSION_EXPIRED_MESSAGE}</Alert> : null}
       {formError ? <Alert tone="danger">{formError}</Alert> : null}
       <Input
         label="Email"

@@ -4,6 +4,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
 import { AppIcon } from "@/components/ui/logo";
 import { useAuth } from "./auth-provider";
+import { SESSION_EXPIRED_PARAM, SESSION_EXPIRED_VALUE } from "./login-errors";
 import { safeNextPath } from "./safe-next";
 
 export function FullPageLoader({ label }: { label: string }) {
@@ -16,16 +17,19 @@ export function FullPageLoader({ label }: { label: string }) {
 
 /** Wraps the private area: waits for the session, then renders or sends the user to /login. */
 export function AuthGuard({ children }: { children: ReactNode }) {
-  const { status } = useAuth();
+  const { status, sessionExpired } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
     if (status === "unauthenticated") {
-      const next = pathname === "/" ? "" : `?next=${encodeURIComponent(pathname)}`;
-      router.replace(`/login${next}`);
+      const params = new URLSearchParams();
+      if (pathname !== "/") params.set("next", pathname);
+      if (sessionExpired) params.set(SESSION_EXPIRED_PARAM, SESSION_EXPIRED_VALUE);
+      const query = params.toString();
+      router.replace(query ? `/login?${query}` : "/login");
     }
-  }, [status, pathname, router]);
+  }, [status, sessionExpired, pathname, router]);
 
   if (status !== "authenticated") return <FullPageLoader label="Caricamento in corso" />;
   return <>{children}</>;

@@ -219,6 +219,23 @@ describe("AuthGuard", () => {
     expect(screen.queryByText("Contenuto privato")).not.toBeInTheDocument();
   });
 
+  it("says why when the session ended, but not after a plain logout", async () => {
+    mocks.hasStoredSession.mockReturnValue(true);
+    mocks.me.mockResolvedValue(ME);
+    render(
+      wrap(
+        <AuthGuard>
+          <p>Contenuto privato</p>
+        </AuthGuard>,
+      ),
+    );
+    await screen.findByText("Contenuto privato");
+    act(() => mocks.expireSession.current());
+    await waitFor(() =>
+      expect(mocks.replace).toHaveBeenCalledWith("/login?next=%2Ftesserati&motivo=sessione-scaduta"),
+    );
+  });
+
   it("does not add a next parameter for the home page", async () => {
     mocks.pathname.current = "/";
     mocks.hasStoredSession.mockReturnValue(false);

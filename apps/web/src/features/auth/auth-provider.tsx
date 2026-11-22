@@ -11,6 +11,8 @@ type AuthState =
 
 export interface AuthContextValue {
   status: AuthState["status"];
+  /** True when the user is signed out because the server ended their session (not because they logged out). */
+  sessionExpired: boolean;
   /** Current user, society, roles and permissions: null unless authenticated. */
   me: MeResponse | null;
   login(body: LoginBody): Promise<void>;
@@ -27,6 +29,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const [state, setState] = useState<AuthState>({ status: "loading", me: null });
+  const [sessionExpired, setSessionExpired] = useState(false);
 
   // Restore the session after a reload: the stored refresh token is exchanged transparently by the client
   useEffect(() => {
@@ -50,6 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () =>
       api.onSessionExpired(() => {
         queryClient.clear();
+        setSessionExpired(true);
         setState({ status: "unauthenticated", me: null });
       }),
     [queryClient],
@@ -81,11 +85,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (body: LoginBody) => {
     await authApi.login(body);
+    setSessionExpired(false);
     setState({ status: "authenticated", me: await authApi.me() });
   }, []);
 
   const register = useCallback(async (body: RegisterBody) => {
     await authApi.register(body);
+    setSessionExpired(false);
     setState({ status: "authenticated", me: await authApi.me() });
   }, []);
 
@@ -105,13 +111,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     await authApi.logout();
+    setSessionExpired(false);
     queryClient.clear();
     setState({ status: "unauthenticated", me: null });
   }, [queryClient]);
 
   const value = useMemo<AuthContextValue>(
-    () => ({ status: state.status, me: state.me, login, register, logout, adoptSession, refresh }),
-    [state, login, register, logout, adoptSession, refresh],
+    () => ({ status: state.status, sessionExpired, me: state.me, login, register, logout, adoptSession, refresh }),
+    [state, sessionExpired, login, register, logout, adoptSession, refresh],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

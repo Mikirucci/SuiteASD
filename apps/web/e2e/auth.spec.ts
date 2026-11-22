@@ -50,7 +50,7 @@ test.describe("login", () => {
     await page.getByLabel("Email").fill(MOCK.email);
     await page.getByLabel(/^Password/).fill(MOCK.wrongPassword);
     await page.getByRole("button", { name: "Accedi" }).click();
-    await expect(page.getByRole("alert").filter({ hasText: "Credenziali non valide" })).toBeVisible();
+    await expect(page.getByRole("alert").filter({ hasText: "Email o password non corretta." })).toBeVisible();
     await expect(page).toHaveURL(/\/login/);
   });
 
