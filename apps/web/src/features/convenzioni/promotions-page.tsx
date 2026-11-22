@@ -201,7 +201,7 @@ export function PromotionsPage() {
         loadingLabel="Caricamento delle convenzioni"
         skeletonRows={3}
       >
-        <ul aria-label="Convenzioni" className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+        <ul aria-label="Convenzioni" className="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-3">
           {promotions.map((promotion) => (
             <PromotionItem
               key={promotion.id}

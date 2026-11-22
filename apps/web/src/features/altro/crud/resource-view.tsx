@@ -136,7 +136,7 @@ export function ResourceView<T extends { id: string }>({
 
       <DataList
         label={copy.plural}
-        className={layout === "grid" ? cn("grid auto-rows-fr gap-4 sm:grid-cols-2", columns === 3 && "xl:grid-cols-3") : undefined}
+        className={layout === "grid" ? cn("grid auto-rows-fr grid-cols-1 gap-4 sm:grid-cols-2", columns === 3 && "xl:grid-cols-3") : undefined}
         items={list.items}
         getKey={(item) => item.id}
         renderItem={(item) => {

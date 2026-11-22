@@ -1,8 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 import { CATEGORIES, ENTRATE, INCOME_CATEGORIES, PALLONI, COMUNE, SPESE, summaryOf, trendOf } from "../src/features/altro/ledger-data";
 import { ALLENATORE, MAGLIA, PALAZZETTO, PANIFICIO, REPORT_SUMMARY, SCUOLA, TRASFERTA, TUTA } from "../src/features/altro/test-fixtures";
-import type { LedgerEntry } from "../src/features/altro/types";
+import type { LedgerEntry, StaffMember } from "../src/features/altro/types";
 import { auditAccessibility } from "./support/axe";
+import { expectPhoneLayout, horizontalOverflow } from "./support/phone";
 import { mockApi, seedStoredSession } from "./support/mock-api";
 import { pageOf, routeApi, type ApiAnswer, type ApiHandler, type ApiRequest } from "./support/route-api";
 
@@ -723,6 +724,27 @@ test.describe("altro su telefono", () => {
     const box = await dialog.boundingBox();
     expect((box?.y ?? -1) >= 0 && (box?.y ?? 0) + (box?.height ?? 0) <= 640).toBe(true);
     await expect(dialog.getByRole("button", { name: "Registra la spesa" })).toBeInViewport();
+  });
+
+  test("staff fits 320px and 375px, empty and with long names and emails", async ({ page }) => {
+    const long = {
+      ...ALLENATORE,
+      firstName: "Massimiliano",
+      lastName: "Vettorazzi-Montecchio",
+      email: "massimiliano.vettorazzi.montecchio@societasportivaaquilevolley.example.it",
+      qualifications: "Allenatore di secondo grado FIPAV, istruttore giovanile, preparatore atletico",
+    };
+    for (const width of [320, 375]) {
+      await page.setViewportSize({ width, height: 720 });
+      await openAs(page, "/altro/staff", ADMIN, resource("/staff", [] as StaffMember[]).handler);
+      await expect(page.getByRole("heading", { name: "Nessun membro dello staff" })).toBeVisible();
+      await expectPhoneLayout(page);
+
+      await openAs(page, "/altro/staff", ADMIN, resource("/staff", [long]).handler);
+      await expect(page.getByRole("listitem").filter({ hasText: "Vettorazzi-Montecchio" })).toBeVisible();
+      await settle(page);
+      expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
+    }
   });
 
   test("sponsor fits 320px", async ({ page }) => {

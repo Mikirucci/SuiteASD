@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { auditAccessibility } from "./support/axe";
+import { expectPhoneLayout } from "./support/phone";
 import { mockApi, seedStoredSession } from "./support/mock-api";
 import { pageOf, routeApi, type ApiAnswer, type ApiHandler } from "./support/route-api";
 import { announcement, DRAFT, PINNED, TEAMS, TEAM_NOTICE } from "../src/features/bacheca/test-fixtures";
@@ -64,6 +65,7 @@ test.describe("statistiche", () => {
     await open(page, "/altro/statistiche", ["statistics:read"], handler());
     await expect(page.getByRole("heading", { name: "Ultimi risultati" })).toBeVisible();
     expect(await noHorizontalScroll(page)).toBeLessThanOrEqual(0);
+    await expectPhoneLayout(page);
   });
 });
 
@@ -141,9 +143,11 @@ test.describe("bacheca", () => {
     await open(page, "/altro/bacheca", MANAGER, boardBackend([PINNED, TEAM_NOTICE, DRAFT]));
     await expect(page.getByRole("article", { name: "Palestra chiusa sabato" })).toBeVisible();
     expect(await noHorizontalScroll(page)).toBeLessThanOrEqual(0);
+    await expectPhoneLayout(page);
     await page.getByRole("button", { name: "Nuova comunicazione" }).first().click();
     await expect(page.getByRole("dialog", { name: "Nuova comunicazione" })).toBeVisible();
     expect(await noHorizontalScroll(page)).toBeLessThanOrEqual(0);
+    await expectPhoneLayout(page);
   });
 });
 
@@ -209,6 +213,7 @@ test.describe("tornei", () => {
     await open(page, "/altro/tornei", READER, handler());
     await expect(page.getByRole("table", { name: "Classifica Girone B" })).toBeVisible();
     expect(await noHorizontalScroll(page)).toBeLessThanOrEqual(0);
+    await expectPhoneLayout(page);
   });
 });
 
