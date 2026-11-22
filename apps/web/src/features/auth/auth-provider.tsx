@@ -55,6 +55,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [queryClient],
   );
 
+  // Another tab signed out (this one goes to /login) or signed in (this one picks up the new session)
+  useEffect(() => {
+    const controller = new AbortController();
+    const unsubscribe = authApi.onOtherTabChange((change) => {
+      if (change === "signed-out") {
+        queryClient.clear();
+        setState({ status: "unauthenticated", me: null });
+        return;
+      }
+      void authApi.me(controller.signal).then(
+        (me) => {
+          if (controller.signal.aborted) return;
+          queryClient.clear();
+          setState({ status: "authenticated", me });
+        },
+        () => undefined,
+      );
+    });
+    return () => {
+      controller.abort();
+      unsubscribe();
+    };
+  }, [queryClient]);
+
   const login = useCallback(async (body: LoginBody) => {
     await authApi.login(body);
     setState({ status: "authenticated", me: await authApi.me() });

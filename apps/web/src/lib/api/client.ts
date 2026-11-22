@@ -1,4 +1,5 @@
 import { ApiError, NetworkError, parseProblem } from "./errors";
+import { browserRefreshLock, type RefreshLock } from "./refresh-lock";
 import type { TokenStore } from "./token-store";
 import type { SessionResponse } from "./types";
 
@@ -42,7 +43,12 @@ export interface ApiClientConfig {
   baseUrl: string;
   tokens: TokenStore;
   fetchImpl?: typeof fetch;
+  /** Serialises session renewals across tabs. Default: the Web Locks API of the browser. */
+  lock?: RefreshLock;
 }
+
+/** How long a tab that was waiting for the renewal lock waits for the access token the renewing tab shares. */
+const SHARED_TOKEN_GRACE_MS = 300;
 
 function buildUrl(baseUrl: string, path: string, query: QueryParams | undefined): string {
   const url = `${baseUrl}${path.startsWith("/") ? path : `/${path}`}`;
@@ -77,7 +83,7 @@ function retryAfterOf(response: Response): number | null {
   return Number.isFinite(seconds) ? seconds : null;
 }
 
-export function createApiClient({ baseUrl, tokens, fetchImpl }: ApiClientConfig): ApiClient {
+export function createApiClient({ baseUrl, tokens, fetchImpl, lock = browserRefreshLock }: ApiClientConfig): ApiClient {
   const listeners = new Set<() => void>();
   let refreshing: Promise<void> | null = null;
 
@@ -108,16 +114,15 @@ export function createApiClient({ baseUrl, tokens, fetchImpl }: ApiClientConfig)
     return new ApiError(response.status, parseProblem(await readBody(response)), retryAfterOf(response));
   }
 
-  /** Single flight: concurrent 401s share one refresh call, so the rotated token is used once. */
-  function refreshSession(): Promise<void> {
-    refreshing ??= (async () => {
-      const refreshToken = tokens.getRefreshToken();
-      if (!refreshToken) throw new ApiError(401, null);
-      const response = await send("/auth/refresh", { method: "POST", body: { refreshToken }, auth: false });
-      if (!response.ok) throw await toError(response);
-      const session = (await readBody(response)) as SessionResponse;
-      tokens.setTokens({ accessToken: session.accessToken, refreshToken: session.refreshToken });
-    })()
+  /**
+   * Renews the session. Concurrent 401s of this tab share one call (single flight); the tabs of the browser take turns
+   * through the lock, and whoever comes second reuses what the first obtained instead of presenting the old refresh
+   * token again, which the backend would read as theft and answer by revoking the whole session.
+   * `staleAccessToken` is the one the failed request carried (null when there was none).
+   */
+  function refreshSession(staleAccessToken: string | null): Promise<void> {
+    const refreshAtStart = tokens.getRefreshToken();
+    refreshing ??= lock(() => renew(staleAccessToken, refreshAtStart))
       .catch((error: unknown) => {
         // A rejected refresh token ends the session; a network failure must not log the user out
         if (error instanceof ApiError) {
@@ -132,14 +137,45 @@ export function createApiClient({ baseUrl, tokens, fetchImpl }: ApiClientConfig)
     return refreshing;
   }
 
+  function alreadyRenewed(staleAccessToken: string | null): boolean {
+    const current = tokens.getAccessToken();
+    return current !== null && current !== staleAccessToken;
+  }
+
+  /** Runs inside the lock. */
+  async function renew(staleAccessToken: string | null, refreshAtStart: string | null): Promise<void> {
+    for (let attempt = 0; ; attempt += 1) {
+      // Another tab may have renewed while we waited for the lock
+      if (alreadyRenewed(staleAccessToken)) return;
+      if (attempt === 0 && tokens.getRefreshToken() !== refreshAtStart) {
+        // Its new access token may still be on its way
+        await tokens.waitForSharedAccessToken(SHARED_TOKEN_GRACE_MS);
+        if (alreadyRenewed(staleAccessToken)) return;
+      }
+      // Never a copy kept in memory: another tab may have rotated it
+      const refreshToken = tokens.getRefreshToken();
+      if (!refreshToken) throw new ApiError(401, null);
+      const response = await send("/auth/refresh", { method: "POST", body: { refreshToken }, auth: false });
+      if (response.ok) {
+        const session = (await readBody(response)) as SessionResponse;
+        tokens.setTokens({ accessToken: session.accessToken, refreshToken: session.refreshToken }, "refresh");
+        return;
+      }
+      // Rejected, but a tab that does not use the lock may have rotated the token meanwhile: use the new one once
+      if (attempt === 0 && tokens.getRefreshToken() !== refreshToken) continue;
+      throw await toError(response);
+    }
+  }
+
   /** Sends the request (refreshing the session once on 401) and returns the successful response, or throws ApiError. */
   async function execute(path: string, options: RequestOptions): Promise<Response> {
     const authenticated = options.auth !== false;
-    if (authenticated && !tokens.getAccessToken() && tokens.getRefreshToken()) await refreshSession();
+    if (authenticated && !tokens.getAccessToken() && tokens.getRefreshToken()) await refreshSession(null);
 
+    const sentWith = tokens.getAccessToken();
     let response = await send(path, options);
     if (response.status === 401 && authenticated && tokens.getRefreshToken()) {
-      await refreshSession();
+      await refreshSession(sentWith);
       response = await send(path, options);
     }
     if (!response.ok) throw await toError(response);

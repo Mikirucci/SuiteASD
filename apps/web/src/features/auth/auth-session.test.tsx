@@ -24,6 +24,7 @@ const mocks = vi.hoisted(() => ({
   logout: vi.fn<() => Promise<void>>(),
   adoptSession: vi.fn<(session: unknown) => void>(),
   expireSession: { current: (): void => undefined },
+  otherTab: { current: (_change: "signed-in" | "signed-out"): void => undefined },
   replace: vi.fn<(url: string) => void>(),
   pathname: { current: "/tesserati" },
   search: { current: "" },
@@ -37,6 +38,10 @@ vi.mock("@/lib/api", () => ({
     register: mocks.register,
     logout: mocks.logout,
     adoptSession: mocks.adoptSession,
+    onOtherTabChange: (listener: (change: "signed-in" | "signed-out") => void) => {
+      mocks.otherTab.current = listener;
+      return () => undefined;
+    },
   },
   api: {
     onSessionExpired: (listener: () => void) => {
@@ -159,6 +164,24 @@ describe("AuthProvider", () => {
     await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("authenticated"));
     act(() => mocks.expireSession.current());
     expect(screen.getByTestId("status")).toHaveTextContent("unauthenticated");
+  });
+
+  it("goes unauthenticated when another tab signs out", async () => {
+    mocks.hasStoredSession.mockReturnValue(true);
+    mocks.me.mockResolvedValue(ME);
+    render(wrap(<Probe />));
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("authenticated"));
+    act(() => mocks.otherTab.current("signed-out"));
+    expect(screen.getByTestId("status")).toHaveTextContent("unauthenticated");
+  });
+
+  it("picks up the session when another tab signs in", async () => {
+    mocks.hasStoredSession.mockReturnValue(false);
+    mocks.me.mockResolvedValue(ME);
+    render(wrap(<Probe />));
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("unauthenticated"));
+    act(() => mocks.otherTab.current("signed-in"));
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("authenticated"));
   });
 
   it("requires a provider", () => {
