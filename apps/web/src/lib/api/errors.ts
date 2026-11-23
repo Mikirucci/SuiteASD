@@ -55,6 +55,8 @@ export function parseProblem(body: unknown): ProblemDetails | null {
 
 const CODE_MESSAGES: Record<string, string> = {
   email_taken: "Esiste già un account con questa email. Accedi invece di registrarti.",
+  last_admin: "La società deve avere almeno un amministratore attivo: nomina prima un altro amministratore.",
+  account_disabled: "L'account è stato disattivato dall'amministrazione della società. Contatta la segreteria.",
   email_not_verified: "Prima conferma la tua email: ti abbiamo scritto un link. Dal banner in alto puoi chiederlo di nuovo.",
 };
 
