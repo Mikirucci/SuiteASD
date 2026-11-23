@@ -80,7 +80,7 @@ export const ATHLETE_PERMISSIONS = ["members:readOwn", "documents:readOwn", "tea
 
 export function meWith(permissions: string[]): MeResponse {
   return {
-    user: { id: "u1", email: "presidente@aquilevolley.it", firstName: "Michele", lastName: "Rucci", phone: null },
+    user: { id: "u1", email: "presidente@aquilevolley.it", firstName: "Michele", lastName: "Rucci", emailVerified: true, phone: null },
     society: { id: "s1", name: "Aquile Volley", slug: "aquile-volley" },
     roles: ["ADMIN"],
     permissions,

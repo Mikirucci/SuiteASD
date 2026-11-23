@@ -81,7 +81,7 @@ export async function mockBackend(
     } else if (key === "GET /me") {
       response = {
         body: {
-          user: { id: "u1", email: "presidente@aquilevolley.it", firstName: "Michele", lastName: "Rucci", phone: null },
+          user: { id: "u1", email: "presidente@aquilevolley.it", firstName: "Michele", lastName: "Rucci", emailVerified: true, phone: null },
           society: { id: "s1", name: "Aquile Volley", slug: "aquile-volley" },
           roles: [role === "admin" ? "ADMIN" : "ATLETA"],
           permissions: PERMISSIONS[role],

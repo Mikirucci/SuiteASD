@@ -6,6 +6,11 @@ export const SESSION_EXPIRED_VALUE = "sessione-scaduta";
 
 export const SESSION_EXPIRED_MESSAGE = "Sessione scaduta, accedi di nuovo.";
 
+/** /login receives this after a password reset: the API closed every session, the person signs in with the new one. */
+export const PASSWORD_UPDATED_PARAM = "motivo";
+export const PASSWORD_UPDATED_VALUE = "password-aggiornata";
+export const PASSWORD_UPDATED_MESSAGE = "Password aggiornata: accedi con la nuova.";
+
 /**
  * Message for a failed sign-in. The API answers 401 whether the email is unknown or the password is wrong (and the
  * message must not tell them apart), so the wording covers both. Other errors keep the generic wording.

@@ -25,6 +25,8 @@ export interface UserSummary {
   email: string;
   firstName: string;
   lastName: string;
+  /** Whether the email is confirmed; until it is, the API refuses invitations and published announcements. */
+  emailVerified: boolean;
 }
 
 export interface SocietySummary {

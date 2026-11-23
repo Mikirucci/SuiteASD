@@ -7,7 +7,7 @@ import { AuthProvider, useAuth } from "./auth-provider";
 import { AuthGuard, GuestGuard } from "./guards";
 
 const ME: MeResponse = {
-  user: { id: "u1", email: "p@aquilevolley.it", firstName: "Michele", lastName: "Rucci", phone: null },
+  user: { id: "u1", email: "p@aquilevolley.it", firstName: "Michele", lastName: "Rucci", emailVerified: true, phone: null },
   society: { id: "s1", name: "Aquile Volley", slug: "aquile-volley" },
   roles: ["ADMIN"],
   permissions: [],

@@ -4,6 +4,7 @@ import { Ban, Lock, MailPlus, UserPlus } from "lucide-react";
 import { useState } from "react";
 import { Button, Chip, ConfirmDialog, DataList, EmptyState, LoadMore, SectionHeading, useToast } from "@/components/ui";
 import { useAuth } from "@/features/auth/auth-provider";
+import { PeopleSection } from "@/features/accessi/people-section";
 import { usePermission } from "@/hooks/use-permission";
 import { ApiError, describeError } from "@/lib/api";
 import { usePendingInvitations, useRevokeInvitation } from "./api";
@@ -153,6 +154,8 @@ export function InvitationsPage() {
         Qui vedi i link ancora da usare. Quando qualcuno completa la registrazione il link esce dall&apos;elenco, la
         persona compare in Staff e ricevi un avviso nelle notifiche. Un link scaduto o revocato esce anch&apos;esso.
       </p>
+
+      <PeopleSection />
 
       {canWrite && roles.length > 0 ? (
         <InviteDialog key={openings} open={inviteOpen} onOpenChange={setInviteOpen} roles={roles} />

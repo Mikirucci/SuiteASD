@@ -18,7 +18,7 @@ const GUARDIAN_PERMISSIONS = [...ATHLETE_PERMISSIONS, "children:create"];
 
 function base(roles: Role[], permissions: string[]): MeResponse {
   return {
-    user: { id: "u-1", email: "sara@example.test", firstName: "Sara", lastName: "Conti", phone: null },
+    user: { id: "u-1", email: "sara@example.test", firstName: "Sara", lastName: "Conti", emailVerified: true, phone: null },
     society: { id: "s-1", name: "Aquile Volley", slug: "aquile-volley" },
     roles,
     permissions,
@@ -37,7 +37,7 @@ export function athleteMe(): MeResponse {
 export function guardianMe(): MeResponse {
   return {
     ...base(["GENITORE"], GUARDIAN_PERMISSIONS),
-    user: { id: "u-2", email: "roberta@example.test", firstName: "Roberta", lastName: "Conti", phone: null },
+    user: { id: "u-2", email: "roberta@example.test", firstName: "Roberta", lastName: "Conti", emailVerified: true, phone: null },
     children: [
       { memberId: "m-anna", firstName: "Anna", lastName: "Conti", relation: "MADRE" },
       { memberId: "m-marta", firstName: "Marta", lastName: "Conti", relation: "MADRE" },
