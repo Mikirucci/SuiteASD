@@ -47,7 +47,7 @@ export function MyPromotions() {
   const cards = useMyCards();
   const [open, setOpen] = useState<Card | null>(null);
   const items = cards.data?.data ?? [];
-  const logoUrl = useSocietyLogoUrl(items.some((card) => card.hasSocietyLogo));
+  const logoUrl = useSocietyLogoUrl(items.some((card) => card.hasSocietyLogo), true);
 
   return (
     <div className="flex flex-col gap-6">

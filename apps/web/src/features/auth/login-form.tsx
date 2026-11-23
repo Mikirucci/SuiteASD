@@ -10,13 +10,22 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "./auth-provider";
-import { describeLoginError, SESSION_EXPIRED_MESSAGE, SESSION_EXPIRED_PARAM, SESSION_EXPIRED_VALUE } from "./login-errors";
+import {
+  describeLoginError,
+  PASSWORD_UPDATED_MESSAGE,
+  PASSWORD_UPDATED_VALUE,
+  SESSION_EXPIRED_MESSAGE,
+  SESSION_EXPIRED_PARAM,
+  SESSION_EXPIRED_VALUE,
+} from "./login-errors";
 import { PasswordInput } from "./password-input";
 import { loginSchema, type LoginValues } from "./schemas";
 
 export function LoginForm() {
   const { login } = useAuth();
-  const sessionExpired = useSearchParams().get(SESSION_EXPIRED_PARAM) === SESSION_EXPIRED_VALUE;
+  const reason = useSearchParams().get(SESSION_EXPIRED_PARAM);
+  const sessionExpired = reason === SESSION_EXPIRED_VALUE;
+  const passwordUpdated = reason === PASSWORD_UPDATED_VALUE;
   const [formError, setFormError] = useState<string | null>(null);
   const {
     register,
@@ -36,6 +45,7 @@ export function LoginForm() {
   return (
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-5">
       {sessionExpired ? <Alert tone="info">{SESSION_EXPIRED_MESSAGE}</Alert> : null}
+      {passwordUpdated ? <Alert tone="success">{PASSWORD_UPDATED_MESSAGE}</Alert> : null}
       {formError ? <Alert tone="danger">{formError}</Alert> : null}
       <Input
         label="Email"
@@ -53,6 +63,11 @@ export function LoginForm() {
         error={errors.password?.message}
         {...register("password")}
       />
+      <div className="-mt-2 text-right">
+        <Link href="/password/dimenticata" className="text-sm font-semibold text-primary-fg underline-offset-4 hover:underline">
+          Password dimenticata?
+        </Link>
+      </div>
       <Button type="submit" size="lg" fullWidth loading={isSubmitting} leftIcon={<LogIn />}>
         Accedi
       </Button>

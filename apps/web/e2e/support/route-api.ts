@@ -36,15 +36,17 @@ export function pageOf<T>(data: T[]): ApiAnswer {
 export interface MeOptions {
   permissions: string[];
   roles?: string[];
+  /** Whether the email of the signed-in user is confirmed (default true). */
+  emailVerified?: boolean;
   member?: { id: string; firstName: string; lastName: string } | null;
   children?: Array<{ memberId: string; firstName: string; lastName: string; relation: string }>;
 }
 
 /** Body of GET /me with the given permissions (the shared mock returns none). */
-export function meWith({ permissions, roles = ["ALLENATORE"], member = null, children = [] }: MeOptions) {
+export function meWith({ permissions, roles = ["ALLENATORE"], emailVerified = true, member = null, children = [] }: MeOptions) {
   const society = { id: "s1", name: "Aquile Volley" };
   return {
-    user: { id: "u1", email: "allenatore@aquilevolley.it", firstName: "Michele", lastName: "Rucci", phone: null },
+    user: { id: "u1", email: "allenatore@aquilevolley.it", firstName: "Michele", lastName: "Rucci", emailVerified, phone: null },
     society: { ...society, slug: "aquile-volley" },
     roles,
     permissions,

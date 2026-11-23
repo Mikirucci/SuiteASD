@@ -19,11 +19,17 @@ export function useMyCards() {
 /**
  * The logo of the society as an address the browser can show: the image needs the token, so it is fetched as a blob.
  * `null` while it loads and for a society without a logo.
+ *
+ * @param knownPresent the caller already knows the society has one (a card says so): the question is skipped. Those
+ *   who manage the promotions ask the API first, so a society without a logo never meets a 404.
  */
-export function useSocietyLogoUrl(enabled: boolean): string | null {
+export function useSocietyLogoUrl(enabled: boolean, knownPresent = false): string | null {
+  const info = useApiQuery<{ present: boolean }>(["promotions", "logo-info"], "/promotions/society-logo/info", {
+    enabled: enabled && !knownPresent,
+  });
   const logo = useQuery<Blob | null, ApiError>({
     queryKey: ["promotions", "logo"],
-    enabled,
+    enabled: enabled && (knownPresent || info.data?.present === true),
     queryFn: async () => {
       try {
         return (await api.download("/me/promotions/society-logo")).blob;

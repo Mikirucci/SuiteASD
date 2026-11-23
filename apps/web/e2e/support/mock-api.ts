@@ -13,7 +13,7 @@ const SESSION = {
   refreshToken: "refresh-token-1",
   tokenType: "Bearer",
   expiresIn: 900,
-  user: { id: "u1", email: MOCK.email, firstName: "Michele", lastName: "Rucci" },
+  user: { id: "u1", email: MOCK.email, firstName: "Michele", lastName: "Rucci", emailVerified: true },
   society: { id: "s1", name: "Aquile Volley" },
   roles: ["ADMIN"],
 };

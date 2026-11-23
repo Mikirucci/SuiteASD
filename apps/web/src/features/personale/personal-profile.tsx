@@ -10,6 +10,7 @@ import { describeRoles } from "@/features/shell/role-labels";
 import { useMember } from "@/features/tesserati/api";
 import { formatDateOnly, teamLabel } from "@/features/tesserati/document-format";
 import { usePermission } from "@/hooks/use-permission";
+import { SessionsPanel } from "@/features/account/sessions-panel";
 import { AddChildDialog } from "./add-child-dialog";
 import { ContactForm } from "./contact-form";
 import { PasswordForm } from "./password-form";
@@ -119,6 +120,7 @@ export function PersonalProfile() {
           <Fact label="Ruolo">{describeRoles(me.roles)}</Fact>
         </dl>
         <PasswordForm />
+        <SessionsPanel />
         <div className="border-t border-line pt-4">
           <LogoutButton />
         </div>
