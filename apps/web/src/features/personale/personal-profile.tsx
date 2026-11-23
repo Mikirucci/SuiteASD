@@ -5,15 +5,14 @@ import Link from "next/link";
 import { useState } from "react";
 import { Button, Card, DataBoundary, EmptyState, SectionHeading } from "@/components/ui";
 import { useAuth } from "@/features/auth/auth-provider";
-import { LogoutButton } from "@/features/shell/logout-button";
-import { describeRoles } from "@/features/shell/role-labels";
 import { useMember } from "@/features/tesserati/api";
 import { formatDateOnly, teamLabel } from "@/features/tesserati/document-format";
 import { usePermission } from "@/hooks/use-permission";
-import { SessionsPanel } from "@/features/account/sessions-panel";
+import { AccountCard } from "@/features/account/account-card";
+import { EmergencyContactsSection } from "@/features/account/emergency-contacts-section";
+import { MyProfileSection } from "@/features/account/my-profile-form";
 import { AddChildDialog } from "./add-child-dialog";
 import { ContactForm } from "./contact-form";
-import { PasswordForm } from "./password-form";
 import { useSubjectChoice } from "./subject-picker";
 import { usePersonalSubjects, type Subject } from "./subjects";
 
@@ -94,6 +93,7 @@ export function PersonalProfile() {
   const subjects = usePersonalSubjects();
   const { subject, picker } = useSubjectChoice(subjects);
   const canAddChildren = usePermission("children:create");
+  const canEditEmergencyContacts = usePermission("emergencyContacts:updateOwn");
   if (!me) return null;
 
   return (
@@ -107,24 +107,13 @@ export function PersonalProfile() {
       />
       {picker}
       {subject ? <SubjectData key={subject.memberId} subject={subject} /> : null}
+      {subject && canEditEmergencyContacts ? (
+        <EmergencyContactsSection key={`contacts-${subject.memberId}`} memberId={subject.memberId} ownerName={subject.isSelf ? "" : subject.name} />
+      ) : null}
+      {me.member === null ? <MyProfileSection /> : null}
       {canAddChildren ? <Children subjects={subjects} /> : null}
 
-      <Card as="section" aria-labelledby="account-title" className="flex flex-col gap-4">
-        <h2 id="account-title" className="text-lg font-bold tracking-title text-fg">
-          Il tuo account
-        </h2>
-        <dl className="grid gap-4 sm:grid-cols-2">
-          <Fact label="Nome">{`${me.user.firstName} ${me.user.lastName}`}</Fact>
-          <Fact label="Email di accesso">{me.user.email}</Fact>
-          <Fact label="Società">{me.society.name}</Fact>
-          <Fact label="Ruolo">{describeRoles(me.roles)}</Fact>
-        </dl>
-        <PasswordForm />
-        <SessionsPanel />
-        <div className="border-t border-line pt-4">
-          <LogoutButton />
-        </div>
-      </Card>
+      <AccountCard />
 
       <Card as="section" aria-labelledby="alerts-title" className="flex flex-wrap items-center justify-between gap-3">
         <div>
