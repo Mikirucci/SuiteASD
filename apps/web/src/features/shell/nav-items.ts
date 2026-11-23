@@ -109,6 +109,7 @@ export const ADMIN_ENTRIES: readonly NavEntry[] = [
       { id: "scadenze", label: "Scadenze e documenti", href: "/scadenze", icon: CalendarClock, permission: "documents:read" },
       { id: "sponsor", label: "Sponsor", href: "/altro/sponsor", icon: Handshake, permission: "sponsors:read" },
       { id: "convenzioni", label: "Convenzioni", href: "/convenzioni", icon: BadgePercent, exact: true, permission: "promotions:read" },
+      { id: "societa", label: "La società", href: "/societa", icon: Building2, permission: "society:readLegal" },
     ],
   },
   {

@@ -51,7 +51,7 @@ describe("administration menu", () => {
       "Arbitri",
       "Statistiche",
     ]);
-    expect(group(ADMIN_ENTRIES, "Amministrazione").items.map((item) => item.label)).toEqual(["Pagamenti", "Scadenze e documenti", "Sponsor", "Convenzioni"]);
+    expect(group(ADMIN_ENTRIES, "Amministrazione").items.map((item) => item.label)).toEqual(["Pagamenti", "Scadenze e documenti", "Sponsor", "Convenzioni", "La società"]);
     // the two lists of movements are one topic; the balance reads them and is not one of them
     expect(group(ADMIN_ENTRIES, "Movimenti").items.map((item) => item.label)).toEqual(["Entrate", "Uscite"]);
     expect(ADMIN_ENTRIES.some((entry) => !isNavGroup(entry) && entry.label === "Bilancio")).toBe(true);
