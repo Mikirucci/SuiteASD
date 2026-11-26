@@ -88,7 +88,7 @@ test.describe("inviti", () => {
 
     const result = page.getByRole("dialog", { name: "Link pronto" });
     await expect(result).toContainText("/invito/tok_E2E-token");
-    await expect(result).toContainText("Per ora l'app non invia email");
+    await expect(result).toContainText("Copia il link e mandalo tu");
     expect(api.bodies.get("POST /invitations")).toEqual({ role: "STAFF", label: "Luca, nuovo magazziniere" });
     expect(await auditAccessibility(page)).toEqual([]);
     await result.getByRole("button", { name: "Fatto" }).click();

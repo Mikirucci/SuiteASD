@@ -131,8 +131,8 @@ describe("InvitationsPage", () => {
     expect(api.calls.find((call) => call.method === "POST")?.body).toEqual({ role: "STAFF", label: "Marco, nuovo allenatore U14" });
     expect(result).toHaveTextContent("Marco, nuovo allenatore U14: entrerà come staff.");
     expect(result).toHaveTextContent(`${window.location.origin}/invito/tok_ABC-123`);
-    // The truth about the delivery: the platform does not send emails yet
-    expect(result).toHaveTextContent("Per ora l'app non invia email");
+    // A link that names nobody is sent by whoever invites: the platform has no address to write to
+    expect(result).toHaveTextContent("Copia il link e mandalo tu");
     expect(result).toHaveTextContent("Chi lo apre scrive nome, email e password ed entra");
 
     Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
@@ -198,6 +198,29 @@ describe("InvitationsPage", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Invita una persona" }));
     const select = within(await screen.findByRole("dialog")).getByLabelText(/^Ruolo/);
     expect(within(select).getAllByRole("option").map((option) => option.textContent)).toEqual(["Allenatore", "Staff"]);
+  });
+
+  it("sends a new link for an invitation and shows it, saying the email went too", async () => {
+    const api = stubApi({
+      "GET /invitations": () => json(200, page([COACH, SECRETARY])),
+      "POST /invitations/inv-1/resend": () => json(200, { ...COACH, token: "tok_NUOVO" }),
+    });
+    renderWithProviders(<InvitationsPage />);
+    await userEvent.click(await screen.findByRole("button", { name: "Reinvia l'invito: marco.allenatore@example.test" }));
+
+    const result = await screen.findByRole("dialog", { name: "Nuovo link pronto" });
+    expect(result).toHaveTextContent("Il link di prima non funziona più.");
+    expect(result).toHaveTextContent(`${window.location.origin}/invito/tok_NUOVO`);
+    expect(result).toHaveTextContent("Lo abbiamo mandato anche per email a marco.allenatore@example.test.");
+    expect(api.count("POST /invitations/inv-1/resend")).toBe(1);
+  });
+
+  it("explains when the invitation cannot be sent again", async () => {
+    stubApi({ "GET /invitations": () => json(200, page([COACH])), "POST /invitations/inv-1/resend": () => problem(429, "rate_limited") });
+    renderWithProviders(<InvitationsPage />);
+    await userEvent.click(await screen.findByRole("button", { name: "Reinvia l'invito: marco.allenatore@example.test" }));
+
+    expect(await screen.findByText("Non sono riuscito a reinviarlo")).toBeInTheDocument();
   });
 
   it("revokes an invitation after the confirmation", async () => {

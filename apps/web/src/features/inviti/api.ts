@@ -20,6 +20,14 @@ export function useCreateInvitation() {
   });
 }
 
+/** A new link for the same invitation (same role, seven new days): the old link stops working at once. */
+export function useResendInvitation() {
+  const queryClient = useQueryClient();
+  return useApiMutation((id: string, client) => client.post<CreatedInvitation>(`/invitations/${id}/resend`), {
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: INVITATIONS_KEY }),
+  });
+}
+
 export function useRevokeInvitation() {
   const queryClient = useQueryClient();
   return useApiMutation((id: string, client) => client.delete<void>(`/invitations/${id}`), {
