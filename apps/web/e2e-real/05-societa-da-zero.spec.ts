@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { DEMO_PASSWORD } from "./support/session";
+import { markEmailVerified } from "./support/verify-email";
 
 // The hand-made people test, replayed on the real stack: a brand new society built from the interface only (no demo seed).
 // The tests run in order and share what the previous ones produced (the two links), like the people did.
@@ -73,6 +74,9 @@ test.describe("società nuova, dalla registrazione alle convocazioni, sul backen
     for (const group of ["Persone", "Attività sportiva", "Amministrazione", "Logistica", "Comunicazione"]) {
       await expect(menu.getByRole("button", { name: new RegExp(`^${group}`) })).toBeVisible();
     }
+    // A new administrator is asked to confirm the email before inviting: the banner says so
+    await expect(page.getByRole("region", { name: "Verifica la tua email" })).toBeVisible();
+    markEmailVerified(rita.email);
   });
 
   test("Rita crea la squadra Rosa Under 16 dal percorso e la ritrova in elenco", async ({ page }) => {

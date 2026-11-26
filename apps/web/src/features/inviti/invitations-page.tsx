@@ -1,15 +1,15 @@
 "use client";
 
-import { Ban, Lock, MailPlus, UserPlus } from "lucide-react";
+import { Ban, Lock, MailPlus, RefreshCw, UserPlus } from "lucide-react";
 import { useState } from "react";
-import { Button, Chip, ConfirmDialog, DataList, EmptyState, LoadMore, SectionHeading, useToast } from "@/components/ui";
+import { Button, Chip, ConfirmDialog, DataList, Dialog, DialogClose, DialogContent, EmptyState, LoadMore, SectionHeading, useToast } from "@/components/ui";
 import { useAuth } from "@/features/auth/auth-provider";
 import { PeopleSection } from "@/features/accessi/people-section";
 import { usePermission } from "@/hooks/use-permission";
 import { ApiError, describeError } from "@/lib/api";
-import { usePendingInvitations, useRevokeInvitation } from "./api";
-import { InviteDialog } from "./invite-dialog";
-import { ROLE_LABEL, describeInvitationExpiry, invitableRoles, invitationTitle, type Invitation } from "./invitation-format";
+import { usePendingInvitations, useResendInvitation, useRevokeInvitation } from "./api";
+import { InviteDialog, InviteResult } from "./invite-dialog";
+import { ROLE_LABEL, describeInvitationExpiry, invitableRoles, invitationTitle, type CreatedInvitation, type Invitation } from "./invitation-format";
 
 function describeRevokeError(error: unknown): string {
   if (error instanceof ApiError && error.status === 404) {
@@ -22,9 +22,11 @@ interface InvitationRowProps {
   invitation: Invitation;
   now: Date;
   onRevoke?: () => void;
+  onResend?: () => void;
+  resending?: boolean;
 }
 
-function InvitationRow({ invitation, now, onRevoke }: InvitationRowProps) {
+function InvitationRow({ invitation, now, onRevoke, onResend, resending }: InvitationRowProps) {
   return (
     <div className="flex flex-col gap-3 p-4">
       <div className="flex items-start gap-3">
@@ -36,11 +38,24 @@ function InvitationRow({ invitation, now, onRevoke }: InvitationRowProps) {
         </div>
         <Chip tone="brand">In attesa</Chip>
       </div>
-      {onRevoke ? (
-        <div>
-          <Button variant="ghost" leftIcon={<Ban />} aria-label={`Revoca l'invito: ${invitationTitle(invitation)}`} onClick={onRevoke}>
-            Revoca
-          </Button>
+      {onRevoke || onResend ? (
+        <div className="flex flex-wrap gap-2">
+          {onResend ? (
+            <Button
+              variant="ghost"
+              leftIcon={<RefreshCw />}
+              loading={resending}
+              aria-label={`Reinvia l'invito: ${invitationTitle(invitation)}`}
+              onClick={onResend}
+            >
+              Reinvia
+            </Button>
+          ) : null}
+          {onRevoke ? (
+            <Button variant="ghost" leftIcon={<Ban />} aria-label={`Revoca l'invito: ${invitationTitle(invitation)}`} onClick={onRevoke}>
+              Revoca
+            </Button>
+          ) : null}
         </div>
       ) : null}
     </div>
@@ -55,6 +70,15 @@ export function InvitationsPage() {
   const canWrite = usePermission("invitations:write");
   const list = usePendingInvitations(canRead);
   const revoke = useRevokeInvitation();
+  const resend = useResendInvitation();
+  const [resent, setResent] = useState<CreatedInvitation | null>(null);
+
+  function resendInvitation(invitation: Invitation) {
+    resend.mutate(invitation.id, {
+      onSuccess: (created) => setResent(created),
+      onError: (error) => toast({ title: "Non sono riuscito a reinviarlo", description: describeError(error), tone: "danger" }),
+    });
+  }
   const [inviteOpen, setInviteOpen] = useState(false);
   // A new dialog instance per opening, so that the one-time link of the previous invitation is never shown again
   const [openings, setOpenings] = useState(0);
@@ -129,6 +153,8 @@ export function InvitationsPage() {
                   }
                 : undefined
             }
+            onResend={canWrite ? () => resendInvitation(invitation) : undefined}
+            resending={resend.isPending && resend.variables === invitation.id}
           />
         )}
         isLoading={list.isLoading}
@@ -156,6 +182,22 @@ export function InvitationsPage() {
       </p>
 
       <PeopleSection />
+
+      {resent ? (
+        <Dialog open onOpenChange={(open) => !open && setResent(null)}>
+          <DialogContent
+            title="Nuovo link pronto"
+            description="Il link di prima non funziona più."
+            footer={
+              <DialogClose asChild>
+                <Button>Fatto</Button>
+              </DialogClose>
+            }
+          >
+            <InviteResult invitation={resent} />
+          </DialogContent>
+        </Dialog>
+      ) : null}
 
       {canWrite && roles.length > 0 ? (
         <InviteDialog key={openings} open={inviteOpen} onOpenChange={setInviteOpen} roles={roles} />

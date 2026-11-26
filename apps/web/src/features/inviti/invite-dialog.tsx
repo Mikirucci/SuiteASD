@@ -90,7 +90,7 @@ function InviteForm({ roles, onCreated, onBusyChange }: InviteFormProps) {
   );
 }
 
-function InviteResult({ invitation }: { invitation: CreatedInvitation }) {
+export function InviteResult({ invitation }: { invitation: CreatedInvitation }) {
   const { toast } = useToast();
   const link = invitationLink(window.location.origin, invitation.token);
 
@@ -118,9 +118,9 @@ function InviteResult({ invitation }: { invitation: CreatedInvitation }) {
         </div>
       </div>
       <Alert tone="info">
-        Per ora l&apos;app non invia email: copia il link e mandalo tu, per esempio su WhatsApp. Chi lo apre scrive nome,
-        email e password ed entra. Il link vale fino al {formatDateTime(invitation.expiresAt)} e si vede solo adesso; se
-        lo perdi, revoca l&apos;invito e creane uno nuovo.
+        {invitation.email ? `Lo abbiamo mandato anche per email a ${invitation.email}. ` : "Copia il link e mandalo tu, per esempio su WhatsApp. "}
+        Chi lo apre scrive nome, email e password ed entra. Il link vale fino al {formatDateTime(invitation.expiresAt)} e si vede
+        solo adesso; se lo perdi, usa «Reinvia» nell&apos;elenco degli inviti.
       </Alert>
     </div>
   );
