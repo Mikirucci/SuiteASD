@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { API_ORIGIN } from "./api-origin";
+import { markEmailVerified } from "./verify-email";
 
 /** Password of every account created by the helpers of this folder. */
 export const DEMO_PASSWORD = "Demo1234!";
@@ -168,6 +169,8 @@ export async function createDemoSociety(): Promise<DemoSociety> {
     admin: { ...people.admin, password: DEMO_PASSWORD },
   });
   const token = registered.accessToken;
+  // The administrator confirms the address before inviting anybody, as the API requires
+  markEmailVerified(people.admin.email);
 
   // Teams and squads
   const team = async (name: string, category: string): Promise<string> =>
