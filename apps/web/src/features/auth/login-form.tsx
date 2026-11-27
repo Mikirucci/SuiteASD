@@ -19,10 +19,13 @@ import {
   SESSION_EXPIRED_VALUE,
 } from "./login-errors";
 import { PasswordInput } from "./password-input";
+import { TwoFactorStep } from "./two-factor-step";
+import type { TwoFactorChallenge } from "@/lib/api";
 import { loginSchema, type LoginValues } from "./schemas";
 
 export function LoginForm() {
-  const { login } = useAuth();
+  const { login, verifyTwoFactor } = useAuth();
+  const [challenge, setChallenge] = useState<TwoFactorChallenge | null>(null);
   const reason = useSearchParams().get(SESSION_EXPIRED_PARAM);
   const sessionExpired = reason === SESSION_EXPIRED_VALUE;
   const passwordUpdated = reason === PASSWORD_UPDATED_VALUE;
@@ -36,11 +39,25 @@ export function LoginForm() {
   const onSubmit = handleSubmit(async (values) => {
     setFormError(null);
     try {
-      await login({ email: values.email.trim(), password: values.password });
+      setChallenge(await login({ email: values.email.trim(), password: values.password }));
     } catch (error) {
       setFormError(describeLoginError(error));
     }
   });
+
+  if (challenge) {
+    return (
+      <TwoFactorStep
+        onVerify={async (code) => {
+          await verifyTwoFactor({ challengeToken: challenge.challengeToken, code });
+        }}
+        onRestart={(message) => {
+          setChallenge(null);
+          setFormError(message);
+        }}
+      />
+    );
+  }
 
   return (
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-5">

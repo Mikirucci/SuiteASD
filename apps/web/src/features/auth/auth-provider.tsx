@@ -2,7 +2,17 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { authApi, api, type LoginBody, type MeResponse, type RegisterBody, type SessionResponse } from "@/lib/api";
+import {
+  authApi,
+  api,
+  isTwoFactorChallenge,
+  type LoginBody,
+  type MeResponse,
+  type RegisterBody,
+  type SessionResponse,
+  type TwoFactorChallenge,
+  type TwoFactorVerifyBody,
+} from "@/lib/api";
 
 type AuthState =
   | { status: "loading"; me: null }
@@ -15,7 +25,10 @@ export interface AuthContextValue {
   sessionExpired: boolean;
   /** Current user, society, roles and permissions: null unless authenticated. */
   me: MeResponse | null;
-  login(body: LoginBody): Promise<void>;
+  /** Signs in, or returns the challenge when the account asks for the code of its app (nothing is signed in yet). */
+  login(body: LoginBody): Promise<TwoFactorChallenge | null>;
+  /** The second step of a sign-in: the code of the app or a recovery code. */
+  verifyTwoFactor(body: TwoFactorVerifyBody): Promise<SessionResponse>;
   register(body: RegisterBody): Promise<void>;
   logout(): Promise<void>;
   /** Signs in with the session a public flow returned (enrolment with a link). */
@@ -84,10 +97,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [queryClient]);
 
   const login = useCallback(async (body: LoginBody) => {
-    await authApi.login(body);
+    const result = await authApi.login(body);
+    if (isTwoFactorChallenge(result)) return result;
     setSessionExpired(false);
     setState({ status: "authenticated", me: await authApi.me() });
+    return null;
   }, []);
+
+  const verifyTwoFactor = useCallback(
+    async (body: TwoFactorVerifyBody) => {
+      const session = await authApi.verifyTwoFactor(body);
+      queryClient.clear();
+      setSessionExpired(false);
+      setState({ status: "authenticated", me: await authApi.me() });
+      return session;
+    },
+    [queryClient],
+  );
 
   const register = useCallback(async (body: RegisterBody) => {
     await authApi.register(body);
@@ -117,8 +143,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [queryClient]);
 
   const value = useMemo<AuthContextValue>(
-    () => ({ status: state.status, sessionExpired, me: state.me, login, register, logout, adoptSession, refresh }),
-    [state, sessionExpired, login, register, logout, adoptSession, refresh],
+    () => ({ status: state.status, sessionExpired, me: state.me, login, verifyTwoFactor, register, logout, adoptSession, refresh }),
+    [state, sessionExpired, login, verifyTwoFactor, register, logout, adoptSession, refresh],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
