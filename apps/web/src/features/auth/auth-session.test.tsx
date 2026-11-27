@@ -7,7 +7,7 @@ import { AuthProvider, useAuth } from "./auth-provider";
 import { AuthGuard, GuestGuard } from "./guards";
 
 const ME: MeResponse = {
-  user: { id: "u1", email: "p@aquilevolley.it", firstName: "Michele", lastName: "Rucci", emailVerified: true, phone: null },
+  user: { id: "u1", email: "p@aquilevolley.it", firstName: "Michele", lastName: "Rucci", emailVerified: true, phone: null, twoFactorEnabled: false, twoFactorRequired: false, twoFactorGraceEndsAt: null },
   society: { id: "s1", name: "Aquile Volley", slug: "aquile-volley" },
   roles: ["ADMIN"],
   permissions: [],
@@ -31,6 +31,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/api", () => ({
+  isTwoFactorChallenge: (result?: object) => result !== undefined && "twoFactorRequired" in result,
   authApi: {
     hasStoredSession: mocks.hasStoredSession,
     me: mocks.me,

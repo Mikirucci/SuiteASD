@@ -8,6 +8,7 @@ import { LogoutButton } from "@/features/shell/logout-button";
 import { describeRoles } from "@/features/shell/role-labels";
 import { DataExport } from "./data-export";
 import { SessionsPanel } from "./sessions-panel";
+import { TwoFactorSection } from "./two-factor-section";
 
 function Fact({ label, children }: { label: string; children: string | null }) {
   return (
@@ -48,6 +49,7 @@ export function AccountCard() {
         <Fact label="Ruolo">{describeRoles(me.roles)}</Fact>
       </dl>
       <PasswordForm />
+      <TwoFactorSection />
       <SessionsPanel />
       <DataExport />
       <div className="border-t border-line pt-4">

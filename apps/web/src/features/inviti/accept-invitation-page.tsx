@@ -12,7 +12,8 @@ import { useAuth } from "@/features/auth/auth-provider";
 import { hasAdministration } from "@/features/auth/areas";
 import { PasswordInput } from "@/features/auth/password-input";
 import { ROLE_LABELS } from "@/features/shell/role-labels";
-import { ApiError, describeError } from "@/lib/api";
+import { TwoFactorStep } from "@/features/auth/two-factor-step";
+import { ApiError, describeError, isTwoFactorChallenge, type Role, type TwoFactorChallenge } from "@/lib/api";
 import { acceptInvitation, useInvitationInfo, type InvitationInfo } from "./api";
 
 const name = z.string().trim().max(80, "Massimo 80 caratteri");
@@ -64,7 +65,9 @@ function Unusable({ message = DEFAULT_UNUSABLE_MESSAGE }: { message?: string }) 
 
 function AcceptForm({ token, info }: { token: string; info: InvitationInfo }) {
   const router = useRouter();
-  const { adoptSession } = useAuth();
+  const { adoptSession, verifyTwoFactor } = useAuth();
+  const [challenge, setChallenge] = useState<TwoFactorChallenge | null>(null);
+  const enter = (roles: readonly Role[]) => router.replace(hasAdministration(roles) ? "/" : "/area-personale");
   const [formError, setFormError] = useState<string | null>(null);
   const [unusable, setUnusable] = useState(false);
   const needsEmail = info.maskedEmail === null;
@@ -82,15 +85,19 @@ function AcceptForm({ token, info }: { token: string; info: InvitationInfo }) {
   const onSubmit = handleSubmit(async (values) => {
     setFormError(null);
     try {
-      const session = await acceptInvitation({
+      const result = await acceptInvitation({
         token,
         password: values.password,
         ...(needsEmail ? { email: values.email } : {}),
         ...(values.firstName ? { firstName: values.firstName } : {}),
         ...(values.lastName ? { lastName: values.lastName } : {}),
       });
-      await adoptSession(session);
-      router.replace(hasAdministration(session.roles) ? "/" : "/area-personale");
+      if (isTwoFactorChallenge(result)) {
+        setChallenge(result);
+        return;
+      }
+      await adoptSession(result);
+      enter(result.roles);
     } catch (error) {
       if (error instanceof ApiError) {
         if (error.code === "invalid_invitation") {
@@ -117,6 +124,30 @@ function AcceptForm({ token, info }: { token: string; info: InvitationInfo }) {
   });
 
   if (unusable) return <Unusable />;
+
+  if (challenge) {
+    return (
+      <div className="flex flex-col gap-6">
+        <SectionHeading
+          as="h1"
+          label="Invito"
+          title="Ancora un passaggio."
+          highlight="un passaggio."
+          description={`Il tuo account usa la verifica in due passaggi: scrivi il codice dell'app per entrare in ${info.society.name}.`}
+        />
+        <TwoFactorStep
+          onVerify={async (code) => {
+            const session = await verifyTwoFactor({ challengeToken: challenge.challengeToken, code });
+            enter(session.roles);
+          }}
+          onRestart={(message) => {
+            setChallenge(null);
+            setFormError(message);
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-6">

@@ -10,6 +10,7 @@ import { useUnreadCount } from "@/hooks/use-unread-count";
 import { cn } from "@/lib/cn";
 import { useAuth } from "@/features/auth/auth-provider";
 import { EmailVerificationBanner } from "@/features/auth/email-verification-banner";
+import { TwoFactorBanner } from "@/features/auth/two-factor-banner";
 import { NavBadge } from "./nav-badge";
 import { ADMIN_NAVIGATION, filterItems, isActivePath, visibleEntries, type NavEntry, type NavItem, type ShellNavigation } from "./nav-items";
 import { NavTree, type NavCounts } from "./nav-tree";
@@ -140,6 +141,7 @@ export function AppShell({
         </header>
         <main id="main" tabIndex={-1} className="mx-auto w-full max-w-5xl px-4 pb-28 pt-4 outline-none sm:px-6 lg:px-10 lg:pb-12 lg:pt-12">
           <EmailVerificationBanner />
+          <TwoFactorBanner />
           {children}
         </main>
       </div>

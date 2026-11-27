@@ -36,6 +36,11 @@ export function formatDay(day: string): string {
   return new Intl.DateTimeFormat("it-IT", { day: "numeric", month: "short", year: "numeric" }).format(dayToDate(day));
 }
 
+/** "10 nov 2026" from an instant ("2026-11-10T09:00:00Z"), in the browser's time zone. */
+export function formatInstantDay(iso: string): string {
+  return new Intl.DateTimeFormat("it-IT", { day: "numeric", month: "short", year: "numeric" }).format(new Date(iso));
+}
+
 /** "10 nov" from "2026-11-10": the year is left out in lists. */
 export function formatDayShort(day: string): string {
   return new Intl.DateTimeFormat("it-IT", { day: "numeric", month: "short" }).format(dayToDate(day));

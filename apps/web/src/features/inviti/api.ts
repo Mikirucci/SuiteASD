@@ -1,7 +1,7 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { api, useApiMutation, useApiQuery, type Role, type SessionResponse } from "@/lib/api";
+import { api, useApiMutation, useApiQuery, type Role, type SignInResult } from "@/lib/api";
 import { useCursorQuery } from "@/lib/use-cursor-query";
 import type { CreateInvitationBody, CreatedInvitation, Invitation } from "./invitation-format";
 
@@ -59,6 +59,7 @@ export interface AcceptInvitationBody {
   email?: string;
 }
 
-export function acceptInvitation(body: AcceptInvitationBody): Promise<SessionResponse> {
-  return api.post<SessionResponse>("/invitations/accept", body, { auth: false });
+/** An existing account with the verification in two steps on gets the challenge instead of the session. */
+export function acceptInvitation(body: AcceptInvitationBody): Promise<SignInResult> {
+  return api.post<SignInResult>("/invitations/accept", body, { auth: false });
 }
