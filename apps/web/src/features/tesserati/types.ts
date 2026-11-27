@@ -171,6 +171,16 @@ export interface DocumentType {
   updatedAt: string;
 }
 
+/** One attempt to open the file of a document: who, when, and whether it was allowed. Only the administrator reads it. */
+export interface DocumentFileAccess {
+  id: string;
+  userId: string;
+  /** Absent when the person is no longer in the society. */
+  userName: string | null;
+  granted: boolean;
+  createdAt: string;
+}
+
 export interface MemberDocument {
   id: string;
   memberId: string;

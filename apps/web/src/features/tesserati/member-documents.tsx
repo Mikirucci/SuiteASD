@@ -1,6 +1,6 @@
 "use client";
 
-import { FilePlus2, FileText, FileUp, Pencil, Trash2 } from "lucide-react";
+import { FilePlus2, FileText, FileUp, History, Pencil, Trash2 } from "lucide-react";
 import { useMemo, useRef, useState, type ChangeEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { DataBoundary } from "@/components/ui/data-boundary";
@@ -11,6 +11,8 @@ import { describeError } from "@/lib/api";
 import { useDeleteDocument, useDocumentTypes, useMemberDocuments, useUploadDocumentFile } from "./api";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { DocumentFormDialog } from "./document-form-dialog";
+import { FileAccessesDialog } from "./file-accesses-dialog";
+import { usePermission } from "@/hooks/use-permission";
 import { UPLOAD_ACCEPT, validateUploadFile } from "@/lib/upload-file";
 import { documentHeading, formatDateOnly } from "./document-format";
 import { DocumentItem } from "./document-item";
@@ -19,8 +21,11 @@ import type { DocumentIndicator, MemberDocument } from "./types";
 interface DocumentRowProps {
   document: MemberDocument;
   canWrite: boolean;
+  /** Whether the user may read who opened the file (administrator only). */
+  canSeeAccesses: boolean;
   onEdit: (document: MemberDocument) => void;
   onDelete: (document: MemberDocument) => void;
+  onShowAccesses: (document: MemberDocument) => void;
 }
 
 function noExpiryNote(document: MemberDocument): string {
@@ -29,7 +34,7 @@ function noExpiryNote(document: MemberDocument): string {
   return document.issuedAt ? `Rilasciato il ${formatDateOnly(document.issuedAt)}` : "Nessuna scadenza";
 }
 
-function DocumentRow({ document, canWrite, onEdit, onDelete }: DocumentRowProps) {
+function DocumentRow({ document, canWrite, canSeeAccesses, onEdit, onDelete, onShowAccesses }: DocumentRowProps) {
   const { toast } = useToast();
   const inputRef = useRef<HTMLInputElement>(null);
   const upload = useUploadDocumentFile();
@@ -75,19 +80,28 @@ function DocumentRow({ document, canWrite, onEdit, onDelete }: DocumentRowProps)
         ) : null
       }
       menuItems={
-        canWrite ? (
+        canWrite || canSeeAccesses ? (
           <>
-            {document.hasFile ? (
+            {canSeeAccesses && document.hasFile ? (
+              <DropdownMenuItem icon={<History />} aria-label={`Chi ha aperto ${name}`} onSelect={() => onShowAccesses(document)}>
+                Chi l&apos;ha aperto
+              </DropdownMenuItem>
+            ) : null}
+            {canWrite && document.hasFile ? (
               <DropdownMenuItem icon={<FileUp />} aria-label={`Sostituisci file di ${name}`} onSelect={pickFile}>
                 Sostituisci file
               </DropdownMenuItem>
             ) : null}
-            <DropdownMenuItem icon={<Pencil />} aria-label={`Modifica ${name}`} onSelect={() => onEdit(document)}>
-              Modifica
-            </DropdownMenuItem>
-            <DropdownMenuItem icon={<Trash2 />} tone="danger" aria-label={`Elimina ${name}`} onSelect={() => onDelete(document)}>
-              Elimina
-            </DropdownMenuItem>
+            {canWrite ? (
+              <>
+                <DropdownMenuItem icon={<Pencil />} aria-label={`Modifica ${name}`} onSelect={() => onEdit(document)}>
+                  Modifica
+                </DropdownMenuItem>
+                <DropdownMenuItem icon={<Trash2 />} tone="danger" aria-label={`Elimina ${name}`} onSelect={() => onDelete(document)}>
+                  Elimina
+                </DropdownMenuItem>
+              </>
+            ) : null}
           </>
         ) : null
       }
@@ -163,6 +177,8 @@ export function MemberDocuments({ memberId, indicators, canWrite }: MemberDocume
   const [editing, setEditing] = useState<MemberDocument | undefined>();
   const [presetTypeId, setPresetTypeId] = useState<string | undefined>();
   const [deleting, setDeleting] = useState<MemberDocument | null>(null);
+  const canSeeAccesses = usePermission("documents:accessRead");
+  const [accessesOf, setAccessesOf] = useState<MemberDocument | null>(null);
 
   const rows = useMemo(
     () =>
@@ -225,8 +241,10 @@ export function MemberDocuments({ memberId, indicators, canWrite }: MemberDocume
               key={document.id}
               document={document}
               canWrite={canWrite}
+              canSeeAccesses={canSeeAccesses}
               onEdit={(target) => openForm(target)}
               onDelete={setDeleting}
+              onShowAccesses={setAccessesOf}
             />
           ))}
           {missing.map((indicator) => (
@@ -240,6 +258,14 @@ export function MemberDocuments({ memberId, indicators, canWrite }: MemberDocume
         </ul>
       </DataBoundary>
 
+      {accessesOf ? (
+        <FileAccessesDialog
+          key={accessesOf.id}
+          documentId={accessesOf.id}
+          heading={documentHeading(accessesOf.documentType.name, accessesOf.title)}
+          onClose={() => setAccessesOf(null)}
+        />
+      ) : null}
       {canWrite ? (
         <>
           <DocumentFormDialog
