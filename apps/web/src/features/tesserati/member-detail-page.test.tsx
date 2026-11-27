@@ -210,6 +210,33 @@ describe("MemberDetailPage", () => {
     expect(await screen.findByText("Documento eliminato")).toBeInTheDocument();
   });
 
+  it("shows the administrator who opened the file, the refused attempts too", async () => {
+    mocks.permissions = [...ADMIN_PERMISSIONS, "documents:accessRead"];
+    baseApi({
+      "GET /documents/doc-1/accesses": () =>
+        page([
+          { id: "fa-2", userId: "u-2", userName: "Marco Rossi", granted: false, createdAt: "2026-11-26T18:00:00Z" },
+          { id: "fa-1", userId: "u-1", userName: null, granted: true, createdAt: "2026-11-20T09:00:00Z" },
+        ]),
+    });
+    renderScreen(<MemberDetailPage id="m-sara" />);
+    await userEvent.click(await screen.findByRole("button", { name: "Altre azioni di Certificato medico" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Chi ha aperto Certificato medico" }));
+    const dialog = await screen.findByRole("dialog", { name: "Chi ha aperto il file" });
+    expect(await within(dialog).findByText("Marco Rossi")).toBeInTheDocument();
+    expect(within(dialog).getByText("Accesso negato")).toBeInTheDocument();
+    expect(within(dialog).getByText("Un account che non è più nella società")).toBeInTheDocument();
+    expect(within(dialog).getByText("File aperto")).toBeInTheDocument();
+  });
+
+  it("does not offer the history of the file to who cannot read it", async () => {
+    baseApi();
+    renderScreen(<MemberDetailPage id="m-sara" />);
+    await userEvent.click(await screen.findByRole("button", { name: "Altre azioni di Certificato medico" }));
+    expect(await screen.findByRole("menuitem", { name: "Elimina Certificato medico" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Chi ha aperto Certificato medico" })).not.toBeInTheDocument();
+  });
+
   it("deletes the member after confirmation and goes back to the list", async () => {
     const { calls } = baseApi({ "DELETE /members/m-sara": () => ({ status: 204 }) });
     renderScreen(<MemberDetailPage id="m-sara" />);

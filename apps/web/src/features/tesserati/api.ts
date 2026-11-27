@@ -3,10 +3,12 @@
 import { keepPreviousData, useInfiniteQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { useCallback } from "react";
 import { api, useApiMutation, useApiQuery, type ApiError, type DownloadedFile } from "@/lib/api";
+import { useCursorQuery } from "@/lib/use-cursor-query";
 import type {
   CreateDocumentBody,
   CreateMemberBody,
   CursorPage,
+  DocumentFileAccess,
   DocumentType,
   ImportMembersResult,
   MemberDetail,
@@ -220,4 +222,15 @@ export function saveBlob(blob: Blob, filename: string): void {
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
+}
+
+const ACCESSES_PAGE_SIZE = 20;
+
+/** Who opened the file of a document, or tried to, newest first (administrator only). */
+export function useDocumentAccesses(documentId: string) {
+  return useCursorQuery<DocumentFileAccess>(
+    ["documents", documentId, "accesses"],
+    `/documents/${documentId}/accesses`,
+    { limit: ACCESSES_PAGE_SIZE },
+  );
 }

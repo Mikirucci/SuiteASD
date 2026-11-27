@@ -4,6 +4,8 @@
 >
 > Data di redazione e di consultazione delle fonti: **22 novembre 2026**. Stato del codice analizzato: frontend `develop` (commit 9563e2e) e backend `SuiteASD-backend` (schema Flyway al 22/11/2026, migrazione `V202611221100`).
 
+> **Piano operativo:** questa ricerca è stata unita a quella del titolare del progetto in [docs/gdpr/PIANO-UNICO.md](gdpr/PIANO-UNICO.md), che elenca le decisioni, le pagine che ne derivano e il lavoro sul prodotto.
+
 Allegati (cartella `docs/gdpr/`):
 
 | File | Contenuto |
