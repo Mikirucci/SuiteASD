@@ -6,6 +6,7 @@ import { useAuth } from "@/features/auth/auth-provider";
 import { PasswordForm } from "@/features/personale/password-form";
 import { LogoutButton } from "@/features/shell/logout-button";
 import { describeRoles } from "@/features/shell/role-labels";
+import { DataExport } from "./data-export";
 import { SessionsPanel } from "./sessions-panel";
 
 function Fact({ label, children }: { label: string; children: string | null }) {
@@ -17,7 +18,7 @@ function Fact({ label, children }: { label: string; children: string | null }) {
   );
 }
 
-/** The sign-in account of the person: who they are here, the password, the devices and the way out. */
+/** The sign-in account of the person: who they are here, the password, the devices, a copy of their data and the way out. */
 export function AccountCard() {
   const { me } = useAuth();
   if (!me) return null;
@@ -48,6 +49,7 @@ export function AccountCard() {
       </dl>
       <PasswordForm />
       <SessionsPanel />
+      <DataExport />
       <div className="border-t border-line pt-4">
         <LogoutButton />
       </div>
